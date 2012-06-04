@@ -8,8 +8,17 @@ Christopher Morrison
 Ryan Scranton
 ================================================================================
 
-Object oriented python code for predicting power spectra and correlation
-functions.
+================================================================================
+1. Introduction
+================================================================================
+
+CHOMP is an object oriented python code for predicting power spectra and 
+correlation functions designed to be flexible accomidate new theoretical models
+as the field of cosmology and large-scale structure progresses.
+
+It currently impliments a halo model from Seljak et al. 2000 however users are
+encouraged to expand on code base using the current class template APIs,
+implimenting their prefered model.
 
 ================================================================================
 2. Installation
@@ -30,6 +39,9 @@ PYTHONPATH. Testing the code is as simple as running the command
 ================================================================================
 3. Modules
 ================================================================================
+
+For current details on each model see their respective .py files. For an example
+on implimenting the code see example_script.py.
 
 ================================================================================
 3.1 cosmology
