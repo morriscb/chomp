@@ -32,14 +32,10 @@ class Halo(object):
          redshift: float redshift at which to compute the halo model
          input_hod: HOD object from hod.py. Determains how galaxies populate 
              halos
-         cosmo_dict: dictionary of floats defining a cosmology. (see defaults.py
-             for details)
-         cosmo_single_epoch: SingleEpoch cosmology object from cosmology.py
+         cosmo_single_epoch: SingleEpoch object from cosmology.py
+         mass_func: MassFunction object from mass_function.py
          halo_dict: dictionary of floats defining halo properties. (see 
              defaults.py for details)
-         use_camb: boolean defining if the code should use CAMB to produce a
-             linear power spectrum. Defaults to the linear power from the
-             cosmology module (E+H98 transfer function)
     """
     def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
                  mass_func=None, halo_dict=None, **kws):
@@ -649,20 +645,10 @@ class Halo(object):
 class HaloExclusion(Halo):
 
     def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
-                 halo_dict=None, **kws):
-        Halo.__init__(self, redshift, input_hod, cosmo_single_epoch, 
-                      halo_dict, **kws)
-        ln_r_v_array = numpy.zeros_like(self.mass._nu_array)
+                 mass_func=None, halo_dict=None, **kws):
+        Halo.__init__(self, redshift, input_hod, cosmo_single_epoch,
+                      mass_func, halo_dict, **kws)
 
-        for idx in xrange(self.mass._nu_array.size):
-            mass = numpy.exp(self.mass._ln_mass_array[idx])
-            ln_r_v_array[idx] = numpy.log(self._virial_radius(mass))
-
-        self._ln_nu_v_r_spline = InterpolatedUnivariateSpline(
-            ln_r_v_array, self.mass._nu_array)
-
-        self.v_r_max = numpy.exp(numpy.max(ln_r_v_array))
-        self.v_r_min = numpy.exp(numpy.min(ln_r_v_array))
         self._initialized_h_m_ext = False
 
     def power_mm_ext(self, k):
@@ -747,10 +733,10 @@ class HaloExclusion(Halo):
 
 class HaloCentralSatellite(Halo):
 
-    def __init__(self, input_hod=None, redshift=None, cosmo_dict=None,
-                 halo_dict=None, use_camb=False, **kws):
-        Halo.__init__(self, input_hod, redshift, cosmo_dict,
-                      halo_dict, use_camb, **kws)
+    def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
+                 mass_func=None, halo_dict=None, **kws):
+        Halo.__init__(self, redshift, input_hod, cosmo_single_epoch,
+                      mass_func, halo_dict, **kws)
 
     def power_gg(self, k):
         """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
@@ -900,11 +886,11 @@ class HaloCentralSatellite(Halo):
 
 class HaloAmiCentral(Halo):
 
-    def __init__(self, input_hod=None, redshift=None, cosmo_dict=None,
-                 halo_dict=None, use_camb=False, B=1.0, **kws):
+    def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
+                 mass_func=None, halo_dict=None, **kws):
         self._B = B
-        Halo.__init__(self, input_hod=None, redshift=None, cosmo_dict=None,
-                      halo_dict=None, use_camb=False, **kws)
+        Halo.__init__(self, redshift, input_hod, cosmo_single_epoch,
+                      mass_func, halo_dict, **kws)
 
     def power_B_gm(self, k):
         """Non-linear power spectrum in comoving (Mpc/h)^3"""

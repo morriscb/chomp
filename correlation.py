@@ -41,14 +41,11 @@ class Correlation(object):
     Attributes:
         theta_min: minimum angular extent in radians
         theta_max: maximum angular extent in radians
-        window_function_a: a window function object from kernel.py
-        window_function_b: a window function object from kernel.py
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
-        input_hod: an HOD object from hod.py
-        halo_dict: dictionary of floats defining halos (see defaults.py
-            for details)
+        input_kernel: Kernel object from kernel.py
+        input_halo: Halo object from halo.py
+        input_hod: HOD object from hod.py
         powSpec: string defining a power spectrum
+        
         theta_array: array of theta values for computed correlation function
         wtheta_array: array of computed correlation values at theta_array values
     """

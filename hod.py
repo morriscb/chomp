@@ -129,7 +129,8 @@ class HODKravtsov(HOD):
                 self.satellite_first_moment(mass))
 
     def second_moment(self, mass, z=None):
-        return self.satellite_second_moment(mass)
+        n_sat = self.satellite_first_moment(mass)
+        return (2 + n_sat)*n_sat
 
     def central_first_moment(self, mass):
         """
@@ -162,10 +163,19 @@ class HODKravtsov(HOD):
         """
         return mass/self.mass_one*numpy.exp(-self.mass_cut/mass)
 
-    def satellite_second_moment(self, mass):
-        return (self.satellite_first_moment(mass))**2
-
 class HODZheng(HOD):
+    """
+    HOD object describing the model from Zheng2007.
+
+    Attributes:
+        M_min: Minimum mass for a halo to to contain a central galaxy
+        sigma: with of central the central galaxy turn on
+        M_0: minimum mass for a halo to contain satellite galaxies. Note: 
+            Wake et al. 2011 and Zehavi et al. 2011 show show that M_0~M_min
+        M_1p: Mass differential at which a halo contains one satellite (M-M_0).
+        alpha: slope of the satellite number counts. Note: This is motivated to
+            be 1. (see references above)
+    """
 
     def __init__(self, M_min=10**11.83, sigma=0.30, 
                  M_0=10**11.53, M_1p=10**13.02, alpha=1.0):
@@ -218,12 +228,25 @@ class HODZheng(HOD):
                            0.0)
 
 class HODMandelbaum(HOD):
+    """
+    HOD object describing the model from Mandelbaum2005.
 
-    def __init__(self, M0=1.0e13, w=1.0):
+    Attributes:
+        M_0: Minimum mass for a halo to contain a central galaxy. Also defines
+            the transition of the satellite galaxy profile from ~M**2 at <3*M_0
+            to ~M at >3*M_0
+        w: Normalization of the satellite galaxy profile. Halos will contain
+            1 satellite galaxy at a mass of 3*M0/w. This quantity is related
+            to the satellite fraction alpha of Mand2005 where alpha is
+            M_total_sat/M_total where M_total mass of the halos studied and
+            M_total_sat is the total mass in satellites.
+    """
+
+    def __init__(self, M_0=1.0e13, w=1.0):
         HOD.__init__(self)
 
-        self.M0 = M0
-        self.M_min = 3.0*M0
+        self.M_0 = M_0
+        self.M_min = 3.0*M_0
         self.w = w
 
         self._hod[1] = self.first_moment
@@ -249,7 +272,7 @@ class HODMandelbaum(HOD):
         Returns:
             float array of <N>
         """
-        return numpy.where(mass >= self.M0,
+        return numpy.where(mass >= self.M_0,
                            1.0, 0.0)
 
     def satellite_first_moment(self, mass, z=None):

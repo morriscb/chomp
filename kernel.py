@@ -105,8 +105,7 @@ class dNdChiGaussian(dNdz):
         chi_max: float maximum comoving distance
         chi0: float mean comoving distance of gausian
         sigma_chi: float standard deviation of gausian
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
+        cosmo_multi: MultiEpoch object from cosmology.py
     """
     def __init__(self, chi_min, chi_max, chi0, sigma_chi,
                  cosmo_multi_epoch=None):
@@ -193,8 +192,7 @@ class WindowFunction(object):
     Attributes:
         z_min: mimimum redshift to define window function over
         z_max: maximum redshift to define window function over
-        cosmo_dict: dictory of floats defining a cosmology (see defaults.py for
-            details)
+        cosmo_multi_epoch: MultiEpoch cosmology object from cosmology.py
     """
     def __init__(self, z_min, z_max, cosmo_multi_epoch=None, **kws):
         self.initialized_spline = False
@@ -304,8 +302,7 @@ class WindowFunctionGalaxy(WindowFunction):
     Attributes:
         z_min: mimimum redshift to define window function over
         z_max: maximum redshift to define window function over
-        cosmo_dict: dictory of floats defining a cosmology (see defaults.py for
-            details)
+        cosmo_multi_epoch: MultiEpoch object from cosmology.py
     """
     def __init__(self, redshift_dist,
                  cosmo_multi_epoch=None, **kws):
@@ -339,10 +336,9 @@ class WindowFunctionConvergence(WindowFunction):
     Attributes:
         z_min: mimimum redshift to define window function over
         z_max: maximum redshift to define window function over
-        cosmo_dict: dictory of floats defining a cosmology (see defaults.py for
-            details)
+        cosmo_multi_epoch: MultiEpoch cosmology object from cosmology.py
     """
-    def __init__(self, redshift_dist, cosmo_multi=None, **kws):
+    def __init__(self, redshift_dist, cosmo_multi_epoch=None, **kws):
         self._redshift_dist = redshift_dist
         self._redshift_dist.normalize()
 
@@ -350,7 +346,7 @@ class WindowFunctionConvergence(WindowFunction):
         # Even though the input distribution may only extend between some bounds
         # in redshift, the lensing kernel will extend across z = [0, z_max)
         WindowFunction.__init__(self, 0.0, redshift_dist.z_max,
-                                cosmo_multi, **kws)
+                                cosmo_multi_epoch, **kws)
         self._g_chi_min = (
             self.cosmo.comoving_distance(self._redshift_dist.z_min))
 
@@ -403,11 +399,11 @@ class WindowFunctionFlatConvergence(WindowFunction):
 
     
     """
-    def __init__(self, z_min, z_max, cosmo_dict=None, **kws):
+    def __init__(self, z_min, z_max, cosmo_multi_epoch=None, **kws):
         # Even though the input distribution may only extend between some bounds
         # in redshift, the lensing kernel will extend across z = [0, z_max)
         WindowFunction.__init__(self, z_min, z_max,
-                                cosmo_dict, **kws)
+                                cosmo_multi_epoch, **kws)
 
     def raw_window_function(self, chi):
         a = 1.0/(1.0 + self.cosmo.redshift(chi))
@@ -432,7 +428,7 @@ class WindowFunctionConvergenceDelta(WindowFunction):
 
     W(chi) = 3/2*omega_m*g(chi)/a
     """
-    def __init__(self, redshift, cosmo_dict=None, **kws):
+    def __init__(self, redshift, cosmo_multi_epoch=None, **kws):
         self._redshift = redshift
         #self._redshift_dist.normalize()
 
@@ -440,7 +436,7 @@ class WindowFunctionConvergenceDelta(WindowFunction):
         # Even though the input distribution may only extend between some bounds
         # in redshift, the lensing kernel will extend across z = [0, z_max)
         WindowFunction.__init__(self, 0.0, redshift,
-                                cosmo_dict, **kws)
+                                cosmo_multi_epoch, **kws)
 
     def raw_window_function(self, chi):
         a = 1.0/(1.0 + self._redshift)
@@ -480,8 +476,7 @@ class Kernel(object):
         ktheta_min: float k*theta maximum value for the kernel
         window_function_a: first window function for kernel
         window_function_b: second window function for kernel
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
+        cosmo_multi_epoch: MultiEpoch cosmology object from cosmology.py
     """
     def __init__(self, ktheta_min, ktheta_max,
                  window_function_a, window_function_b,

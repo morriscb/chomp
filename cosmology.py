@@ -599,7 +599,7 @@ class MultiEpoch(object):
         z_min: float minimum redshift to compute cosmology
         z_max: float maximum redshift to comput cosmology
         cosmo_dict: dictionary of float values that define the cosmology 
-        (see default.py)
+            (see default.py for details)
     """
 
     def __init__(self, z_min, z_max, cosmo_dict=None, with_bao=False, **kws):
