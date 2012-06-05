@@ -1,4 +1,3 @@
-import camb
 import cosmology
 import defaults
 import hod
@@ -649,9 +648,10 @@ class Halo(object):
 
 class HaloExclusion(Halo):
 
-    def __init__(self, input_hod=None, redshift=None, cosmo_dict=None,
+    def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
                  halo_dict=None, **kws):
-        Halo.__init__(self, input_hod, redshift, cosmo_dict, halo_dict, **kws)
+        Halo.__init__(self, redshift, input_hod, cosmo_single_epoch, 
+                      halo_dict, **kws)
         ln_r_v_array = numpy.zeros_like(self.mass._nu_array)
 
         for idx in xrange(self.mass._nu_array.size):
@@ -712,20 +712,10 @@ class HaloExclusion(Halo):
         h_m_ext_array = numpy.zeros_like(self._ln_k_array)
         
         for idx in xrange(self._ln_k_array.size):
-            r_lim = 0.5/numpy.exp(self._ln_k_array[idx])
-            if r_lim >= self.v_r_max:
-                r_lim = self.v_r_max
-            elif r_lim <= self.v_r_min:
-                r_lim = self.v_r_min
-            nu_max = self._ln_nu_v_r_spline(numpy.log(r_lim))
-            if nu_max >= self.mass.nu_max:
-                nu_max = self.mass.nu_max
-            elif nu_max <= self.mass.nu_min:
-                nu_max = self.mass.nu_min
             
             h_m = integrate.romberg(
-                self._h_m_integrand, numpy.log(self.mass.nu_min),
-                numpy.log(nu_max), vec_func=True,
+                self._h_m_ext_integrand, numpy.log(self.mass.nu_min),
+                numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
                 args=(self._ln_k_array[idx],))
             h_m_ext_array[idx] = h_m
@@ -734,31 +724,26 @@ class HaloExclusion(Halo):
             self._ln_k_array, h_m_ext_array)
         self._initialized_h_m_ext = True
 
-    def _initialize_h_g(self):
-        h_g_array = numpy.zeros_like(self._ln_k_array)
+    def _h_m_ext_integrand(self, ln_nu, ln_k):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
 
-        for idx in xrange(self._ln_k_array.size):
-            r_lim = 0.5/numpy.exp(self._ln_k_array[idx])
-            if r_lim >= self.v_r_max:
-                r_lim = self.v_r_max
-            elif r_lim <= self.v_r_min:
-                r_lim = self.v_r_min
-            nu_max = self._ln_nu_v_r_spline(numpy.log(r_lim))
-            if nu_max >= self.mass.nu_max:
-                nu_max = self.mass.nu_max
-            elif nu_max <= self.mass.nu_min:
-                nu_max = self.mass.nu_min
+        return (nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
+                self.mass.bias_nu(nu)*self.y(ln_k, mass))
 
-            h_g = integrate.romberg(
-                self._h_g_integrand, numpy.log(self.mass.nu_min),
-                numpy.log(nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx],))
-            h_g_array[idx] = h_g/self.n_bar_over_rho_bar
+    def _h_g_integrand(self, ln_nu, ln_k):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
 
-        self._h_g_spline = InterpolatedUnivariateSpline(
-            self._ln_k_array, h_g_array)
-        self._initialized_h_g = True
+        return (nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
+                self.mass.bias_nu(nu)*self.y(ln_k, mass)*
+                self.local_hod.first_moment(mass)/mass)
+
+    def _mass_window(self, mass, ln_k):
+        k = numpy.exp(ln_k)
+        R = self.virial_radius(mass)
+        return numpy.sinc(k*2*R/numpy.pi)
+        
 
 class HaloCentralSatellite(Halo):
 

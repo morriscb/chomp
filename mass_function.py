@@ -30,8 +30,6 @@ class MassFunction(object):
 
     Attributes:
         redshift: float redshift at which to compute the mass function
-        cosmo_dict: dictionary of floats defining cosmological parameters (see
-            defaults.py for details)
         cosmo_single_epoch: SingleEpoch cosmology object from cosmology.py
         halo_dict: dictionary of floats defining halo and mass function 
             parameters (see defualts.py for details)
@@ -39,13 +37,14 @@ class MassFunction(object):
     #def __init__(self, redshift=0.0, cosmo_dict=None, halo_dict=None, **kws):
     def __init__(self, redshift=0.0, cosmo_single_epoch=None, 
                  halo_dict=None, **kws):
-        self.redshift = redshift
-        #self.cosmo = cosmology.SingleEpoch(self.redshift, cosmo_dict)
+        self._redshift = redshift
+        #self.cosmo = cosmology.SingleEpoch(self._redshift, cosmo_dict)
         if cosmo_single_epoch is None:
-            cosmo_single_epoch = cosmology.SingleEpoch(self.redshift)
+            cosmo_single_epoch = cosmology.SingleEpoch(self._redshift)
         self.cosmo = cosmo_single_epoch
-        self.cosmo.set_redshift(self.redshift)
+        self.cosmo.set_redshift(self._redshift)
         self.delta_c = self.cosmo.delta_c()
+        self.delta_v = self.cosmo.delta_v()
 
         if halo_dict is None:
             halo_dict = defaults.default_halo_dict
@@ -68,7 +67,7 @@ class MassFunction(object):
             cosmo_dict: dictionary of floats defining a cosmology (see
                 defaults.py for details)
         """
-        self.redshift = redshift
+        self._redshift = redshift
 
         self.cosmo.set_redshift(redshift)
 
@@ -89,10 +88,11 @@ class MassFunction(object):
             redshift: float value of redshift
         """
         if redshift is None:
-            redshift = self.redshift
+            redshift = self._redshift
         self.cosmo.set_cosmology(redshift, cosmo_dict)
 
         self.delta_c = self.cosmo.delta_c()
+        self.delta_v = self.cosmo.delta_v()
         self.c0 = self.halo_dict["c0"]/(1.0 + redshift)
 
         self._set_mass_limits()
@@ -100,11 +100,11 @@ class MassFunction(object):
         self._normalize()
 
     def set_cosmology_object(self, cosmo_single_epoch):
-        self.redshift = cosmo_single_epoch.redshift()
+        self._redshift = cosmo_single_epoch.redshift()
         self.cosmo = cosmo_single_epoch
 
         self.delta_c = self.cosmo.delta_c()
-        self.c0 = self.halo_dict["c0"]/(1.0 + self.redshift)
+        self.c0 = self.halo_dict["c0"]/(1.0 + self._redshift)
 
         self._set_mass_limits()
         self._initialize_splines()
@@ -122,7 +122,7 @@ class MassFunction(object):
 
         self.stq = self.halo_dict["stq"]
         self.st_little_a = self.halo_dict["st_little_a"]
-        self.c0 = self.halo_dict["c0"]/(1.0 + self.redshift)
+        self.c0 = self.halo_dict["c0"]/(1.0 + self._redshift)
 
         self._normalize()
 
@@ -297,45 +297,98 @@ class MassFunction(object):
         output_file.close()
 
 class TinkerMassFunction(MassFunction):
+    """
+    Derived mass function expressing the functional form from Tinker et al. 
+    2008. (Currently gives junk results)
 
-    def __init__(self, redshift=0.0, cosmo_dict=None, halo_dict=None, **kws):
-        self.A0 = 0.26
-        self.a0 = 2.30
-        self.b0 = 1.46
-        self.c  = 1.97
-        self.k_min = 0.001
-        self.k_max = 100.0
-        self._initialized_spline = False
+    Attributes:
+        redshift: float redshift at which to compute the mass function
+        cosmo_single_epoch: SingleEpoch cosmology object from cosmology.py
+        halo_dict: dictionary of floats defining halo and mass function 
+            parameters (see defualts.py for details)
+    """
 
-        MassFunction.__init__(self, redshift, cosmo_dict, halo_dict, **kws)
+    def __init__(self, redshift=0.0, cosmo_single_epoch=None, 
+                 halo_dict=None, **kws):
+        delta_list = [200, 300, 400, 600, 800, 1200, 1600, 2400, 3200]
+        beta_list = [0.589, 0.585, 0.544, 0.543, 
+                     0.564, 0.632, 0.637, 0.673, 0.702]
+        gamma_list = [0.864, 0.922, 0.987, 1.09, 1.20, 1.34, 1.50, 1.68, 1.81]
+        phi_list = [-0.729, -0.789, -0.910, -1.05,
+                     -1.20, -1.26, -1.45, -1.50, -1.49]
+        eta_list = [-0.243, -0.261, -0.261, -0.273,
+                     -0.278, -0.301, -0.301, -0.319, -0.336]
+        
+        self._beta0_spline = InterpolatedUnivariateSpline(
+            numpy.log(delta_list), beta_list)
+        self._gamma0_spline = InterpolatedUnivariateSpline(
+            numpy.log(delta_list), gamma_list)
+        self._phi0_spline = InterpolatedUnivariateSpline(
+            numpy.log(delta_list), phi_list)
+        self._eta0_spline = InterpolatedUnivariateSpline(
+            numpy.log(delta_list), eta_list)
 
-        self._initialize_f_nu_spline()
+        self._k_min = 0.001
+        self._k_max = 100.0
 
-    def _initialize_f_nu_spline(self):
-        if self._initialized_spline == False:
-            self._ln_f_nu_array = numpy.empty(self._nu_array.shape)
-            for idx, nu in enumerate(self._nu_array):
-                self._ln_f_nu_array[idx] = numpy.log(self._f_nu(nu))
-            self._ln_f_nu_spline = InterpolatedUnivariateSpline(
-                self._nu_array,self._ln_f_nu_array)
-            self._initialized_spline == True
+        self._redshift = redshift
+        #self.cosmo = cosmology.SingleEpoch(self._redshift, cosmo_dict)
+        if cosmo_single_epoch is None:
+            cosmo_single_epoch = cosmology.SingleEpoch(self._redshift)
+        self.cosmo = cosmo_single_epoch
+        self.cosmo.set_redshift(self._redshift)
+        self.delta_c = self.cosmo.delta_c()
+        self.delta_v = cosmo_single_epoch.delta_v()
 
-    def _f_nu(self, nu):
-        sigma = self.cosmo.sigma_m(self.mass(nu))
-        mass = self.mass(nu)
-        return (self.f_norm*self.f_sigma(sigma)*
-                self.cosmo.rho_bar()/mass*(-1.0/sigma)*
-                self.cosmo.sigma_m_prime(mass))
+        if halo_dict is None:
+            halo_dict = defaults.default_halo_dict
+        self.halo_dict = halo_dict
 
-    def f_nu(self, nu):
-        if self._initialized_spline == False:
-            self._initialize_f_nu_spline()
-        return numpy.exp(self._ln_f_nu_spline(nu))
+        self._set_mass_limits()
+        self._initialize_splines()
+        self._normalize()
 
     def f_m(self, mass):
         nu = self.nu(mass)
-        return self.f_nu(nu)
+        return f_nu(nu)
 
-    def f_sigma(self, sigma):
-        return (self.A0**(numpy.power(sigma/self.b0,-self.a0) + 1)*
-                numpy.exp(-self.c0/(sigma*sigma)))
+    def _normalize(self):
+
+        self.f_norm = 1.0
+        norm = integrate.romberg(
+            lambda x: self.f_nu(x)*self.bias_nu(x),
+            self.nu_min, self.nu_max, vec_func=True,
+            tol=defaults.default_precision["mass_precision"])
+        self.f_norm = 1.0/norm
+
+    def f_nu(self, nu):
+        return (self.f_norm*(
+                1 + numpy.power(self._beta()*nu,-2*self._phi()))*
+                numpy.power(nu, 2*self._eta())*
+                numpy.exp(-self._gamma()*nu*nu/2.0))
+
+    def bias_nu(self, nu):
+        y = numpy.log10(self.delta_v)
+        A = 1 + 0.24*y*numpy.exp(-(4.0/y)**4)
+        a = 0.44*y - 0.88
+        B = 0.183
+        b = 1.5
+        C = 0.019 + 0.107*y + 0.19*numpy.exp(-(4.0/y)**4)
+        c = 2.4
+        return (1 - A*nu**a/(nu**a + self.delta_c**a) + B*nu**b + C*nu**c)
+
+    def _beta(self):
+        return self._beta0_spline(numpy.log(self.delta_v))*numpy.power(
+            1 + self._redshift, 0.20)
+    
+    def _phi(self):
+        return self._phi0_spline(numpy.log(self.delta_v))*numpy.power(
+            1 + self._redshift, -0.08)
+
+    def _eta(self):
+        return self._eta0_spline(numpy.log(self.delta_v))*numpy.power(
+            1 + self._redshift, 0.27)
+
+    def _gamma(self):
+        return self._gamma0_spline(numpy.log(self.delta_v))*numpy.power(
+            1 + self._redshift, -0.01)
