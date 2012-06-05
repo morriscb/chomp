@@ -512,6 +512,12 @@ class Kernel(object):
         self.chi_max = self.window_function_a.chi_max
         if self.window_function_b.chi_max > self.chi_max:
             self.chi_max = self.window_function_b.chi_max
+
+        self._window_norm = integrate.romberg(
+            lambda chi: (self.window_function_a.window_function(chi)*
+                         self.window_function_b.window_function(chi)),
+            self.chi_min, self.chi_max, vec_func=True,
+            tol=defaults.default_precision["kernel_precision"])
         
         self._ln_ktheta_array = numpy.linspace(
             self.ln_ktheta_min, self.ln_ktheta_max,
@@ -610,6 +616,27 @@ class Kernel(object):
         return numpy.where(numpy.logical_and(ln_ktheta <= self.ln_ktheta_max,
                                              ln_ktheta >= self.ln_ktheta_min),
                            self._kernel_spline(ln_ktheta), 0.0)
+
+    def kernel_weighted_mean(self, function):
+        """
+        Given an input function of redshift, compute the mean value of the 
+        function weighted by the kernel. The function must be defined between
+        kernel.z_min and kernel.z_max
+
+        Args:
+            function_obj: input redshift dependent function
+        Returns:
+            float weighted mean value of function
+        """
+        chi_fun = lambda chi: function(self.cosmo.redshift(chi))
+
+        mean = integrate.romberg(
+            lambda chi: (chi_fun(chi)*
+                         self.window_function_a.window_function(chi)*
+                         self.window_function_b.window_function(chi))
+            self.chi_min, self.chi_max, vec_func=True,
+            tol=defaults.default_precision["kernel_precision"])
+
 
     def write(self, output_file_name):
         """

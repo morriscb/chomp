@@ -362,12 +362,33 @@ class TinkerMassFunction(MassFunction):
         self.f_norm = 1.0/norm
 
     def f_nu(self, nu):
+        """
+        Halo mass function as a function of normalized mass overdensity nu.
+        Note: Tinker2010 defines nu as [delta_c/sigma] where our definition
+        is the square of that.
+
+        Args:
+            nu: float array normalized mass overdensity nu
+        Returns:
+            float array number of halos
+        """
+        sqrtnu = numpy.sqrt(nu)
         return (self.f_norm*(
-                1 + numpy.power(self._beta()*nu,-2*self._phi()))*
-                numpy.power(nu, 2*self._eta())*
+                1 + numpy.power(self._beta()*sqrtnu,-2*self._phi()))*
+                numpy.power(sqrtnu, 2*self._eta())*
                 numpy.exp(-self._gamma()*nu*nu/2.0))
 
     def bias_nu(self, nu):
+        """
+        Halo bias as a function of nu. Note: Tinker2010 defines nu as 
+        [delta_c/sigma] where our definition is the square of that.
+
+        Args:
+            mass: float array mass overdensity mu
+        Returns:
+            float array halo bias
+        """
+        sqrtnu = numpy.sqrt(nu)
         y = numpy.log10(self.delta_v)
         A = 1 + 0.24*y*numpy.exp(-(4.0/y)**4)
         a = 0.44*y - 0.88
@@ -375,7 +396,8 @@ class TinkerMassFunction(MassFunction):
         b = 1.5
         C = 0.019 + 0.107*y + 0.19*numpy.exp(-(4.0/y)**4)
         c = 2.4
-        return (1 - A*nu**a/(nu**a + self.delta_c**a) + B*nu**b + C*nu**c)
+        return (1 - A*sqrtnu**a/(sqrtnu**a + self.delta_c**a) + 
+                B*sqrtnu**b + C*sqrtnu**c)
 
     def _beta(self):
         return self._beta0_spline(numpy.log(self.delta_v))*numpy.power(
