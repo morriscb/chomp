@@ -299,7 +299,7 @@ class MassFunction(object):
 class TinkerMassFunction(MassFunction):
     """
     Derived mass function expressing the functional form from Tinker et al. 
-    2008. (Currently gives junk results)
+    2010.
 
     Attributes:
         redshift: float redshift at which to compute the mass function
@@ -352,15 +352,6 @@ class TinkerMassFunction(MassFunction):
         nu = self.nu(mass)
         return f_nu(nu)
 
-    def _normalize(self):
-
-        self.f_norm = 1.0
-        norm = integrate.romberg(
-            lambda x: self.f_nu(x)*self.bias_nu(x),
-            self.nu_min, self.nu_max, vec_func=True,
-            tol=defaults.default_precision["mass_precision"])
-        self.f_norm = 1.0/norm
-
     def f_nu(self, nu):
         """
         Halo mass function as a function of normalized mass overdensity nu.
@@ -375,8 +366,8 @@ class TinkerMassFunction(MassFunction):
         sqrtnu = numpy.sqrt(nu)
         return (self.f_norm*(
                 1 + numpy.power(self._beta()*sqrtnu,-2*self._phi()))*
-                numpy.power(sqrtnu, 2*self._eta())*
-                numpy.exp(-self._gamma()*nu*nu/2.0))
+                numpy.power(nu, self._eta())*
+                numpy.exp(-self._gamma()*nu/2.0))
 
     def bias_nu(self, nu):
         """
@@ -396,8 +387,8 @@ class TinkerMassFunction(MassFunction):
         b = 1.5
         C = 0.019 + 0.107*y + 0.19*numpy.exp(-(4.0/y)**4)
         c = 2.4
-        return (1 - A*sqrtnu**a/(sqrtnu**a + self.delta_c**a) + 
-                B*sqrtnu**b + C*sqrtnu**c)
+        return self.bias_norm*(1 - A*sqrtnu**a/(sqrtnu**a + self.delta_c**a) + 
+                               B*sqrtnu**b + C*sqrtnu**c)
 
     def _beta(self):
         return self._beta0_spline(numpy.log(self.delta_v))*numpy.power(
