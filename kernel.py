@@ -648,17 +648,16 @@ class GalaxyGalaxyLensingKernel(Kernel):
         ktheta_min: float k*theta maximum value for the kernel
         window_function_a: first window function for kernel
         window_function_b: second window function for kernel
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
+        cosmo_multi_epoch: MultiEpoch object from cosmology.py
     """
 
     def __init__(self, ktheta_min, ktheta_max,
                  window_function_a, window_function_b,
-                 cosmo_dict=None, **kws):
+                 cosmo_multi_epoch=None, **kws):
         self._j2_limit = special.jn_zeros(2,4)[-1]
         Kernel.__init__(self, ktheta_min, ktheta_max,
                         window_function_a, window_function_b,
-                        cosmo_dict=None, **kws)
+                        cosmo_multi_epoch, **kws)
 
     def raw_kernel(self, ln_ktheta):
         ktheta = numpy.exp(ln_ktheta)
