@@ -1,4 +1,3 @@
-import camb
 import cosmology
 import defaults
 import halo

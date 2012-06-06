@@ -42,7 +42,7 @@ default_precision = {
     "cosmo_precision": 1.48e-8,
     "dNdz_precision": 1.48e-8,
     "halo_npoints": 50,
-    "halo_precision": 1.48-8,
+    "halo_precision": 1.48-16,
     "kernel_npoints": 100,
     "kernel_precision": 1.48e-16,
     "mass_npoints": 50,

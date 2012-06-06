@@ -348,10 +348,6 @@ class TinkerMassFunction(MassFunction):
         self._initialize_splines()
         self._normalize()
 
-    def f_m(self, mass):
-        nu = self.nu(mass)
-        return f_nu(nu)
-
     def f_nu(self, nu):
         """
         Halo mass function as a function of normalized mass overdensity nu.
@@ -367,7 +363,7 @@ class TinkerMassFunction(MassFunction):
         return (self.f_norm*(
                 1 + numpy.power(self._beta()*sqrtnu,-2*self._phi()))*
                 numpy.power(nu, self._eta())*
-                numpy.exp(-self._gamma()*nu/2.0))
+                numpy.exp(-self._gamma()*nu/2.0)/sqrtnu)
 
     def bias_nu(self, nu):
         """

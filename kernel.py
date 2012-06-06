@@ -633,7 +633,7 @@ class Kernel(object):
         mean = integrate.romberg(
             lambda chi: (chi_fun(chi)*
                          self.window_function_a.window_function(chi)*
-                         self.window_function_b.window_function(chi))
+                         self.window_function_b.window_function(chi)),
             self.chi_min, self.chi_max, vec_func=True,
             tol=defaults.default_precision["kernel_precision"])
 
