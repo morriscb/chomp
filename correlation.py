@@ -169,9 +169,8 @@ class Correlation(object):
         dln_k = 1.0
         k = numpy.exp(ln_k)
         dk = k*dln_k
-        return 1.0/(numpy.pi)*(
-            dk*k*self.power_spec(k)/(self.D_z*self.D_z)*
-            self.kernel.kernel(numpy.log(k*theta)))
+        return (dk*k/(2.0*numpy.pi)*self.power_spec(k)/(self.D_z*self.D_z)*
+                self.kernel.kernel(numpy.log(k*theta)))
 
     def write(self, output_file_name):
         """

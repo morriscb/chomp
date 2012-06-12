@@ -33,7 +33,7 @@ default_halo_dict = {
 ### the module returns: if a module has a quickly varying function use more
 ### n_points; if a module returns values of the order of the precision increase
 ### this variable. For highly discontinous functions it is recommened that,
-### instead of changing these variables that the integration method quad in
+### instead of changing these variables, the integration method quad in
 ### scipy is used.
 default_precision = {
     "corr_npoints": 25,
@@ -42,9 +42,14 @@ default_precision = {
     "cosmo_precision": 1.48e-8,
     "dNdz_precision": 1.48e-8,
     "halo_npoints": 50,
-    "halo_precision": 1.48-16,
+    "halo_precision": 1.48-8,
     "kernel_npoints": 100,
     "kernel_precision": 1.48e-16,
+    "kernel_limit": 100, ### If the varible force_quad is set in the Kernel 
+                         ### class this value sets the limit for the quad
+                         ### integration
+    "kernel_bessel_limit": 32, ### Defines how many zeros before cutting off the
+                               ### bessel function in kernel.py
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,
     "window_npoints": 50,
