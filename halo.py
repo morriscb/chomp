@@ -423,22 +423,63 @@ class Halo(object):
 
         return nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)/mass
 
-    def _calculate_bias(self):
+    def calculate_bias(self):
+        """
+        Compute the average galaxy bias from the input HOD. The output value is
+        stored in the class variable bias.
+        """
         self.bias = integrate.romberg(
-            self._bias_integrand, self.mass.ln_mass_min, 
-            self.mass.ln_mass_max, vec_func=True,
+            self._bias_integrand, numpy.log(self.mass.nu_min), 
+            numpy.log(self.mass.nu_max), vec_func=True,
             tol=defaults.default_precision["halo_precision"])
-        # self.bias, bias_err = integrate.quad(
-        #     self._bias_integrand, self.mass.ln_mass_min,self.mass.ln_mass_max,
-        #     limit=defaults.default_precision["halo_limit"])
 
-        self.bias = self.bias/self.n_bar
+        self.bias = self.bias/self.n_bar_over_rho_bar
 
-    def _bias_integrand(self, ln_mass):
-        mass = numpy.exp(ln_mass)
+    def _bias_integrand(self, ln_nu):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
 
-        return (mass*self.local_hod.first_moment(mass)*self.mass.f_m(mass)*
-                self.mass.bias_m(mass))
+        return (nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)*
+                self.mass.bias_nu(nu)/mass)
+
+    def calculate_m_eff(self):
+        """
+        Compute the effective Halo mass from the input HOD. The output value is
+        stored in the class variable m_eff.
+        """
+        self.m_eff = integrate.romberg(
+            self._m_eff_integrand, numpy.log(self.mass.nu_min), 
+            numpy.log(self.mass.nu_max), vec_func=True,
+            tol=defaults.default_precision["halo_precision"])
+
+        self.m_eff = self.m_eff/self.n_bar_over_rho_bar
+
+    def _m_eff_integrand(self, ln_nu):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
+
+        return (nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu))
+
+    def calculate_f_sat(self):
+        """
+        Compute the fraction of satellite galaxies relative to the total number.
+        This function requires the hod object to have a satellite_first_moment
+        method. Raises AttributeError if no such method is found. Stores the
+        result in the class variable f_sat.
+        """
+        self.f_sat= integrate.romberg(
+            self._f_sat_integrand, numpy.log(self.mass.nu_min), 
+            numpy.log(self.mass.nu_max), vec_func=True,
+            tol=defaults.default_precision["halo_precision"])
+
+        self.f_sat = self.f_sat/self.n_bar_over_rho_bar
+
+    def _f_sat_integrand(self, ln_nu):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
+
+        return (nu*self.local_hod.satellite_first_moment(mass)*
+                self.mass.f_nu(nu)/mass)
 
     def _initialize_halo_splines(self):
         ln_r_v_array = numpy.zeros_like(self.mass._nu_array)
@@ -650,72 +691,87 @@ class HaloExclusion(Halo):
                       mass_func, halo_dict, **kws)
 
         self._initialized_h_m_ext = False
+        self._initialized_n_bar_spline = False
 
-    def power_mm_ext(self, k):
-        """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
-        if not self._initialized_h_m_ext:
-            self._initialize_h_m_ext()
-        if not self._initialized_h_g:
-            self._initialize_h_g()
-        if not self._initialized_pp_gm:
-            self._initialize_pp_gm()
+    # def power_gm(self, k):
+    #     """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
+    #     if not self._initialized_n_bar_spline:
+    #         self._initialize_n_bar_spline()
+    #     if not self._initialized_h_m:
+    #         self._initialize_h_m()
+    #     if not self._initialized_h_g:
+    #         self._initialize_h_g()
+    #     if not self._initialized_pp_gm:
+    #         self._initialize_pp_gm()
 
-        return (self.power_mm(k)*self._h_m_ext(k)*self._h_m_ext(k) + 
-                self._pp_mm(k))
+    #     return (self.power_mm(k)*self._h_g(k)*self._h_m(k) + 
+    #             self._pp_gm(k))
 
-    def power_gm(self, k):
-        """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
-        if not self._initialized_h_m_ext:
-            self._initialize_h_m_ext()
-        if not self._initialized_h_g:
-            self._initialize_h_g()
-        if not self._initialized_pp_gm:
-            self._initialize_pp_gm()
+    # def power_mg(self, k):
+    #     """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
+    #     return self.power_gm(k)
 
-        return (self.power_mm(k)*self._h_g(k)*self._h_m_ext(k) + 
-                self._pp_gm(k))
+    # def power_gg(self, k):
+    #     """Galaxy power spectrum in comoving (Mpc/h)^3"""
+    #     if not self._initialized_n_bar_spline:
+    #         self._initialize_n_bar_spline()
+    #     if not self._initialized_h_g:
+    #         self._initialize_h_g()
+    #     if not self._initialized_pp_gg:
+    #         self._initialize_pp_gg()
 
-    def power_mg(self, k):
-        """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
-        return self.power_gm(k)
+    #     return (self.power_mm(k)*self._h_g(k)*self._h_g(k) + 
+    #             self._pp_gg(k))
 
-    def power_gg(self, k):
-        """Galaxy power spectrum in comoving (Mpc/h)^3"""
-        if not self._initialized_h_g:
-            self._initialize_h_g()
-        if not self._initialized_pp_gg:
-            self._initialize_pp_gg()
+    def _virial_mass(self, r):
+        """Halo virial mass as a function of radius."""
+        return 4.0*numpy.pi/3.0*self.delta_v*self.rho_bar*r*r*r
 
-        return (self.power_mm(k)*self._h_g(k)*self._h_g(k) + 
-                self._pp_gg(k))
+    def _initialize_n_bar_spline(self):
+        self._n_bar_over_rho_bar_array = numpy.empty(self._ln_k_array.shape)
 
-    def _h_m_ext(self, k):
-        return numpy.where(numpy.logical_and(k >= self._k_min, 
-                                             k <= self._k_max),
-                           self._h_m_ext_spline(numpy.log(k)), 0.0)
+        for idx, ln_k in enumerate(self._ln_k_array):
+            self._n_bar_over_rho_bar_array[idx] = integrate.romberg(
+                self._nbar_ln_k_integrand, numpy.log(self.mass.nu_min),
+                numpy.log(self.mass.nu_max), vec_func=True, args=(ln_k,),
+                tol=defaults.default_precision["halo_precision"])
 
-    def _initialize_h_m_ext(self):
-        h_m_ext_array = numpy.zeros_like(self._ln_k_array)
-        
-        for idx in xrange(self._ln_k_array.size):
-            
-            h_m = integrate.romberg(
-                self._h_m_ext_integrand, numpy.log(self.mass.nu_min),
-                numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx],))
-            h_m_ext_array[idx] = h_m
+        self._n_bar_over_rho_bar_spline = InterpolatedUnivariateSpline(
+            self._ln_k_array, self._n_bar_over_rho_bar_array)
 
-        self._h_m_ext_spline = InterpolatedUnivariateSpline(
-            self._ln_k_array, h_m_ext_array)
-        self._initialized_h_m_ext = True
+        self._initialized_n_bar_spline = True
 
-    def _h_m_ext_integrand(self, ln_nu, ln_k):
+    def _nbar_ln_k_integrand(self, ln_nu, ln_k):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
+
+        return (self._mass_window(mass, ln_k)*
+                nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)/mass)
+
+    def _h_m_integrand(self, ln_nu, ln_k):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
         return (nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
                 self.mass.bias_nu(nu)*self.y(ln_k, mass))
+
+    def _initialize_h_g(self):
+        h_g_array = numpy.zeros_like(self._ln_k_array)
+
+        for idx in xrange(self._ln_k_array.size):
+            k = numpy.exp(self._ln_k_array[idx])
+            
+            h_g = integrate.romberg(
+                self._h_g_integrand, numpy.log(self.mass.nu_min),
+                numpy.log(self.mass.nu_max), vec_func=True,
+                tol=defaults.default_precision["halo_precision"],
+                args=(self._ln_k_array[idx],))
+            #h_g_array[idx] = h_g
+            h_g_array[idx] = h_g/self.n_bar_over_rho_bar
+
+        self._h_g_spline = InterpolatedUnivariateSpline(
+            self._ln_k_array, h_g_array)
+        self._initialized_h_g = True
 
     def _h_g_integrand(self, ln_nu, ln_k):
         nu = numpy.exp(ln_nu)
@@ -723,13 +779,16 @@ class HaloExclusion(Halo):
 
         return (nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
                 self.mass.bias_nu(nu)*self.y(ln_k, mass)*
-                self.local_hod.first_moment(mass)/mass)
+                self.local_hod.first_moment(mass)/(
+                mass))
 
     def _mass_window(self, mass, ln_k):
         k = numpy.exp(ln_k)
-        R = self.virial_radius(mass)
-        return numpy.sinc(k*2*R/numpy.pi)
-        
+        R = 2*self.virial_radius(mass)
+        kR = k*R
+        return ((kR*numpy.cos(kR) + kR*kR*kR*special.sici(kR)[1] +
+                 (2 - kR*kR)*numpy.sin(kR))/(3.0*kR))
+
 
 class HaloCentralSatellite(Halo):
 
