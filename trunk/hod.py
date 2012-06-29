@@ -177,8 +177,8 @@ class HODZheng(HOD):
             be 1. (see references above)
     """
 
-    def __init__(self, M_min=10**11.83, sigma=0.30, 
-                 M_0=10**11.53, M_1p=10**13.02, alpha=1.0):
+    def __init__(self, M_min=10**13.0, sigma=0.15, 
+                 M_0=10**13.0, M_1p=10**14.00, alpha=1.0):
         self.M_min = M_min
         self.sigma = sigma
         self.M_0 = M_0

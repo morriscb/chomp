@@ -89,7 +89,7 @@ class dNdzGaussian(dNdz):
 
     def raw_dndz(self, redshift):
         return numpy.exp(-1.0*(redshift-self.z0)*(redshift-self.z0)/
-                         (2.0*self.sigma_z*self.sigma_z))
+                          (2.0*self.sigma_z*self.sigma_z))
 
 
 class dNdChiGaussian(dNdz):
@@ -121,8 +121,7 @@ class dNdChiGaussian(dNdz):
     def raw_dndz(self, redshift):
         chi = self.cosmo.comoving_distance(redshift)
         return (numpy.exp(-1.0*(chi-self.chi0)*(chi-self.chi0)/
-                         (2.0*self.sigma_chi*self.sigma_chi))*
-                self.cosmo.E(redshift))
+                           (2.0*self.sigma_chi*self.sigma_chi)))
 
 
 class dNdzMagLim(dNdz):
@@ -477,10 +476,13 @@ class Kernel(object):
         window_function_a: first window function for kernel
         window_function_b: second window function for kernel
         cosmo_multi_epoch: MultiEpoch cosmology object from cosmology.py
+        force_quad: If the romberg integration is giving too much numerical
+            noise at large ktheta set this flag to True to use quad integration 
+            for more accuracy at the cost of speed.
     """
     def __init__(self, ktheta_min, ktheta_max,
                  window_function_a, window_function_b,
-                 cosmo_multi_epoch=None, **kws):
+                 cosmo_multi_epoch=None, force_quad=False, **kws):
         self.initialized_spline = False
 
         self.ln_ktheta_min = numpy.log(ktheta_min)
@@ -524,7 +526,10 @@ class Kernel(object):
             defaults.default_precision["kernel_npoints"])
         self._kernel_array = numpy.zeros_like(self._ln_ktheta_array)
 
-        self._j0_limit = special.jn_zeros(0,4)[-1]
+        self._j0_limit = special.jn_zeros(
+            0, defaults.default_precision["kernel_bessel_limit"])[-1]
+
+        self._force_quad = force_quad
 
         self._find_z_bar()
 
@@ -587,11 +592,18 @@ class Kernel(object):
         chi_max = self._j0_limit/ktheta
         if chi_max >= self.chi_max:
             chi_max = self.chi_max
-        kernel = integrate.romberg(
-            self._kernel_integrand, self.chi_min,
-            chi_max, args=(ktheta,), vec_func=True,
-            tol=defaults.default_precision["kernel_precision"])
-        return kernel
+        if self._force_quad:
+            kernel = integrate.quad(
+                self._kernel_integrand, self.chi_min,
+                chi_max, args=(ktheta,),
+                limit=defaults.default_precision["kernel_limit"])[0]
+            return kernel
+        else:
+            kernel = integrate.romberg(
+                self._kernel_integrand, self.chi_min,
+                self.chi_max, args=(ktheta,), vec_func=True,
+                tol=defaults.default_precision["kernel_precision"])
+            return kernel
 
     def _kernel_integrand(self, chi, ktheta):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
@@ -671,15 +683,19 @@ class GalaxyGalaxyLensingKernel(Kernel):
         window_function_a: first window function for kernel
         window_function_b: second window function for kernel
         cosmo_multi_epoch: MultiEpoch object from cosmology.py
+        force_quad: If the romberg integration is giving too much numerical
+            noise at large ktheta set this flag to True to use quad integration 
+            for more accuracy at the cost of speed.
     """
 
     def __init__(self, ktheta_min, ktheta_max,
                  window_function_a, window_function_b,
-                 cosmo_multi_epoch=None, **kws):
-        self._j2_limit = special.jn_zeros(2,4)[-1]
+                 cosmo_multi_epoch=None, force_quad=False, **kws):
+        self._j2_limit = special.jn_zeros(
+            2, defaults.default_precision["kernel_bessel_limit"])[-1]
         Kernel.__init__(self, ktheta_min, ktheta_max,
                         window_function_a, window_function_b,
-                        cosmo_multi_epoch, **kws)
+                        cosmo_multi_epoch, force_quad, **kws)
 
     def raw_kernel(self, ln_ktheta):
         ktheta = numpy.exp(ln_ktheta)
@@ -687,11 +703,18 @@ class GalaxyGalaxyLensingKernel(Kernel):
         chi_max = self._j2_limit/ktheta
         if chi_max >= self.chi_max:
             chi_max = self.chi_max
-        kernel = integrate.romberg(
-            self._kernel_integrand_j2, self.chi_min,
-            chi_max, args=(ktheta,), vec_func=True,
-            tol=defaults.default_precision["kernel_precision"])
-        return kernel
+        if self._force_quad:
+            kernel = integrate.quad(
+                self._kernel_integrand_j2, self.chi_min,
+                chi_max, args=(ktheta,),
+                limit=defaults.default_precision["kernel_limit"])[0]
+            return kernel
+        else:
+            kernel = integrate.romberg(
+                self._kernel_integrand_j2, self.chi_min,
+                chi_max, args=(ktheta,), vec_func=True,
+                tol=defaults.default_precision["kernel_precision"])
+            return kernel
 
     def _kernel_integrand_j2(self, chi, ktheta):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))

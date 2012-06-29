@@ -434,6 +434,7 @@ class Halo(object):
             tol=defaults.default_precision["halo_precision"])
 
         self.bias = self.bias/self.n_bar_over_rho_bar
+        return self.bias
 
     def _bias_integrand(self, ln_nu):
         nu = numpy.exp(ln_nu)
@@ -454,11 +455,13 @@ class Halo(object):
 
         self.m_eff = self.m_eff/self.n_bar_over_rho_bar
 
+        return self.m_eff
+
     def _m_eff_integrand(self, ln_nu):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu))
+        return nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)
 
     def calculate_f_sat(self):
         """
@@ -473,6 +476,8 @@ class Halo(object):
             tol=defaults.default_precision["halo_precision"])
 
         self.f_sat = self.f_sat/self.n_bar_over_rho_bar
+
+        return self.f_sat
 
     def _f_sat_integrand(self, ln_nu):
         nu = numpy.exp(ln_nu)
@@ -690,70 +695,51 @@ class HaloExclusion(Halo):
         Halo.__init__(self, redshift, input_hod, cosmo_single_epoch,
                       mass_func, halo_dict, **kws)
 
-        self._initialized_h_m_ext = False
-        self._initialized_n_bar_spline = False
+    def power_gm(self, k):
+        """
+        Non-Linear galaxy power spectrum derived from the halo
+        model and input halo occupation distribution.
 
-    # def power_gm(self, k):
-    #     """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
-    #     if not self._initialized_n_bar_spline:
-    #         self._initialize_n_bar_spline()
-    #     if not self._initialized_h_m:
-    #         self._initialize_h_m()
-    #     if not self._initialized_h_g:
-    #         self._initialize_h_g()
-    #     if not self._initialized_pp_gm:
-    #         self._initialize_pp_gm()
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear galaxy power spectrum [Mpc/h]**3
+        """
+        if not self._initialized_h_g:
+            self._initialize_h_g()
+        if not self._initialized_pp_gg:
+            self._initialize_pp_gm()
 
-    #     return (self.power_mm(k)*self._h_g(k)*self._h_m(k) + 
-    #             self._pp_gm(k))
+        return self.power_mm(k)*self._h_g(k)*self._h_m(k) + self._pp_gm(k)
 
-    # def power_mg(self, k):
-    #     """Galaxy-matter cross-spectrum in comoving (Mpc/h)^3"""
-    #     return self.power_gm(k)
+    def power_mg(self, k):
+        """
+        Non-Linear galaxy power spectrum derived from the halo
+        model and input halo occupation distribution.
 
-    # def power_gg(self, k):
-    #     """Galaxy power spectrum in comoving (Mpc/h)^3"""
-    #     if not self._initialized_n_bar_spline:
-    #         self._initialize_n_bar_spline()
-    #     if not self._initialized_h_g:
-    #         self._initialize_h_g()
-    #     if not self._initialized_pp_gg:
-    #         self._initialize_pp_gg()
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear galaxy power spectrum [Mpc/h]**3
+        """
+        return self.power_gm(k)
 
-    #     return (self.power_mm(k)*self._h_g(k)*self._h_g(k) + 
-    #             self._pp_gg(k))
+    def power_gg(self, k):
+        """
+        Non-Linear galaxy power spectrum derived from the halo
+        model and input halo occupation distribution.
 
-    def _virial_mass(self, r):
-        """Halo virial mass as a function of radius."""
-        return 4.0*numpy.pi/3.0*self.delta_v*self.rho_bar*r*r*r
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear galaxy power spectrum [Mpc/h]**3
+        """
+        if not self._initialized_h_g:
+            self._initialize_h_g()
+        if not self._initialized_pp_gg:
+            self._initialize_pp_gg()
 
-    def _initialize_n_bar_spline(self):
-        self._n_bar_over_rho_bar_array = numpy.empty(self._ln_k_array.shape)
-
-        for idx, ln_k in enumerate(self._ln_k_array):
-            self._n_bar_over_rho_bar_array[idx] = integrate.romberg(
-                self._nbar_ln_k_integrand, numpy.log(self.mass.nu_min),
-                numpy.log(self.mass.nu_max), vec_func=True, args=(ln_k,),
-                tol=defaults.default_precision["halo_precision"])
-
-        self._n_bar_over_rho_bar_spline = InterpolatedUnivariateSpline(
-            self._ln_k_array, self._n_bar_over_rho_bar_array)
-
-        self._initialized_n_bar_spline = True
-
-    def _nbar_ln_k_integrand(self, ln_nu, ln_k):
-        nu = numpy.exp(ln_nu)
-        mass = self.mass.mass(nu)
-
-        return (self._mass_window(mass, ln_k)*
-                nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)/mass)
-
-    def _h_m_integrand(self, ln_nu, ln_k):
-        nu = numpy.exp(ln_nu)
-        mass = self.mass.mass(nu)
-
-        return (nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
-                self.mass.bias_nu(nu)*self.y(ln_k, mass))
+        return self.power_mm(k)*self._h_g(k)*self._h_g(k) + self._pp_gg(k)
 
     def _initialize_h_g(self):
         h_g_array = numpy.zeros_like(self._ln_k_array)
@@ -766,7 +752,6 @@ class HaloExclusion(Halo):
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
                 args=(self._ln_k_array[idx],))
-            #h_g_array[idx] = h_g
             h_g_array[idx] = h_g/self.n_bar_over_rho_bar
 
         self._h_g_spline = InterpolatedUnivariateSpline(
