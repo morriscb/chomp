@@ -649,6 +649,8 @@ class Kernel(object):
             self.chi_min, self.chi_max, vec_func=True,
             tol=defaults.default_precision["kernel_precision"])
 
+        return mean/self._window_norm
+
 
     def write(self, output_file_name):
         """
