@@ -49,7 +49,7 @@ class Correlation(object):
         wtheta_array: array of computed correlation values at theta_array values
     """
 
-    def __init__(self, theta_min, theta_max, input_kernel=None,
+    def __init__(self, theta_min, theta_max, input_kernel,
                  input_halo=None, powSpec=None, **kws):
 
         self.log_theta_min = numpy.log10(theta_min)

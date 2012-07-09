@@ -78,7 +78,7 @@ class HOD(object):
                 exp_nth *= (j*alpha_m2 - j + 1)
         return exp_nth
 
-    def set_halo(halo_param):
+    def set_halo(self, halo_dict):
         pass
 
     def write(self, output_file_name):

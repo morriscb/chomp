@@ -162,7 +162,7 @@ class Halo(object):
 
         self.mass.set_halo(halo_dict)
 
-        self.local_hod.set_halo(halo_dict)
+        
         self.set_hod(self.local_hod)
         
     def set_redshift(self, redshift):
