@@ -57,15 +57,15 @@ class SingleEpoch(object):
         self._closed = False
 
         omega_total = self._omega_m0 + self._omega_l0
-        if omega_total <= 1.001 and omega_total >= 0.999:
+        if omega_total <= 1.0001 and omega_total >= 0.9999:
             self._flat = True
         else:
             self._flat = False
-        if omega_total <= 0.999:
+        if omega_total <= 0.9999:
             self._open = True
         else:
             self._open = False
-        if omega_total > 1.001:
+        if omega_total > 1.0001:
             self._closed = True
         else:
             self._closed = False
@@ -603,8 +603,8 @@ class MultiEpoch(object):
     """
 
     def __init__(self, z_min, z_max, cosmo_dict=None, with_bao=False, **kws):
-        self.z_max = z_max
         self.z_min = z_min
+        self.z_max = z_max
         if self.z_min < 0.0: self.z_min = 0.0
 
         self._z_array = numpy.linspace(
@@ -687,7 +687,7 @@ class MultiEpoch(object):
 
         self._initialize_splines()
 
-    def set_cosmology(cosmo_dict, z_min=None, z_max=None):
+    def set_cosmology(self, cosmo_dict, z_min=None, z_max=None):
         """
         Reset the cosmology to the new values contained within cosmo_dict. Also
         reinitialize the maximum and minimum redshift if desired.

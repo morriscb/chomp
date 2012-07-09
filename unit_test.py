@@ -1,289 +1,542 @@
+import cosmology
+import correlation
+import defaults
+import halo
+import hod
+import kernel
+import mass_function
 import numpy
+import unittest
+
+### In order for the unittests to work correctly, these are the assumed
+### precision values of the code.
+defaults.default_precision = {
+    "corr_npoints": 25,
+    "corr_precision":1.48e-8,
+    "cosmo_npoints": 50,
+    "cosmo_precision": 1.48e-8,
+    "dNdz_precision": 1.48e-16,
+    "halo_npoints": 50,
+    "halo_precision": 1.48-8,
+    "halo_limit" : 100,
+    "kernel_npoints": 200,
+    "kernel_precision": 1.48e-16,
+    "kernel_limit": 200, ### If the variable force_quad is set in the Kernel 
+                         ### class this value sets the limit for the quad
+                         ### integration
+    "kernel_bessel_limit": 32, ### Defines how many zeros before cutting off the
+                               ### bessel function in kernel.py
+    "mass_npoints": 50,
+    "mass_precision": 1.48e-8,
+    "window_npoints": 50,
+    "window_precision": 1.48e-16
+    }
+
+### Fix cosmology used in the module in case the user changes the default
+c_dict = {
+    "omega_m0": 0.3 - 4.15e-5/0.7**2, ### total matter desnity at z=0
+    "omega_b0": 0.046, ### baryon density at z=0
+    "omega_l0": 0.7, ### dark energy density at z=0
+    "omega_r0": 4.15e-5/0.7**2, ### radiation density at z=0
+    "cmb_temp": 2.726, ### temperature of the CMB in K at z=0
+    "h"       : 0.7, ### Hubbles constant at z=0 normalized to 1/100 km/s/Mpc
+    "sigma_8" : 0.8, ### overdensity of matter at 8.0 Mpc/h
+    "n_scalar": 0.960, ### large k slope of the power spetcurm
+    "w0"      : -1.0, ### dark energy equation of state at z=0
+    "wa"      : 0.0 ### varrianing dark energy eqauation of state. At a=0 the 
+                    ### value is w0 + wa.
+    }
+
+c_dict_2 = {
+    "omega_m0": 1.0 - 4.15e-5/0.7**2,
+    "omega_b0": 0.046,
+    "omega_l0": 0.0,
+    "omega_r0": 4.15e-5/0.7**2,
+    "cmb_temp": 2.726,
+    "h"       : 0.7,
+    "sigma_8" : 0.8,
+    "n_scalar": 0.960,
+    "w0"      : -1.0,
+    "wa"      : 0.0
+    }
+
+h_dict = {
+    "stq": 0.3,
+    "st_little_a": 0.707,
+    "c0": 9.,
+    "beta": -0.13,
+    "alpha": -1 ### Halo mass profile slope. [NFW = -1]
+    }
+
+h_dict_2 = {
+    "stq": 0.5,
+    "st_little_a": 0.5,
+    "c0": 5.,
+    "beta": -0.2,
+    "alpha": -1 ### Halo mass profile slope. [NFW = -1]
+    }
 
 degToRad = numpy.pi/180.0
 
-def cosmology_unit_test():
-    import cosmology
-    print "\n****************************"
-    print "*                          *"
-    print "* Testing Cosmology Module *"
-    print "*                          *"
-    print "****************************\n"
-    print "Testing Single Epoch"
-    print "****************************"
 
-    ### Create single epoch cosmologies at the redshift specified
-    ### outputs to stdout
-    cosmo = cosmology.SingleEpoch(redshift=0.0)
-    cosmo.write()
+class CosmologyTestSingleEpoch(unittest.TestCase):
 
-    cosmo.set_redshift(redshift=0.5)
-    cosmo.write()
+    def setUp(self):
+        self.cosmo = cosmology.SingleEpoch(redshift=0.0, cosmo_dict=c_dict)
+        
+    def test_single_epoch(self):
+        self.assertTrue(self.cosmo._flat)
+        self.assertEqual(self.cosmo._redshift, 0.0)
+        self.assertEqual(self.cosmo._chi, 0.0)
+        self.assertEqual(numpy.log(self.cosmo._growth), 0.0)
+        self.assertAlmostEqual(self.cosmo.omega_m(), 0.3 - 4.15e-5/0.7**2)
+        self.assertAlmostEqual(self.cosmo.omega_l(), 0.7)
+        self.assertEqual(self.cosmo.w(self.cosmo._redshift), -1.0)
+        self.assertAlmostEqual(numpy.log(self.cosmo.delta_v()), 
+                               5.84412388)
+        self.assertAlmostEqual(numpy.log(self.cosmo.delta_c()),
+                               0.51601430)
+        self.assertAlmostEqual(self.cosmo.sigma_r(8.0), 0.8)
+        
+    def test_set_redshift(self):
+        self.cosmo.set_redshift(1.0)
+        self.assertTrue(self.cosmo._flat)
+        self.assertEqual(self.cosmo._redshift, 1.0)
+        self.assertAlmostEqual(numpy.log(self.cosmo._chi), 
+                               7.74687924)
+        self.assertAlmostEqual(self.cosmo._growth, 0.61184534)
+        self.assertAlmostEqual(self.cosmo.omega_m(), 0.77405957)
+        self.assertAlmostEqual(self.cosmo.omega_l(), 0.22583113)
+        self.assertEqual(self.cosmo.w(self.cosmo._redshift), -1.0)
+        self.assertAlmostEqual(numpy.log(self.cosmo.delta_v()),
+                               5.8139178)
+        self.assertAlmostEqual(numpy.log(self.cosmo.delta_c()),
+                               0.52122912)
+        self.assertAlmostEqual(self.cosmo.sigma_r(8.0), 0.48947627)
 
-    cosmo.set_redshift(redshift=1.0)
-    cosmo.write()
+    def test_set_cosmology(self):
+        self.cosmo.set_cosmology(c_dict_2, 1.0)
+        self.assertTrue(self.cosmo._flat)
+        self.assertEqual(self.cosmo._redshift, 1.0)
+        self.assertAlmostEqual(numpy.log(self.cosmo._chi),
+                               7.47157876)
+        self.assertAlmostEqual(self.cosmo._growth, 0.50001210)
+        self.assertAlmostEqual(self.cosmo.omega_m(), 0.99995765)
+        self.assertAlmostEqual(self.cosmo.omega_l(), 0.0)
+        self.assertEqual(self.cosmo.w(self.cosmo._redshift), -1.0)
+        self.assertAlmostEqual(numpy.log(self.cosmo.delta_v()),
+                               5.87492980)
+        self.assertAlmostEqual(numpy.log(self.cosmo.delta_c()),
+                               0.52263747)
+        self.assertAlmostEqual(self.cosmo.sigma_r(8.0), 0.40000968)
+
+    def test_linear_power(self):
+        k_array = numpy.logspace(-3, 2, 4)
+        lin_power = [8.18733648, 9.49322932, 2.32587979, -7.75033120]
+        for idx, k in enumerate(k_array):
+            self.assertAlmostEqual(numpy.log(self.cosmo.linear_power(k)),
+                                   lin_power[idx])
+        
+        
+class CosmologyTestMultiEpoch(unittest.TestCase):
     
-    cosmo.set_redshift(redshift=2.0)
-    cosmo.write()
+    def setUp(self):
+        self.cosmo = cosmology.MultiEpoch(0.0, 5.0, cosmo_dict=c_dict)
 
-    cosmo.set_redshift(redshift=3.0)
-    cosmo.write()
+    def test_multi_epoch(self):
+        chi_list = [0.0, 7.18763416, 7.74687926, 8.60279558] 
+        growth_list = [1.0, 0.77321062, 0.61184534, 0.21356291]
+        omega_m_list = [0.3 - 4.15e-5/0.7**2, 0.59110684,
+                        0.77405957, 0.98926392]
+        omega_l_list = [0.7, 0.40878186,
+                        0.22583113,0.01068951]
+        w_list = [-1.0, -1.0, -1.0, -1.0]
+        delta_v_list = [5.84412389, 5.72815452, 5.81391783, 6.73154414]
+        delta_c_list = [0.5160143, 0.77694983, 1.01250486, 2.06640216]
+        sigma_8_list = [0.8, 0.61856849, 0.48947627, 0.17085033]
+        for idx, z in enumerate([0.0, 0.5, 1.0, 5.0]):
+            self.assertAlmostEqual(
+                numpy.where(self.cosmo.comoving_distance(z) >0.0, 
+                      numpy.log(self.cosmo.comoving_distance(z)), 0.0),
+                chi_list[idx])
+            self.assertAlmostEqual(self.cosmo.growth_factor(z),
+                                   growth_list[idx])
+            self.assertAlmostEqual(self.cosmo.omega_m(z),
+                                   omega_m_list[idx])
+            self.assertAlmostEqual(self.cosmo.omega_l(z),
+                                   omega_l_list[idx])
+            self.assertEqual(self.cosmo.epoch0.w(z), w_list[idx])
+            self.assertAlmostEqual(numpy.log(self.cosmo.delta_v(z)), 
+                                   delta_v_list[idx])
+            self.assertAlmostEqual(numpy.log(self.cosmo.delta_c(z)),
+                                   delta_c_list[idx])
+            self.assertAlmostEqual(self.cosmo.sigma_r(8.0, z),
+                                   sigma_8_list[idx])
 
-    ### Compute example multi epoch cosmologies from redshift z=0.0 to z=5.0
-    ### output are the computed comoving distnace as a funciton of redshift and
-    ### several other cosmological variables (Omega_m(z), Omega_L(z), etc.)
-    print "\nTesting Multi Epoch"
-    print "****************************"
-    cosmo = cosmology.MultiEpoch(z_min=0.0, z_max=5.0)
-    z = 0.0
-    print ("Multi Epoch: (z, chi [Mpc/h], growth, omega_m(z), omega_l(z), "
-           "detla_c, delta_v, sigma_8)")
-    for z in [0.0, 0.5, 1.0, 2.0, 3.0]:
-        print (z, cosmo.comoving_distance(z), cosmo.growth_factor(z),
-               cosmo.omega_m(z), cosmo.omega_l(z), cosmo.delta_c(z),
-               cosmo.delta_v(z), cosmo.sigma_r(8.0, z))
-    print ""
+    def test_set_cosmology(self):
+        chi_list = [0.0, 7.0040003, 7.4715789, 8.17486672] 
+        growth_list = [1.0, 0.66667731, 0.50001201, 0.1666735]
+        omega_m_list = [1.0 - 4.15e-5/0.7**2, 0.99994353,
+                        0.99995765,  0.99998588]
+        omega_l_list = [0.0, 0.0, 0.0, 0.0]
+        w_list = [-1.0, -1.0, -1.0, -1.0]
+        delta_v_list = [5.18183013,  5.58726375,
+                        5.87493001, 6.97350979]
+        delta_c_list = [0.52263724, 0.92808654, 1.21576064, 2.3143561]
+        sigma_8_list = [0.8, 0.53334185, 0.40000961, 0.1333388]
+        
+        self.cosmo.set_cosmology(c_dict_2)
+        for idx, z in enumerate([0.0, 0.5, 1.0, 5.0]):
+            self.assertAlmostEqual(
+                numpy.where(self.cosmo.comoving_distance(z) >0.0, 
+                      numpy.log(self.cosmo.comoving_distance(z)), 0.0),
+                chi_list[idx])
+            self.assertAlmostEqual(self.cosmo.growth_factor(z),
+                                   growth_list[idx])
+            self.assertAlmostEqual(self.cosmo.omega_m(z),
+                                   omega_m_list[idx])
+            self.assertAlmostEqual(self.cosmo.omega_l(z),
+                                   omega_l_list[idx])
+            self.assertEqual(self.cosmo.epoch0.w(z), w_list[idx])
+            self.assertAlmostEqual(numpy.log(self.cosmo.delta_v(z)), 
+                                   delta_v_list[idx])
+            self.assertAlmostEqual(numpy.log(self.cosmo.delta_c(z)),
+                                   delta_c_list[idx])
+            self.assertAlmostEqual(self.cosmo.sigma_r(8.0, z),
+                                   sigma_8_list[idx])
+
+
+class MassFunctionTest(unittest.TestCase):
     
-    ### Backup write command if more information is needed
-    # cosmo.write('test_cosmology.ascii')
+    def setUp(self):
+        cosmo = cosmology.SingleEpoch(0.0, c_dict)
+        self.mass = mass_function.MassFunction(cosmo_single_epoch=cosmo,
+                                               halo_dict=h_dict)
+        self.mass_array = numpy.logspace(9, 16, 4)
+        
+    def test_mass_function(self):
+        nu_list = [-2.00781697, -0.84190606, 0.87876348, 3.70221176]
+        f_mass_list = [0.43457911, -0.47341601, -2.30336188, -17.4987111]
+        for idx, mass in enumerate(self.mass_array):
+            if (mass < numpy.exp(self.mass.ln_mass_min) or 
+                mass > numpy.exp(self.mass.ln_mass_max)):
+                    continue
+            self.assertAlmostEqual(numpy.log(self.mass.nu(mass)), nu_list[idx])
+            self.assertAlmostEqual(numpy.log(self.mass.f_m(mass)),
+                                   f_mass_list[idx])
 
-def mass_function_unit_test():
-    import mass_function
-    print "\n********************************"
-    print "*                              *"
-    print "* Testing Mass Function Module *"
-    print "*                              *"
-    print "********************************\n"
+    def test_set_redshift(self):
+        nu_list = [-1.37245339, -0.34899603, 1.1147666, 3.42069564]
+        f_mass_list = [-0.06740317, -0.91985385, -2.69852669, -13.83730113]
+        self.mass.set_redshift(1.0)
+        for idx, mass in enumerate(self.mass_array):
+            if (mass < numpy.exp(self.mass.ln_mass_min) or 
+                mass > numpy.exp(self.mass.ln_mass_max)):
+                    continue
+            self.assertAlmostEqual(numpy.log(self.mass.nu(mass)), nu_list[idx])
+            self.assertAlmostEqual(numpy.log(self.mass.f_m(mass)),
+                                   f_mass_list[idx])
+
+    def test_set_cosmology(self):
+        nu_list = [0.0, -2.29906247, -0.08732065, 3.64626423]
+        f_mass_list = [0.0, 0.63398636, -1.1667623, -16.70406668]
+        self.mass.set_cosmology(c_dict_2)
+        for idx, mass in enumerate(self.mass_array):
+            if (mass < numpy.exp(self.mass.ln_mass_min) or 
+                mass > numpy.exp(self.mass.ln_mass_max)):
+                    continue
+            self.assertAlmostEqual(numpy.log(self.mass.nu(mass)), nu_list[idx])
+            self.assertAlmostEqual(numpy.log(self.mass.f_m(mass)),
+                                   f_mass_list[idx])
+
+    def test_set_halo(self):
+        nu_list = [-2.00781697, -0.84190606, 0.87876348, 3.70221176]
+        f_mass_list = [0.56712195, -0.52206856, -2.37765005, -13.76884123]
+        self.mass.set_halo(h_dict_2)
+        for idx, mass in enumerate(self.mass_array):
+            if (mass < numpy.exp(self.mass.ln_mass_min) or 
+                mass > numpy.exp(self.mass.ln_mass_max)):
+                    continue
+            self.assertAlmostEqual(numpy.log(self.mass.nu(mass)), nu_list[idx])
+            self.assertAlmostEqual(numpy.log(self.mass.f_m(mass)),
+                                   f_mass_list[idx])
+            
+                        
+class HODTest(unittest.TestCase):
     
-    ### Compute the mass function at redshift z=0.0
-    mass_func = mass_function.MassFunction(redshift=0.0)
-    mass_array = numpy.logspace(9, 16, 5)
-    print "Mass Funct: (mass [M_solar/h], nu, dN/dM)"
-    for mass in mass_array:
-        print "\t", (mass, mass_func.nu(mass), mass_func.f_m(mass))
-    print ""
+    def setUp(self):
+        self.zheng = hod.HODZheng(10**12, 0.15, 10**12, 10**13, 1.0)
+        self.mass_array = numpy.logspace(9, 16, 4)
+        self.first_moment_list = [0.0, 0.0, 5.54158883, 1000.9]
+        self.second_moment_list = [0.0, 0.0, 29.70920680, 1001799.80999999]
+        self.nth_moment_list = [0.0, 0.0, 153.91393832, 1002699428.0309982]
+        
+    def test_hod(self):
+        for idx, mass in enumerate(self.mass_array):
+             self.assertAlmostEqual(self.zheng.first_moment(mass),
+                                    self.first_moment_list[idx])
+             self.assertAlmostEqual(self.zheng.second_moment(mass),
+                                    self.second_moment_list[idx])
+             self.assertAlmostEqual(self.zheng.nth_moment(mass, 3),
+                                    self.nth_moment_list[idx])
 
-    ### Backup write command if more information is needed
-    # mass_func.write('test_mass_function.ascii')
-
-def hod_unit_test():
-    import hod
-    print "\n**********************"
-    print "*                    *"
-    print "* Testing HOD Module *"
-    print "*                    *"
-    print "**********************\n"
-    ### Create a Zheng et al. 2007 HOD object with central mass 10**13, 
-    ### satellite mass difference. The other parameters are fixed M_0 = M_min,
-    ### alpha = 1.0, log_sigma_m = 0.15
-    zheng = hod.HODZheng(10**12, 0.15, 10**12, 10**13, 1.0)
-    mand = hod.HODZheng(10**12, 1.0)
-    mass_array = numpy.logspace(9, 16, 5)
-    ### compute the first three moments of the HOD and print to screen
-    print "HOD: (mass [M_solar/h], <N>, <N(N-1)>, <N(N-1)(N-2)>)"
-    for mass in mass_array:
-        print "\t", (mass, mand.first_moment(mass), mand.second_moment(mass),
-                     mand.nth_moment(mass, 3))
-    print ""
-
-def camb_unit_test():
-    pass
-
-def halo_unit_test():
-    import halo
-    import hod
-    print "\n***********************"
-    print "*                     *"
-    print "* Testing Halo Module *"
-    print "*                     *"
-    print "***********************\n"
+class HaloTest(unittest.TestCase):
     
+    def setUp(self):
+        cosmo = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
+        zheng = hod.HODZheng(10**13.0, 0.15, 10**13.0, 10**14.0, 1.0)
+        self.h = halo.Halo(input_hod=zheng, cosmo_single_epoch=cosmo)
+        self.k_array = numpy.logspace(-3, 2, 4)
+        
+    def test_halo(self):
+        power_mm_list = [8.34440408, 9.53785114,
+                         5.10250239, -3.74386887]
+        power_gm_list = [8.61662044, 9.81345489,
+                         5.67772657, -0.85787968]
+        power_gg_list = [8.85261271, 10.07829163,
+                         5.65157175, -0.31382178]
+        for idx, k in enumerate(self.k_array):
+            self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
+                                   power_mm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
+                                   power_gm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
+                                   power_gg_list[idx])
 
-    ### We test each of the 4 avalible power spectra as a function of redshift
-    ### first create a halo occupation distribution object using a Zheng07 HOD
-    zheng = hod.HODZheng(10**13.0, 0.15, 10**13.0, 10**14.0, 1.0)
-    ### initialize the halo model object at z=0.0 with the Zheng HOD
-    h = halo.Halo(redshift=0.0, input_hod=zheng)
-    print ("Halo: (k [Mpc/h], linear_power, power_mm, "
-           "power_gm, power_gg [(Mpc/h)^3])")
-    k_array = numpy.logspace(-3, 2, 5)
-    for k in k_array:
-        print"\t", (k , h.linear_power(k), h.power_mm(k),
-                    h.power_gm(k), h.power_gg(k))
-    print ""
+    def test_set_redshift(self):
+        linear_power_list = [7.20478501, 8.51067786,
+                             1.34332833, -8.73288266]
+        power_mm_list = [7.24994929, 8.52297824,
+                         3.51013974, -5.3865863]
+        power_gm_list = [7.69396091, 8.9648076,
+                         4.17998803, -2.61963]
+        power_gg_list = [8.12609056, 9.40331179,
+                         4.4452134, -1.80351356]
+        self.h.set_redshift(1.0)
+        for idx, k in enumerate(self.k_array):
+            self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
+                                   linear_power_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
+                                   power_mm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
+                                   power_gm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
+                                   power_gg_list[idx])
 
-    ### Backup write commands if more information is needed
-    # h.write('test_halo_power_spectra.ascii')
-    # h.write_halo('test_halo_properties.ascii')
-    # h.write_power_components('test_halo_power_components.ascii')
+    def test_set_cosmology(self):
+        linear_power_list = [5.16650884, 8.11613050,
+                             3.69335261, -5.84391729]
+        power_mm_list = [6.6167008, 8.27330311,
+                         5.20130153, -4.09390277]
+        power_gm_list = [6.33796703, 8.14871165,
+                         5.10668697, -1.52516298]
+        power_gg_list = [5.96915794, 8.01681526,
+                         4.70719854, -1.27002309]
+        self.h.set_cosmology(c_dict_2)
+        for idx, k in enumerate(self.k_array):
+            self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
+                                   linear_power_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
+                                   power_mm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
+                                   power_gm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
+                                   power_gg_list[idx])
 
-def kernel_unit_test():
-    import cosmology
-    import kernel
-    print "\n*************************"
-    print "*                       *"
-    print "* Testing kernel Module *"
-    print "*                       *"
-    print "*************************\n"
+    def test_set_halo(self):
+        power_mm_list = [8.41952649, 9.56100352,
+                         5.20127689, -3.78991171]
+        power_gm_list = [8.63398014, 9.78279491,
+                         5.74842142, -0.92271325]
+        power_gg_list = [8.81481816, 9.99415073,
+                         5.77308467, -0.30805068]
+        self.h.set_halo(h_dict_2)
+        for idx, k in enumerate(self.k_array):
+            self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
+                                   power_mm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
+                                   power_gm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
+                                   power_gg_list[idx])
 
-    print "Testing dNdz"
-    print "*************************"
+    def test_set_hod(self):
+        power_gm_list = [8.32596635, 9.54208384,
+                         5.00764145, -1.71174672]
+        power_gg_list = [8.31078887, 9.547477,
+                         4.80756239, -1.1721439]
+        zheng = hod.HODZheng(10**12.0, 0.15, 10**12.0, 10**13.0, 1.0)
+        self.h.set_hod(zheng)
+        for idx, k in enumerate(self.k_array):
+            self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
+                                   power_gm_list[idx])
+            self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
+                                   power_gg_list[idx])
 
-    ### To define a Kernel object we need several things first. We need redshift
-    ### distributions as well as the corresponding window functions.
+
+class dNdzTest(unittest.TestCase):
+
+    def setUp(self):
+        self.lens_dist = kernel.dNdzMagLim(z_min=0.0, z_max=2.0, 
+                                           a=2, z0=0.3, b=2)
+        self.source_dist = kernel.dNdzGaussian(z_min=0.0, z_max=2.0,
+                                               z0=1.0, sigma_z=0.2)
+        self.z_array = numpy.linspace(0.0, 2.0, 4)
+        self.lens_dist_list = [0.0, 0.00318532, 0.0, 0.0]
+        self.source_dist_list = [3.72665317e-06, 0.24935220, 
+                                 0.24935220, 3.72665317e-06]
+
+    def test_redshift_dist(self):
+        for idx, z in enumerate(self.z_array):
+             self.assertAlmostEqual(self.lens_dist.dndz(z),
+                                    self.lens_dist_list[idx])
+             self.assertAlmostEqual(self.source_dist.dndz(z),
+                                    self.source_dist_list[idx])
+
+class WindowFunctionTest(unittest.TestCase):
+
+    def setUp(self):
+        lens_dist = kernel.dNdzMagLim(z_min=0.0, z_max=2.0, 
+                                           a=1, z0=0.3, b=1)
+        source_dist = kernel.dNdzGaussian(z_min=0.0, z_max=2.0,
+                                               z0=1.0, sigma_z=0.2)
+        cosmo = cosmology.MultiEpoch(0.0, 5.0, cosmo_dict=c_dict)
+        self.lens_window = kernel.WindowFunctionGalaxy(
+            lens_dist, cosmo_multi_epoch=cosmo)
+        self.source_window = kernel.WindowFunctionConvergence(
+            source_dist, cosmo_multi_epoch=cosmo)
+        self.z_array = numpy.linspace(0.0, 2.0, 4)
     
-    ### initilized to galaxy redshift distributions one as a magnitude limited
-    ### sample, the other a Guassian with mean z=1.0
-    lens_dist = kernel.dNdzMagLim(z_min=0.0, z_max=2.0, a=2, z0=0.3, b=2)
-    source_dist = kernel.dNdzGaussian(z_min=0.0, z_max=2.0, z0=1.0, sigma_z=0.2)
-    ### normalize the distributions and create PDFs
-    lens_dist.normalize()
-    source_dist.normalize()
+    def test_window_function(self):
+        lens_window_list = [0.0, -14.0011948, -13.3086357, -12.90375869]
+        source_window_list = [0.0, -17.21707686, 
+                              -16.5240056, -16.11861652]
+        for idx, z in enumerate(self.z_array):
+            self.assertAlmostEqual(
+                numpy.where(self.lens_window.window_function(z) > 0.0,
+                            numpy.log(self.lens_window.window_function(z)),
+                            0.0), lens_window_list[idx])
+            self.assertAlmostEqual(
+                numpy.where(self.source_window.window_function(z) > 0.0,
+                            numpy.log(self.source_window.window_function(z)),
+                            0.0), source_window_list[idx])
 
-    z_array = numpy.linspace(0.0, 2.0, 5)
-    print "Lens dNdz: (z, p(z)dz)"
-    for z in z_array:
-        print "\t",(z, lens_dist.dndz(z))
+    def test_set_cosmology(self):
+        lens_window_list = [0.0, -14.00059478, -13.30768976, -12.90246701]
+        source_window_list = [0.0, -16.01304191, 
+                              -15.32006144, -14.91476318]
+        self.lens_window.set_cosmology(c_dict_2)
+        self.source_window.set_cosmology(c_dict_2)
+        for idx, z in enumerate(self.z_array):
+            self.assertAlmostEqual(
+                numpy.where(self.lens_window.window_function(z) > 0.0,
+                            numpy.log(self.lens_window.window_function(z)),
+                            0.0), lens_window_list[idx])
+            self.assertAlmostEqual(
+                numpy.where(self.source_window.window_function(z) > 0.0,
+                            numpy.log(self.source_window.window_function(z)),
+                            0.0), source_window_list[idx])
 
-    print "Source dNdz: (z, p(z)dz)"
-    for z in z_array:
-        print "\t",(z, source_dist.dndz(z))
-    print ""
+class KenrelTest(unittest.TestCase):
 
-    print "Testing WindowFunction"
-    print "*************************"
-    cosmo = cosmology.MultiEpoch(0.0, 2.0)
+    def setUp(self):
+        cosmo = cosmology.MultiEpoch(0.0, 5.0, cosmo_dict=c_dict)
+        lens_dist = kernel.dNdzMagLim(z_min=0.0, z_max=2.0, 
+                                      a=2, z0=0.3, b=2)
+        source_dist = kernel.dNdzGaussian(z_min=0.0, z_max=2.0,
+                                          z0=1.0, sigma_z=0.2)
+        lens_window = kernel.WindowFunctionGalaxy(
+            lens_dist, cosmo_multi_epoch=cosmo)
+        source_window = kernel.WindowFunctionConvergence(
+            source_dist, cosmo_multi_epoch=cosmo)
+        self.kern = kernel.Kernel(0.001*0.001*degToRad, 1.0*100.0*degToRad,
+                               window_function_a=lens_window,
+                               window_function_b=source_window,
+                               cosmo_multi_epoch=cosmo)
+        self.ln_ktheta_array = numpy.linspace(-15, -1, 4)
+        
+    def test_kernel(self):
+        k_list = [-10.68949418, -10.68975736,
+                  -12.68982878, -24.02250207]
+        for idx, ln_ktheta in enumerate(self.ln_ktheta_array):
+            kern = numpy.abs(self.kern.kernel(ln_ktheta))
+            self.assertAlmostEqual(
+                numpy.where(kern > 0.0, numpy.log(kern), 0.0),
+                k_list[idx])
 
-    ### using the distributions defined above compute the distance weighted
-    ### window functions for use in projecting a powerspectrum
-    ### Define a galaxy window function
-    chi_array = cosmo.comoving_distance(z_array)
-    lens_window = kernel.WindowFunctionGalaxy(redshift_dist=lens_dist)
-    print "Lens Window: (chi [Mpc/h], window value [h/Mpc])"
-    for chi in chi_array:
-        print "\t",(chi, lens_window.window_function(chi))
-    ### Backup write command if more information is needed
-    # lens_window.write('test_galaxy_window_function.ascii')
+    def test_set_cosmology(self):
+        self.kern.set_cosmology(c_dict_2)
+        k_list = [-9.94923904, -9.94941557,
+                  -13.01832302, -21.82788877]
+        for idx, ln_ktheta in enumerate(self.ln_ktheta_array):
+            kern = numpy.abs(self.kern.kernel(ln_ktheta))
+            self.assertAlmostEqual(
+                numpy.where(kern > 0.0, numpy.log(kern), 0.0),
+                k_list[idx])
+            
 
-    ### Define a lensed population of galaxies
-    source_window = kernel.WindowFunctionConvergence(redshift_dist=source_dist)
-    print "Source Window: (chi [Mpc/h], window value [h/Mpc])"
-    for chi in chi_array:
-        print "\t",(chi, source_window.window_function(chi))
-
-    ### Backup write command if more information is needed
-    # source_window.write('test_convergence_window_function.ascii')
-
-    print "Testing Kernel"
-    print "*************************"
+class CorrelationTest(unittest.TestCase):
     
-    ### Initialize the kernel objects for projecting a power spectrum in z space
-    ### Initilize the kernel for galaxy clustering
-    ln_ktheta_array = numpy.linspace(-15, -1, 5)
-    k_Auto = kernel.Kernel(ktheta_min=0.001*degToRad*0.001, 
-                           ktheta_max=1.0*degToRad*100.0,
-                           window_function_a=lens_window, 
-                           window_function_b=lens_window)
-    print "Auto Kernel: (k*theta [h/Mpc*Radians], kernel value [(h/Mpc)^2])"
-    for ln_ktheta in ln_ktheta_array:
-        print "\t",(numpy.exp(ln_ktheta), k_Auto.kernel(ln_ktheta))
-    ### Backup write command if more information is needed
-    # k_Auto.write('test_clustering_kernel.ascii')
+    def setUp(self):
+        cosmo_multi = cosmology.MultiEpoch(0.0, 5.0, cosmo_dict=c_dict)
+        lens_dist = kernel.dNdzMagLim(z_min=0.0, z_max=2.0, 
+                                      a=2, z0=0.3, b=2)
+        source_dist = kernel.dNdzGaussian(z_min=0.0, z_max=2.0,
+                                          z0=1.0, sigma_z=0.2)
+        lens_window = kernel.WindowFunctionGalaxy(
+            lens_dist, cosmo_multi_epoch=cosmo_multi)
+        source_window = kernel.WindowFunctionConvergence(
+            source_dist, cosmo_multi_epoch=cosmo_multi)
+        kern = kernel.Kernel(0.001*0.001*degToRad, 1.0*100.0*degToRad,
+                             window_function_a=lens_window,
+                             window_function_b=source_window,
+                             cosmo_multi_epoch=cosmo_multi)
+        
+        zheng = hod.HODZheng(10**13.0, 0.15, 10**13.0, 10**14.0, 1.0)
+        cosmo_single = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
+        h = halo.Halo(input_hod=zheng, cosmo_single_epoch=cosmo_single)
+        self.corr = correlation.Correlation(0.001*degToRad, 1.0*degToRad,
+                                            input_kernel=kern,
+                                            input_halo=h,
+                                            powSpec='power_mm')
+        self.theta_array = numpy.logspace(-3, 0, 4)*degToRad
+        
+    def test_correlation(self):
+        corr_list = [-4.73676329, -5.19089047, -6.84293768, -8.89937344]
+        for idx, theta in enumerate(self.theta_array):
+            self.assertAlmostEqual(
+                numpy.log(self.corr.correlation(theta)), corr_list[idx])
 
-    ### Kernel computing lensing convergence
-    k_Con = kernel.Kernel(0.001*degToRad*0.001, 1.0*degToRad*100.0,
-                          lens_window, source_window)
-    print ("Convergence Kernel: (k*theta [h/Mpc*Radians], "
-           "kernel value [(h/Mpc)^2])")
-    for ln_ktheta in ln_ktheta_array:
-        print "\t",(numpy.exp(ln_ktheta), k_Con.kernel(ln_ktheta))
-    print ""
-    ### Backup write command if more information is needed
-    # k_Con.write("test_convergence_kernel.ascii")    
-    
-    ### Print out the redshifts for which the kernel is maximaly sensitive
-    print "Peak Sensitivity at Redshifts:", k_Auto.z_bar, k_Con.z_bar
+    def test_set_redshift(self):
+        self.corr.set_redshift(0.5)
+        corr_list = [-4.82397621, -5.27612659, -6.91672309, -8.89986573]
+        for idx, theta in enumerate(self.theta_array):
+            self.assertAlmostEqual(
+                numpy.log(self.corr.correlation(theta)), corr_list[idx])
 
-def correlation_unit_test():
-    import correlation
-    import halo
-    import hod
-    import kernel
-    print "\n******************************"
-    print "*                            *"
-    print "* Testing Correlation Module *"
-    print "*                            *"
-    print "******************************\n"
+    def test_set_cosmology(self):
+        self.corr.set_cosmology(c_dict_2)
+        corr_list = [-3.53377593, -3.95935867, -5.74360484, -9.39434454]
+        for idx, theta in enumerate(self.theta_array):
+            self.assertAlmostEqual(
+                numpy.log(self.corr.correlation(theta)), corr_list[idx])
 
-    ### Definining a correlation object requires first two window functions
-    ### (these could in principle be the same window function), theta bounds to
-    ### compute the correlation over, and optionaly and HOD object and a 
-    ### specification as to which power spectrum to use. Note: the different
-    ### correlation classes have approprate default values.
-
-    ### As in kernel_unit_test create galaxy distributions
-    lens_dist = kernel.dNdzMagLim(0.0, 2.0, 2, 0.3, 2)
-    source_dist = kernel.dNdzGaussian(0.0, 2.0, 1.0, 0.2)
-
-    ### create appropreate window objects
-    lens_window = kernel.WindowFunctionGalaxy(lens_dist)
-    source_window = kernel.WindowFunctionConvergence(source_dist)
-
-    ### Turn those window functions into kernels for projecting 3-D functions
-    ### onto the sky. auto_kernel represents a auto-correlation clustering
-    ### measurment. mag_kernel is a convergence correlation.
-    auto_kernel = kernel.Kernel(0.001*0.001*degToRad, 100.0*1.0*degToRad,
-                                lens_window, lens_window)
-    mag_kernel = kernel.Kernel(0.001*0.001*degToRad, 100.0*1.0*degToRad,
-                               lens_window, source_window)
-
-
-    ### define an hod (optional but needed in order to use power_gm or power_gg)
-    zheng = hod.HODZheng(10**13.0, 0.15, 10**13.0, 10**14.0, 1.0)
-    halo_model = halo.Halo(redshift=0.0, local_hod=zheng)
-
-    ### Define the correlation objects. Note that each of these correlations
-    ### is computed using the nonlinear dark matter power spectrum, power_mm.
-    ### other options are linear_power which computes the correlation for the
-    ### linear spectrum only, power_gm which is the galaxy-matter cross spectrum
-    ### and power_gg which is the galaxy-galaxy power spectrum.
-    ### Here we define the correlation function of galaxy clustering, note that
-    ### it takes only one window function as the second is assumed identical
-    theta_array = numpy.logspace(-3, 0, 5)
-    auto = correlation.Correlation(theta_min=0.001*degToRad,
-                                   theta_max=1.0*degToRad, 
-                                   input_kernel=auto_kernel,
-                                   input_halo=halo_model,
-                                   powSpec='power_gg')
-    print "Auto Correlation: (theta [deg], wtheta)"
-    for theta in theta_array:
-        print "\t",(theta, auto.correlation(theta*degToRad))
-    ### Define the correlation for galaxy-galaxy magnification. Note it takes
-    ### and WindowFunctionGalaxy object and a WindowFunctionConvergence Object
-    mag = correlation.Correlation(0.001*degToRad, 1.0*degToRad, 
-                                  input_kernel=mag_kernel,
-                                  input_halo=halo_model,
-                                  powSpec='power_gm')
-    print "Convergence Correlation: (theta [deg], wtheta)"
-    for theta in theta_array:
-        print "\t",(theta, mag.correlation(theta*degToRad))
-    print ""
-   
-    ### Backup write command if more information is needed
-    ### Compute the correlation functions between the angular bounds
-    # auto.compute_correlation()
-    # mag.compute_correlation()
-    # auto.write('test_clustering_correlation.ascii')
-    # mag.write('test_convergence_correlation.ascii')
-    
-def camb_unit_test():
-    pass
+    def test_set_hod(self):
+        zheng = hod.HODZheng(10**12.0, 0.15, 10**12.0, 10**13.0, 1.0)
+        self.corr.set_hod(zheng)
+        self.corr.set_power_spectrum('power_gm')
+        corr_list = [-4.32282959, -5.15879726, -6.88146865, -8.85220884]
+        for idx, theta in enumerate(self.theta_array):
+            self.assertAlmostEqual(
+                numpy.log(self.corr.correlation(theta)), corr_list[idx])
 
 if __name__ == "__main__":
-    cosmology_unit_test()
-    mass_function_unit_test()
-    hod_unit_test()
-    halo_unit_test()
-    kernel_unit_test()
-    correlation_unit_test()
-    camb_unit_test()
+    print "*******************************"
+    print "*                             *"
+    print "*      CHOMP Unit Test        *"
+    print "*                             *"
+    print "*******************************"
+
+    print "WARNING::If you have changed any of the default precison values in"
+    print "\tdefaults.default_precision, one or more of these tests may fail."
+    unittest.main()
+    

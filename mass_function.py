@@ -72,7 +72,7 @@ class MassFunction(object):
         self.cosmo.set_redshift(redshift)
 
         self.delta_c = self.cosmo.delta_c()
-        self.c0 = halo_dict["c0"]/(1.0 + redshift)
+        self.c0 = self.halo_dict["c0"]/(1.0 + redshift)
 
         self._set_mass_limits()
         self._initialize_splines()
@@ -89,7 +89,7 @@ class MassFunction(object):
         """
         if redshift is None:
             redshift = self._redshift
-        self.cosmo.set_cosmology(redshift, cosmo_dict)
+        self.cosmo.set_cosmology(cosmo_dict, redshift)
 
         self.delta_c = self.cosmo.delta_c()
         self.delta_v = self.cosmo.delta_v()
