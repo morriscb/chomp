@@ -42,7 +42,6 @@ class dNdz(object):
         norm = integrate.romberg(
             self.dndz, self.z_min, self.z_max, vec_func=True,
             tol=defaults.default_precision["dNdz_precision"])
-        print "dN/dz normalization = %1.10f" % (norm)
 
         self.norm = 1.0/norm
 
