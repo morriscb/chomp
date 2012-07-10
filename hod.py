@@ -41,8 +41,8 @@ class HOD(object):
 
     def second_moment(self, mass, z=None):
         """
-        Expected number of galaxy pairs per halo, <N(N-1)> as a function of mass
-        and redshift.
+        Expected number of galaxy pairs per halo, <N(N-1)> as a function of
+        mass and redshift.
         
         Args:
             mass: float array Halo mass in M_Solar/h^2
@@ -206,8 +206,8 @@ class HODZheng(HOD):
         Returns:
             float array of <N>
         """
-        return 0.5*(1+special.erf((numpy.log10(mass) - numpy.log10(self.M_min))/
-                                  self.sigma))
+        return 0.5*(1+special.erf((numpy.log10(mass) -
+                                   numpy.log10(self.M_min))/self.sigma))
     
     def satellite_first_moment(self, mass):
         """
@@ -222,10 +222,8 @@ class HODZheng(HOD):
             float array of <N>
         """
         diff = mass - self.M_0
-        return numpy.where(diff >= 0.0,
-                           self.central_first_moment(mass)*
-                           numpy.power(diff/self.M_1p, self.alpha),
-                           0.0)
+        return numpy.where(diff >= 0.0,self.central_first_moment(mass)*
+                           numpy.power(diff/self.M_1p, self.alpha), 0.0)
 
 class HODMandelbaum(HOD):
     """
@@ -287,6 +285,5 @@ class HODMandelbaum(HOD):
         Returns:
             float array of <N>
         """
-        return numpy.where(mass < self.M_min,
-                           (mass/self.M_min)**2*self.w,
+        return numpy.where(mass < self.M_min, (mass/self.M_min)**2*self.w,
                            mass/self.M_min*self.w)

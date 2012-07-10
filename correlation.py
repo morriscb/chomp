@@ -14,7 +14,7 @@ Each correlation function can be defined as
 
 w(theta) = int(z, g_1(z)*g_2(z)*int(k, k/(2*pi) P_x(k, z) J(k*theta*chi(z))))
 
-where P_x is a power spectrum from halo, J is the bessel function, and g_1/g_2
+where P_x is a power spectrum from halo, J is the Bessel function, and g_1/g_2
 are window functions with redshift. This class is the final wrapper method uses
 each all of the combined classes of the code base together to predict observable
 correlations functions.
@@ -79,7 +79,7 @@ class Correlation(object):
         try:
             self.power_spec = self.halo.__getattribute__(powSpec)
         except AttributeError or TypeError:
-            print "WARNING: Invalid input for power spectra varriable,"
+            print "WARNING: Invalid input for power spectra variable,"
             print "\t setting to linear_power"
             self.power_spec = self.halo.__getattribute__('linear_power')
 
@@ -109,7 +109,7 @@ class Correlation(object):
     def set_power_spectrum(self, powSpec):
         """
         Set power spectrum to type specified in powSpec. Of powSpec is not a
-        member of the halo object return the linear powerspectrum.
+        member of the halo object return the linear power spectrum.
 
         Args:
             powSpec: string name of power spectrum to use from halo.py object.
@@ -117,7 +117,7 @@ class Correlation(object):
         try:
             self.power_spec = self.halo.__getattribute__(powSpec)
         except AttributeError or TypeError:
-            print "WARNING: Invalid input for power spectra varriable,"
+            print "WARNING: Invalid input for power spectra variable,"
             print "\t setting to 'linear_power'"
             self.power_spec = self.halo.__getattribute__('linear_power')
 

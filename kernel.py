@@ -17,7 +17,8 @@ integrals.  It can also return the peak in the redshift sensitivity, so we can
 make the best approximation as to the appropriate power spectrum.
 """
 
-__author__ = "Ryan Scranton <ryan.scranton@gmail.com>"
+__author__ = ("Chris Morrison <morrison.chrisb@gmail.com",
+              "Ryan Scranton <ryan.scranton@gmail.com>")
 
 class dNdz(object):
     """Base class for a simple redshift distribution.
@@ -47,7 +48,7 @@ class dNdz(object):
 
     def raw_dndz(self, redshift):
         """
-        Raw deffinition of the redshift distribution.
+        Raw definition of the redshift distribution.
 
         Args:
             redshift: float array of redshift values
@@ -79,7 +80,7 @@ class dNdzGaussian(dNdz):
         z_min: float minimum redshift
         z_max: float maximum redshift
         z0: float mean redshift of gausian
-        sigma_z: float standard deviation of gausian
+        sigma_z: float standard deviation of Gaussian
     """
     def __init__(self, z_min, z_max, z0, sigma_z):
         dNdz.__init__(self, z_min, z_max)
@@ -102,8 +103,8 @@ class dNdChiGaussian(dNdz):
     Attributes:
         chi_min: float minimum comoving distance
         chi_max: float maximum comoving distance
-        chi0: float mean comoving distance of gausian
-        sigma_chi: float standard deviation of gausian
+        chi0: float mean comoving distance of Gaussian
+        sigma_chi: float standard deviation of Gaussian
         cosmo_multi: MultiEpoch object from cosmology.py
     """
     def __init__(self, chi_min, chi_max, chi0, sigma_chi,
@@ -298,7 +299,7 @@ class WindowFunctionGalaxy(WindowFunction):
     for comoving distance chi.
 
     Attributes:
-        z_min: mimimum redshift to define window function over
+        z_min: minimum redshift to define window function over
         z_max: maximum redshift to define window function over
         cosmo_multi_epoch: MultiEpoch object from cosmology.py
     """

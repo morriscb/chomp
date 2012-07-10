@@ -13,11 +13,11 @@ Given an input HOD object and cosmological and halo parameters, a halo object
 should be able to generate a non-linear power spectrum for dark matter,
 galaxies or their cross-spectrum.  It should also be able to return the halo
 profile as a function of mass and radius and its Fourier transform as a
-function of mass and wavenumber.
+function of mass and wave-number.
 """
 
-__author__ = ("Ryan Scranton <ryan.scranton@gmail.com>, "+
-              "Chris Morrison <morrison.chrisb@gmail.com>")
+__author__ = ("Chris Morrison <morrison.chrisb@gmail.com>"+
+              "Ryan Scranton <ryan.scranton@gmail.com>, ")
 
 class Halo(object):
     """Basic halo model object.
@@ -26,11 +26,11 @@ class Halo(object):
     should be able to generate a non-linear power spectrum for dark matter,
     galaxies or their cross-spectrum.  It should also be able to return
     the halo profile as a function of mass and radius and its Fourier transform
-    as a function of mass and wavenumber.
+    as a function of mass and wave-number.
 
     Attributes:
          redshift: float redshift at which to compute the halo model
-         input_hod: HOD object from hod.py. Determains how galaxies populate 
+         input_hod: HOD object from hod.py. Determines how galaxies populate 
              halos
          cosmo_single_epoch: SingleEpoch object from cosmology.py
          mass_func: MassFunction object from mass_function.py
@@ -97,7 +97,7 @@ class Halo(object):
     def set_cosmology(self, cosmo_dict, redshift=None):
         """
         Reset the internal cosmology to the values in cosmo_dict and 
-        re-initialize the internal splines. Optimaly reset the internal
+        re-initialize the internal splines. Optimally reset the internal
         redshift value.
 
         Args:
@@ -234,9 +234,9 @@ class Halo(object):
     def power_mg(self, k):
         """
         Non-Linear galaxy-matter cross power spectrum derived from the halo
-        model and input halo occupation distribution. This power spectrum should
-        be used for correlations that correlation of galaxies with themselves.
-        (ie galaxy clustering/auto-correlations)
+        model and input halo occupation distribution. This power spectrum 
+        should be used for correlations between galaxies and matter.
+        themselves. (ie galaxy clustering/auto-correlations)
 
         Args:
             k [h/Mpc]: float array wave number
@@ -304,7 +304,7 @@ class Halo(object):
         White (2001).  This is only valid for an NFW profile.
 
         Args:
-            ln_k: float array natral log wave number [ln(Mpc/h)]
+            ln_k: float array natural log wave number [ln(Mpc/h)]
             mass: float halo mass [M_solar/h]
         Returns:
             float array NFW profile Fourier transform
@@ -427,6 +427,9 @@ class Halo(object):
         """
         Compute the average galaxy bias from the input HOD. The output value is
         stored in the class variable bias.
+        
+        Returns:
+            float bias
         """
         self.bias = integrate.romberg(
             self._bias_integrand, numpy.log(self.mass.nu_min), 
@@ -447,6 +450,9 @@ class Halo(object):
         """
         Compute the effective Halo mass from the input HOD. The output value is
         stored in the class variable m_eff.
+        
+        Returns:
+            float m_eff
         """
         self.m_eff = integrate.romberg(
             self._m_eff_integrand, numpy.log(self.mass.nu_min), 
@@ -469,6 +475,9 @@ class Halo(object):
         This function requires the hod object to have a satellite_first_moment
         method. Raises AttributeError if no such method is found. Stores the
         result in the class variable f_sat.
+        
+        Returns:
+            float f_sat
         """
         self.f_sat= integrate.romberg(
             self._f_sat_integrand, numpy.log(self.mass.nu_min), 

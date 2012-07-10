@@ -14,8 +14,8 @@ that can take those parameters and return standard cosmological quantities
 (comoving distance, linear growth factor, etc.) as a function of redshift.
 """
 
-__author__ = ("Ryan Scranton <ryan.scranton@gmail.com>, "+
-              "Chris Morrison <morrison.chrisb@gmail.com>")
+__author__ = ("Chris Morrison <morrison.chrisb@gmail.com>"+
+              "Ryan Scranton <ryan.scranton@gmail.com>, ")
 
 
 class SingleEpoch(object):
@@ -124,7 +124,7 @@ class SingleEpoch(object):
 
     def set_cosmology(self, cosmo_dict, redshift=None):
         """
-        Resets cosmology dict and internal values to new cosmology
+        Resets cosmology dictionary and internal values to new cosmology
 
         Args:
             cosmo_dict: a dictionary of floats containing cosmological 
@@ -216,7 +216,7 @@ class SingleEpoch(object):
 
     def luminosity_distance(self):
         """
-        Luminoity distance at redshift self._redshif in units Mpc/h.
+        Luminosity distance at redshift self._redshif in units Mpc/h.
 
         Returns:
             Float Luminosity Distance
@@ -225,7 +225,7 @@ class SingleEpoch(object):
 
     def angular_diameter_distance(self):
         """
-        Angluar diameter distance at redshift self._redshif in 
+        Angular diameter distance at redshift self._redshif in 
         units Mpc/h.
 
         Returns:
@@ -265,7 +265,7 @@ class SingleEpoch(object):
         Dark Energy denisty at redshift z = _redshift.
 
         Returns:
-            float dark energy density realtive to critical
+            float dark energy density relative to critical
         """
         return self._omega_l0/self.E0(self._redshift)
 
@@ -290,7 +290,7 @@ class SingleEpoch(object):
         Over-density for a collapsed, virialized halo.
 
         Returns:
-            Float overdensity for virialized halo.
+            Float over-density for virialized halo.
         """
         # Fitting function taken from NFW97
         delta_v = 178.0
@@ -377,14 +377,16 @@ class SingleEpoch(object):
         Req = R(zeq)
         Rd  = R(zd)
         
-        s = (2./(3.*keq))*numpy.sqrt(6./Req)*numpy.log((numpy.sqrt(1.+Rd)+numpy.sqrt(Rd+Req))/(1.+numpy.sqrt(Req)))
+        s = (2./(3.*keq))*numpy.sqrt(6./Req)*numpy.log(
+            (numpy.sqrt(1.+Rd)+numpy.sqrt(Rd+Req))/(1.+numpy.sqrt(Req)))
         ks = k*h*s
         
         kSilk = 1.6*Obh2**0.52*Oh2**0.73*(1.+(10.4*Oh2)**(-0.95))
         q = lambda k: k*h/(13.41*keq)
         
-        G = lambda y: y*(-6.*numpy.sqrt(1.+y)+(2+3*y)*
-                          numpy.log((numpy.sqrt(1.+y)+1.)/(numpy.sqrt(1.+y)-1.)))
+        G = lambda y: y*(
+            -6.*numpy.sqrt(1.+y)+(2+3*y)*numpy.log(
+            (numpy.sqrt(1.+y)+1.)/(numpy.sqrt(1.+y)-1.)))
         alpha_b = 2.07*keq*s*(1.+Rd)**(-3./4.)*G((1.+zeq)/(1.+zd))
         beta_b = 0.5 + (ObO) + (3.-2.*ObO)*numpy.sqrt((17.2*Oh2)**2+1.)
         
@@ -408,7 +410,6 @@ class SingleEpoch(object):
         Tb1 = T0t(k,1.,1.)/(1.+(ks/5.2)**2)
         Tb2 = (alpha_b/(1.+(beta_b/ks)**3))*numpy.exp(-(k*h/kSilk)**1.4)
         Tb = numpy.sinc(k*stilde/numpy.pi)*(Tb1+Tb2)
-        #Tb  = special.sph_jn(0,k*stilde)[0][0]*(Tb1+Tb2)
         return ObO*Tb + (Oc/O)*Tc
 
     def _bbks_Transfer(self, k):
@@ -430,8 +431,8 @@ class SingleEpoch(object):
 
     def transfer_function(self, k):
         """
-        Function for returning the CMB transfer function. Class varriable 
-        with_bao determains if the trasfer function is the E+H98 fitting
+        Function for returning the CMB transfer function. Class variable 
+        with_bao determines if the transfer function is the E+H98 fitting
         function with or without BAO wiggles.
 
         Args:

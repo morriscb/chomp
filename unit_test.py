@@ -39,11 +39,11 @@ c_dict = {
     "omega_l0": 0.7, ### dark energy density at z=0
     "omega_r0": 4.15e-5/0.7**2, ### radiation density at z=0
     "cmb_temp": 2.726, ### temperature of the CMB in K at z=0
-    "h"       : 0.7, ### Hubbles constant at z=0 normalized to 1/100 km/s/Mpc
-    "sigma_8" : 0.8, ### overdensity of matter at 8.0 Mpc/h
-    "n_scalar": 0.960, ### large k slope of the power spetcurm
+    "h"       : 0.7, ### Hubble's constant at z=0 normalized to 1/100 km/s/Mpc
+    "sigma_8" : 0.8, ### over-density of matter at 8.0 Mpc/h
+    "n_scalar": 0.960, ### large k slope of the power spectrum
     "w0"      : -1.0, ### dark energy equation of state at z=0
-    "wa"      : 0.0 ### varrianing dark energy eqauation of state. At a=0 the 
+    "wa"      : 0.0 ### varying dark energy equation of state. At a=0 the 
                     ### value is w0 + wa.
     }
 
@@ -529,6 +529,7 @@ class CorrelationTest(unittest.TestCase):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)), corr_list[idx])
 
+
 if __name__ == "__main__":
     print "*******************************"
     print "*                             *"
@@ -536,7 +537,7 @@ if __name__ == "__main__":
     print "*                             *"
     print "*******************************"
 
-    print "WARNING::If you have changed any of the default precison values in"
+    print "WARNING::If you have changed any of the default precision values in"
     print "\tdefaults.default_precision, one or more of these tests may fail."
     unittest.main()
     

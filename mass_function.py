@@ -19,7 +19,8 @@ and those where fluctuations large enough for collapse are exponentially
 suppressed.
 """
 
-__author__ = "Ryan Scranton <ryan.scranton@gmail.com>"
+__author__ = ("Chris Morrison <morrison.chrisb@gmail.com>"+
+              "Ryan Scranton <ryan.scranton@gmail.com>")
 
 class MassFunction(object):
     """Object representing a mass function for a given input cosmology.
@@ -199,10 +200,10 @@ class MassFunction(object):
 
     def f_nu(self, nu):
         """
-        Halo mass function as a function of normalized mass overdensity nu
+        Halo mass function as a function of normalized mass over-density nu
 
         Args:
-            nu: float array normalized mass overdensity nu
+            nu: float array normalized mass over-density nu
         Returns:
             float array number of halos
         """
@@ -227,7 +228,7 @@ class MassFunction(object):
         Halo bias as a function of nu.
 
         Args:
-            mass: float array mass overdensity mu
+            mass: float array mass over-density mu
         Returns:
             float array halo bias
         """
@@ -263,9 +264,9 @@ class MassFunction(object):
         Natural log of halo mass as a function of nu.
 
         Args:
-            nu: float array normalized mass overdensity
+            nu: float array normalized mass over-density
         Returns:
-            float array natrual log mass [M_Solar]
+            float array natural log mass [M_Solar]
         """
         return self._ln_mass_spline(nu)
 
@@ -274,7 +275,7 @@ class MassFunction(object):
         Halo mass as a function of nu.
 
         Args:
-            nu: float array normalized mass overdensity
+            nu: float array normalized mass over-density
         Returns:
             float array halo mass [M_Solar]
         """
@@ -350,12 +351,12 @@ class TinkerMassFunction(MassFunction):
 
     def f_nu(self, nu):
         """
-        Halo mass function as a function of normalized mass overdensity nu.
+        Halo mass function as a function of normalized mass over-density nu.
         Note: Tinker2010 defines nu as [delta_c/sigma] where our definition
         is the square of that.
 
         Args:
-            nu: float array normalized mass overdensity nu
+            nu: float array normalized mass over-density nu
         Returns:
             float array number of halos
         """
@@ -371,7 +372,7 @@ class TinkerMassFunction(MassFunction):
         [delta_c/sigma] where our definition is the square of that.
 
         Args:
-            mass: float array mass overdensity mu
+            mass: float array mass over-density mu
         Returns:
             float array halo bias
         """
