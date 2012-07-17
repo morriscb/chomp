@@ -412,7 +412,7 @@ class WindowFunctionTest(unittest.TestCase):
                               -16.5240056, -16.11861652]
         for idx, z in enumerate(self.z_array):
             if lens_window_list[idx] == 0.0:
-                # May report and error for python version < 2.7
+                # May report an error for python version < 2.7
                 self.assertLessEqual(self.lens_window.window_function(z), 1e-16)
                 self.assertGreaterEqual(
                     self.lens_window.window_function(z), -1e-16)
@@ -434,8 +434,10 @@ class WindowFunctionTest(unittest.TestCase):
         self.source_window.set_cosmology(c_dict_2)
         for idx, z in enumerate(self.z_array):
             if lens_window_list[idx] == 0.0:
-                self.assertLess(self.lens_window.window_function(z), 1e-16)
-                self.assertGreater(self.lens_window.window_function(z), -1e-16)
+                # May report an error for python version < 2.7
+                self.assertLessEqual(self.lens_window.window_function(z), 1e-16)
+                self.assertGreaterEqual(
+                    self.lens_window.window_function(z), -1e-16)
             else:
                 self.assertAlmostEqual(
                     numpy.where(self.lens_window.window_function(z) > 0.0,
