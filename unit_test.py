@@ -411,10 +411,14 @@ class WindowFunctionTest(unittest.TestCase):
         source_window_list = [0.0, -17.21707686, 
                               -16.5240056, -16.11861652]
         for idx, z in enumerate(self.z_array):
-            self.assertAlmostEqual(
-                numpy.where(self.lens_window.window_function(z) > 0.0,
-                            numpy.log(self.lens_window.window_function(z)),
-                            0.0), lens_window_list[idx])
+            if lens_window_list[idx] == 0.0:
+                self.assertLess(self.lens_window.window_function(z), 1e-16)
+                self.assertGreater(self.lens_window.window_function(z), -1e-16)
+            else:
+                self.assertAlmostEqual(
+                    numpy.where(self.lens_window.window_function(z) > 0.0,
+                    numpy.log(self.lens_window.window_function(z)),
+                    0.0), lens_window_list[idx])
             self.assertAlmostEqual(
                 numpy.where(self.source_window.window_function(z) > 0.0,
                             numpy.log(self.source_window.window_function(z)),
@@ -427,10 +431,14 @@ class WindowFunctionTest(unittest.TestCase):
         self.lens_window.set_cosmology(c_dict_2)
         self.source_window.set_cosmology(c_dict_2)
         for idx, z in enumerate(self.z_array):
-            self.assertAlmostEqual(
-                numpy.where(self.lens_window.window_function(z) > 0.0,
-                            numpy.log(self.lens_window.window_function(z)),
-                            0.0), lens_window_list[idx])
+            if lens_window_list[idx] == 0.0:
+                self.assertLess(self.lens_window.window_function(z), 1e-16)
+                self.assertGreater(self.lens_window.window_function(z), -1e-16)
+            else:
+                self.assertAlmostEqual(
+                    numpy.where(self.lens_window.window_function(z) > 0.0,
+                    numpy.log(self.lens_window.window_function(z)),
+                    0.0), lens_window_list[idx])
             self.assertAlmostEqual(
                 numpy.where(self.source_window.window_function(z) > 0.0,
                             numpy.log(self.source_window.window_function(z)),
