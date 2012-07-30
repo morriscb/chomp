@@ -791,7 +791,9 @@ class HaloTrispectrum(Halo):
     
     Given an input cosmology, an input mass function, and an input pertubation
     theory definition (also cosmology dependent), compute the trispectrum power
-    in the halo model.
+    in the halo model. Note that the mass function used must have a second order
+    bias method bias_2_nu. The default API for MassFunction does not contain
+    this. Instead a derived class like MassFunctionSecondOrder must be used.
     
     The API for the trispectrum works differently than that of the Halo class in
     that instead of simplily inputing an length of a vector k we need a set of 
@@ -799,16 +801,62 @@ class HaloTrispectrum(Halo):
     currently considering we only consider 4 vectors that make a paraleagram.
     That is T(k1, k2, k3, k4) -> T(k1, -k1, k2, -k2) == T(k1,k2). Or in terms of
     scalars we have T(k1, k2) == T(|k1|, |k2|, cos(theta)) where theta is the
-    angle between vectors k1 and k2
+    angle between vectors k1 and k2.
     
     For this class we follow the definitions as presented in Cooray & Hu 2001
+    
+    Attributes:
+        redshift: float redshift at which to compute the halo model
+        input_hod: HOD object from hod.py. Determines how galaxies populate 
+            halos
+        cosmo_single_epoch: SingleEpoch object from cosmology.py
+        mass_func_second: MassFunctionSecondOrder object from mass_function.py
+        perturbation: PertubationTheory object from perturbation_spectra.py
+        halo_dict: dictionary of floats defining halo properties. (see 
+            defaults.py for details)
+        
     """
     
     def __init__(self, redshift=0, single_epoch_cosmo=None,
-                 mass_function=None, perturbation=None):
+                 mass_func_second=None, perturbation=None):
         self.pert = perturbation
-        Halo.__init__(redshift, None, single_epoch_cosmo, mass_function)
-    
+        Halo.__init__(redshift, None, single_epoch_cosmo, mass_func_second)
+        
+    def set_cosmology(self, cosmo_dict, redshift=None):
+        """
+        Reset the internal cosmology to the values in cosmo_dict and 
+        re-initialize the internal splines. Optimally reset the internal
+        redshift value.
+
+        Args:
+            cosmo_dict: dictionary of floats defining a cosmology. (see
+                defaults.py for details)
+            redshift: float redshift to compute halo model.
+        """
+        if redshift==None:
+            redshift = self._redshift
+        self.cosmo_dict = cosmo_dict
+        self._redshift = redshift
+        self.cosmo = cosmology.SingleEpoch(redshift, cosmo_dict)
+        self.pert.set_cosmology_object(self.cosmo)
+        self.delta_v = self.cosmo.delta_v()
+        self.rho_bar = self.cosmo.rho_bar()
+        self._h = self.cosmo._h
+
+        self.c0 = self.halo_dict["c0"]/(1.0 + redshift)
+
+        self.mass.set_cosmology_object(self.cosmo)
+
+        self._calculate_n_bar()
+        self._initialize_halo_splines()
+
+        self._initialized_h_m = False
+        self._initialized_h_g = False
+
+        self._initialized_pp_mm = False
+        self._initialized_pp_gm = False
+        self._initialized_pp_gg = False
+        
     def trispectrum_parallelogram(self, k1, k2, z):
         """
         Return the trispectrum of the matter power spectrum given the input
@@ -854,19 +902,21 @@ class HaloTrispectrum(Halo):
         """
         ### convienience variables to caculate the mass integrals of the halos
         ### ahead of time
-        i_1_3_112 = self.i_1_3(k1, k1, k2)
-        i_1_3_221 = self.i_1_3(k2, k2, k1)
+        i_1_2_k1k2 = self._i_1_2(k1, k2)
+        i_1_3_k1k1k2 = self.i_1_3(k1, k1, k2)
+        i_1_3_k2k2k1 = self.i_1_3(k2, k2, k1)
         ### Equation representing correlations between 3 points in one halo and 
         ### one in another halo. There are 4 terms here however there are 2
         ### pairs that are identical for a parallelogram. Hence we show only 2
         ### and double the output.
-        T_31 = 2.0 * (self.pert.linear(k1) * i_1_3_221 * self.i_1_1(k1) +
-                    self.pert.linear(k2) * i_1_3_112 * self.i_1_1(k2))
+        T_31 = 2.0 * (self.pert.linear(k1) * i_1_3_k2k2k1 * self.i_1_1(k1) +
+                    self.pert.linear(k2) * i_1_3_k1k1k2 * self.i_1_1(k2))
         
-        k12 = numpy.sqrt(k1*k1 + k2*k2 + 2.0*k1*k2*z)
+        ### Need to know the length of the subtraction of our two k vectors
+        k12 = numpy.sqrt(k1*k1 + k2*k2 - 2.0*k1*k2*z)
         ### Equation for 2 sets of points in 2 distinct halos. Again there is 
         ### symetry for a parallelogram that we exploit here.
-        T_22 = 2.0*(self.pert.linear(k12) * numpy.power(self.i_1_2(k2, k3),2))
+        T_22 = 2.0*(self.pert.linear(k12) * i_1_2_k1k2 * i_1_2_k1k2)
         
         return T_31 + T_22
     
@@ -922,21 +972,19 @@ class HaloTrispectrum(Halo):
         perm_2 = (bispect_k2k2k1k1 * i_1_2_k1k1 * i_1_1_k2 * i_1_1_k2 +
                   P_k2 * P_k2 * i_2_2_k1k1 * i_1_1_k2 * i_1_1_k2)
         ### The next two permutations (taking care of the remaining 4 in
-        ### Cooray & Hu. These compoments are either dependent on the vector
-        ### k1 - k2 (perm_3) or k1 + k2. Since we are using symetric version
-        ### of all functions, we just need to compute these and double them in
-        ### the output.
-        perm_3 = (self.pert.bispectrum_len(k1, k2, lenminus, z, 
-                                           z1minus, z2minus) * 
+        ### Cooray & Hu.) These compoments are either dependent on the vector
+        ### k1 - k2 (perm_3) or k1 + k2 (perm_4). Since we are using symetric
+        ### version of all functions, we just need to compute these and double 
+        ### them in the output.
+        perm_3 = (self.pert.bispectrum_len(k1, k2, lenminus,
+                                           z, z1minus, z2minus) * 
                   i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
                   P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
-        perm_4 = (self.pert.bispectrum_len(k1, k2, lenplus, z, 
-                                           z1plus, z2plus) * 
+        perm_4 = (self.pert.bispectrum_len(k1, k2, lenplus,
+                                           z, z1plus, z2plus) * 
                   i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
                   P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
         return perm_1 + perm_2 + 2.0 * perm_3 + 2.0 * perm_4
-                  
-        
     
     def t_4_h(self, k1, k2, z):
         """
@@ -948,20 +996,21 @@ class HaloTrispectrum(Halo):
         Returns:
             float trispectrum correlation between 4 distict halos.
         """
+        ### Precompute our mass integrals for later use
         i_1_1_k1 = self._h_m(k1)
         i_1_1_k2 = self._h_m(k2)
         i_1_2_k1 = self.i_1_2(k1, k1)
         i_1_2_k2 = self.i_1_2(k2, k2)
-        
+        ### also with the linear power spectra
         P_k1 = self.linear_power(k1)
         P_k2 = self.linear_power(k2)
         
+        ### Multilpy and output (eq 23 in Cooray & Hu)
         return i_1_1_k1 * i_1_1_k1 * i_1_1_k2 * i_1_1_k2 * (
             self.pert.trispectrum_parallelogram(k1, k2, z) + 
             2.0* (i_1_2_k1 / i_1_1_k1 * P_k1 * P_k2 * P_k2 +
                   i_1_2_k2 / i_1_1_k2 * P_k2 * P_k1 * P_k1))        
         
-    
     def i_0_4(self, k1, k2, k3, k4):
         return integrate.romberg(
             self._i_0_4_integrand, numpy.log(self.mass.nu_min),
@@ -969,7 +1018,6 @@ class HaloTrispectrum(Halo):
             tol=defaults.default_precision["halo_precision"],
             args=(k1, k2, k3, k4))/(self.rho_bar*self.rho_bar*self.rho_bar)
         
-    
     def _i_0_4_integrand(self, ln_nu, k1, k2, k3, k4):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
@@ -1028,5 +1076,3 @@ class HaloTrispectrum(Halo):
         y2 = self.y(numpy.log(k2), mass)
         
         return nu*self.mass.f_nu(nu)*self.mass.bias_2_nu(nu)*y1*y2*mass
-    
-    

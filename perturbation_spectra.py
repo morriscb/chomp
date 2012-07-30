@@ -71,6 +71,18 @@ class PertTheory(object):
             cosmo_single_epoch.set_redshift(redshift)
         self.cosmo = cosmo_single_epoch
         return None
+    
+    def set_cosmology(self, cosmo_dict, redshift=None):
+        if redshift is None:
+            redshift = self._redshift
+        self.cosmo.set_cosmology(cosmo_dict, redshift)
+    
+    def set_cosmology_object(self, cosmo_single_epoch):
+        self.cosmo = cosmo_single_epoch
+    
+    def set_redshift(self, redshift):
+        self._redshift = redshift
+        self.cosmo.set_redshif(self._redshift)
 
     def Fs2(self, k1, k2):
         """

@@ -236,7 +236,7 @@ class MassFunction(object):
         return self.bias_norm*(
             1.0 + (nu - 1.0)/self.delta_c +
             2.0*self.stq/(self.delta_c*(1.0 + nu_prime**self.stq)))
-
+        
     def bias_m(self, mass):
         """
         Halo bias as a function of mass.
@@ -296,6 +296,71 @@ class MassFunction(object):
             output_file.write("%1.10f %1.10f %1.10f %1.10f\n" % (
                 numpy.exp(ln_mass), nu, self.f_nu(nu), self.bias_nu(nu)))
         output_file.close()
+        
+class MassFunctionSecondOrder(MassFunction):
+    
+    def __init__(self, redshift=0.0, cosmo_single_epoch=None, 
+                 halo_dict=None, **kws):
+        MassFunction.__init__(self, redshift, cosmo_single_epoch,
+                              halo_dict, **kws)
+        
+    def _initialize_splines(self):
+        self._nu_array = numpy.zeros_like(self._ln_mass_array)
+        self._sigma_array = numpy.zeros_like(self._ln_mass_array)
+
+        for idx in xrange(self._ln_mass_array.size):
+            mass = numpy.exp(self._ln_mass_array[idx])
+            sigma = self.cosmo.simga_m(mass)
+            self._sigma_array[idx] = sigma
+            self._nu_array[idx] = self.delta_c/sigma*self.delta_c/sigma
+
+        self.nu_min = 1.001*self._nu_array[0]
+        self.nu_max = 0.999*self._nu_array[-1]
+
+        #print "nu_min:",self.nu_min,"nu_max:",self.nu_max
+
+        self._nu_spline = InterpolatedUnivariateSpline(
+            self._ln_mass_array, self._nu_array)
+        self._ln_mass_spline = InterpolatedUnivariateSpline(
+            self._nu_array, self._ln_mass_array)
+        self._sigma_array = InterpolatedUnivariateSpline(
+            self._nu_array, self._sigma_array)
+
+        # Set M_star, the mass for which nu == 1
+        self.m_star = self.mass(1.0)
+    
+    def _normalize(self):
+        self.f_norm = 1.0
+        norm = integrate.romberg(
+            self.f_nu, self.nu_min, self.nu_max, vec_func=True,
+            tol=defaults.default_precision["mass_precision"])
+        self.f_norm = 1.0/norm
+
+        self.bias_norm = 1.0
+        norm = integrate.romberg(
+            lambda x: self.f_nu(x)*self.bias_nu(x),
+            self.nu_min, self.nu_max, vec_func=True,
+            tol=defaults.default_precision["mass_precision"])
+        self.bias_norm = 1.0/norm
+        
+        self.bias_2_norm = 1.0
+        norm = integrate.romberg(
+            lambda x: self.f_nu(x)*self.bias_2_nu(x),
+            self.nu_min, self.nu_max, vec_func=True,
+            tol=defaults.default_precision["mass_precision"])
+        self.bias_2_norm = 1.0/norm
+    
+    def bias_2_nu(self, nu):
+        sigma = self._sigma_spline(nu)
+        nu_prime = nu*self.st_little_a
+        return self.bias_2_norm * (
+            8.0/21.0 * (self.bias_nu(nu) - 1.0) + (nu - 3.0)/(sigma*sigma) +
+            2.0*self.stq/(self.delta_c*(1.0 + nu_prime**self.stq)) * (
+            2.0*self.stq + 2*nu_prime - 1.0))
+        
+    def bias_2_mass(self, mass):
+        return self.bias_2_nu(self.nu(mass))
+
 
 class TinkerMassFunction(MassFunction):
     """

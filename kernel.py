@@ -217,6 +217,8 @@ class WindowFunction(object):
                 defaults.py for details)
         """
         self.cosmo.set_cosmology(cosmo_dict, z_min, z_max)
+        self.chi_min = self.cosmo.comoving_distance(self.z_min)
+        self.chi_max = self.cosmo.comoving_distance(self.z_max)
 
         self.initialized_spline = False
 
@@ -229,12 +231,17 @@ class WindowFunction(object):
                 defaults.py for details)
         """
         #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict)
+        if cosmo_multi_epoch.z_min > self.z_min:
+            print "window_function - WARNING::Input cosmology min redshift "
+                "greater than internal z_min. Expect computations to fail."
+        if cosmo_multi_epoch.z_max < self.z_max:
+            print "window_function - WARNING::Input cosmology max redshift "
+                "less than internal z_max. Expect computations to fail."
+                    
         self.cosmo = cosmo_multi_epoch
-        self.cosmo.set_redshift(self.z_min, self.z_max)
-
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
-
+        
         self.initialized_spline = False
 
     def _initialize_spline(self):
@@ -560,8 +567,9 @@ class Kernel(object):
         """
         self.initialized_spline = False
 
-        self.window_function_a.set_cosmology(cosmo_dict)
-        self.window_function_b.set_cosmology(cosmo_dict)
+        self.cosmo.set_cosmology(cosmo_dict)
+        self.window_function_a.set_cosmology_object(self.cosmo)
+        self.window_function_b.set_cosmology_object(self.cosmo)
         
         self.chi_min = self.window_function_a.chi_min
         self.z_min = self.window_function_a.z_min
@@ -574,7 +582,6 @@ class Kernel(object):
         if self.window_function_b.chi_max > self.chi_max:
             self.chi_max = self.window_function_b.chi_max
             self.z_max = self.window_function_b.z_max
-        self.cosmo.set_cosmology(cosmo_dict)
 
         self._find_z_bar()  
 

@@ -119,7 +119,6 @@ class SingleEpoch(object):
         """
         if redshift != self._redshift:
             self._redshift = redshift
-            
             self._initialize_defaults()
 
     def set_cosmology(self, cosmo_dict, redshift=None):
