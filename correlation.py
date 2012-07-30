@@ -25,6 +25,7 @@ degToRad = numpy.pi/180.0
 
 __author__ = "Chris Morrison <morrison.chrisb@gmail.com>"
 
+
 class Correlation(object):
     """
     Bass class for correlation functions.
