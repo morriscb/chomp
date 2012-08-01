@@ -5,6 +5,7 @@ import halo
 import hod
 import kernel
 import mass_function
+import perturbation_spectra
 import numpy
 import unittest
 
@@ -280,6 +281,7 @@ class HODTest(unittest.TestCase):
              self.assertAlmostEqual(self.zheng.nth_moment(mass, 3),
                                     self.nth_moment_list[idx])
 
+
 class HaloTest(unittest.TestCase):
     
     def setUp(self):
@@ -373,6 +375,24 @@ class HaloTest(unittest.TestCase):
                                    power_gg_list[idx])
 
 
+class HaloTriSpectrumTest(unittest.TestCase):
+    
+    def setUp(self):
+        cosmo = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
+        mass = mass_function.MassFunctionSecondOrder(cosmo_single_epoch=cosmo,
+                                                     halo_dict=h_dict)
+        pert = perturbation_spectra.PerturbationTheory(
+            cosmo_single_epoch=cosmo)
+        self.h = halo.HaloTrispectrum(redshift=0.0, single_epoch_cosmo=cosmo,
+                 mass_func_second=mass, perturbation=pert, halo_dict=h_dict)
+        self.k_array = numpy.logspace(-3, 2, 4)
+        
+    def test_trispectrum(self):
+        for idx, k in enumerate(self.k_array):
+            self.assertGreater(
+                self.h.trispectrum_parallelogram(k, k, 0.0), 0.0)
+
+
 class dNdzTest(unittest.TestCase):
 
     def setUp(self):
@@ -391,6 +411,7 @@ class dNdzTest(unittest.TestCase):
                                     self.lens_dist_list[idx])
              self.assertAlmostEqual(self.source_dist.dndz(z),
                                     self.source_dist_list[idx])
+
 
 class WindowFunctionTest(unittest.TestCase):
 
@@ -447,6 +468,7 @@ class WindowFunctionTest(unittest.TestCase):
                 numpy.where(self.source_window.window_function(z) > 0.0,
                             numpy.log(self.source_window.window_function(z)),
                             0.0), source_window_list[idx])
+
 
 class KenrelTest(unittest.TestCase):
 

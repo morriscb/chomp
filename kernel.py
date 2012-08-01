@@ -232,11 +232,11 @@ class WindowFunction(object):
         """
         #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict)
         if cosmo_multi_epoch.z_min > self.z_min:
-            print "window_function - WARNING::Input cosmology min redshift "
-                "greater than internal z_min. Expect computations to fail."
+            print ("window_function - WARNING::Input cosmology min redshift "
+                   "greater than internal z_min. Expect computations to fail.")
         if cosmo_multi_epoch.z_max < self.z_max:
-            print "window_function - WARNING::Input cosmology max redshift "
-                "less than internal z_max. Expect computations to fail."
+            print ("window_function - WARNING::Input cosmology max redshift "
+                   "less than internal z_max. Expect computations to fail.")
                     
         self.cosmo = cosmo_multi_epoch
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
@@ -275,7 +275,7 @@ class WindowFunction(object):
             self._initialize_spline()
 
         return numpy.where(numpy.logical_and(chi <= self.chi_max,
-                                             chi >= self.chi_min),
+                                             chi > self.chi_min),
                            self._wf_spline(chi), 0.0)
 
     def write(self, output_file_name):
@@ -365,18 +365,24 @@ class WindowFunctionConvergence(WindowFunction):
                 chi_bound = value
                 if chi_bound < self._g_chi_min: chi_bound = self._g_chi_min
 
-                g_chi[idx] = integrate.romberg(
-                    self._lensing_integrand, chi_bound,
-                    self.chi_max, args=(value,), vec_func=True,
-                    tol=defaults.default_precision["window_precision"])
+                if value <= defaults.default_precision["window_precision"]:
+                    g_chi[idx] = 0.0;
+                else:
+                    g_chi[idx] = integrate.romberg(
+                        self._lensing_integrand, chi_bound,
+                        self.chi_max, args=(value,), vec_func=True,
+                        tol=defaults.default_precision["window_precision"])
         except TypeError:
             chi_bound = chi
             if chi_bound < self._g_chi_min: chi_bound = self._g_chi_min
 
-            g_chi = integrate.romberg(
-                self._lensing_integrand, chi_bound,
-                self.chi_max, args=(chi,), vec_func=True,
-                tol=defaults.default_precision["window_precision"])
+            if chi_bound <= defaults.default_precision["window_precision"]:
+                g_chi = 0.0;
+            else:
+                g_chi = integrate.romberg(
+                    self._lensing_integrand, chi_bound,
+                    self.chi_max, args=(chi,), vec_func=True,
+                    tol=defaults.default_precision["window_precision"])
 
         g_chi *= self.cosmo.H0*self.cosmo.H0*chi
 

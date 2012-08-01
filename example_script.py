@@ -22,7 +22,7 @@ degToRad = numpy.pi/180.0 # define conversion from degrees to radians
 ### Specify a dictionary defining the properties of a cosmology. Details on
 ### on each variable can be found in defaults.py
 cosmo_dict = {
-    "omega_m0": 0.3,
+    "omega_m0": 0.3 - 4.15e-5/0.7**2,
     "omega_b0": 0.046,
     "omega_l0": 0.7,
     "omega_r0": 4.15e-5/0.7**2,
@@ -97,6 +97,8 @@ source_dist = kernel.dNdzGaussian(0.0, 2.0, 1.0, 0.2)
 ### window function (for the sources).
 lens_window = kernel.WindowFunctionGalaxy(lens_dist, cosmo_multi)
 source_window = kernel.WindowFunctionConvergence(source_dist, cosmo_multi)
+lens_window.write('test_lens_window.ascii')
+source_window.write('test_source_window.ascii')
 
 ### Now we need to create the kernel object that will compute the projection
 ### over redshift for us and also compute the peak redshift sensitivity of the
@@ -110,6 +112,7 @@ con_kernel = kernel.Kernel(ktheta_min=0.001*0.001*degToRad,
                            window_function_a=lens_window,
                            window_function_b=source_window,
                            cosmo_multi_epoch=cosmo_multi)
+con_kernel.write('test_kernel.ascii')
 
 ### Finally we define and run our correlation function, writing the results out
 ### to test_corr.ascii. Correlation does the job of defining the k space

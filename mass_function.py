@@ -310,7 +310,7 @@ class MassFunctionSecondOrder(MassFunction):
 
         for idx in xrange(self._ln_mass_array.size):
             mass = numpy.exp(self._ln_mass_array[idx])
-            sigma = self.cosmo.simga_m(mass)
+            sigma = self.cosmo.sigma_m(mass)
             self._sigma_array[idx] = sigma
             self._nu_array[idx] = self.delta_c/sigma*self.delta_c/sigma
 
@@ -323,7 +323,7 @@ class MassFunctionSecondOrder(MassFunction):
             self._ln_mass_array, self._nu_array)
         self._ln_mass_spline = InterpolatedUnivariateSpline(
             self._nu_array, self._ln_mass_array)
-        self._sigma_array = InterpolatedUnivariateSpline(
+        self._sigma_spline = InterpolatedUnivariateSpline(
             self._nu_array, self._sigma_array)
 
         # Set M_star, the mass for which nu == 1
@@ -343,17 +343,17 @@ class MassFunctionSecondOrder(MassFunction):
             tol=defaults.default_precision["mass_precision"])
         self.bias_norm = 1.0/norm
         
-        self.bias_2_norm = 1.0
+        self.bias_2_norm = 0.0
         norm = integrate.romberg(
             lambda x: self.f_nu(x)*self.bias_2_nu(x),
             self.nu_min, self.nu_max, vec_func=True,
             tol=defaults.default_precision["mass_precision"])
-        self.bias_2_norm = 1.0/norm
+        self.bias_2_norm = -norm
     
     def bias_2_nu(self, nu):
         sigma = self._sigma_spline(nu)
         nu_prime = nu*self.st_little_a
-        return self.bias_2_norm * (
+        return self.bias_2_norm + (
             8.0/21.0 * (self.bias_nu(nu) - 1.0) + (nu - 3.0)/(sigma*sigma) +
             2.0*self.stq/(self.delta_c*(1.0 + nu_prime**self.stq)) * (
             2.0*self.stq + 2*nu_prime - 1.0))

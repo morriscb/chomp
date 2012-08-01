@@ -56,7 +56,7 @@ def gamma_BCGS(k1, k2):
         return 1 - (numpy.vdot(k1, k2)) ** 2 / (k1a * k2a)
 
 
-class PertTheory(object):
+class PerturbationTheory(object):
     """
     Bispectrum and trispectrum from perturbation theory
     """

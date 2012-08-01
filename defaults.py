@@ -4,7 +4,7 @@ the precision of all modules within the code.
 """
 ### parameters specifying a cosmology.
 default_cosmo_dict = {
-    "omega_m0": 0.278, ### total matter density at z=0
+    "omega_m0": 0.278-4.15e-5/0.7**2, ### total matter density at z=0
     "omega_b0": 0.046, ### baryon density at z=0
     "omega_l0": 0.722, ### dark energy density at z=0
     "omega_r0": 4.15e-5/0.7**2, ### radiation density at z=0
