@@ -99,16 +99,15 @@ class PerturbationTheory(object):
         else:
             rat = d / (k1a * k2a)
             res = ((5. / 7. + (rat / 2.) * (k1a / k2a + k2a / k1a) + 
-                   (2. / 7.) * rat ** 2))
+                   (2. / 7.) * rat * rat))
         return res
     
     def Fs2_len(self, k1, k2, z):
         if k1 < 1.e-8 or k1 < 1.e-8:
             res = 5. / 7.
         else:
-            rat = k1 * k2 * z / (k1 * k2)
-            res = ((5. / 7. + (rat / 2.) * (k1 / k2 + k2 / k1) + 
-                   (2. / 7.) * rat ** 2))
+            res = ((5. / 7. + (z / 2.) * (k1 / k2 + k2 / k1) + 
+                   (2. / 7.) * z * z))
         return res
 
     def Fs2_parallelogram(self, k1, mu):
@@ -122,7 +121,7 @@ class PerturbationTheory(object):
         Returns:
             Fs2 evaluated for the special arguments k1, -k1
         """
-        return (5. / 7.) + mu + (2. / 7.) * mu ** 2
+        return (5. / 7.) + mu + (2. / 7.) * mu * mu
 
     def Fs3(self, k1, k2, k3):
         """

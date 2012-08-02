@@ -817,7 +817,7 @@ class HaloTrispectrum(Halo):
         
     """
     
-    def __init__(self, redshift=0, single_epoch_cosmo=None,
+    def __init__(self, redshift=0.0, single_epoch_cosmo=None,
                  mass_func_second=None, perturbation=None, halo_dict=None):
         self.pert = perturbation
         Halo.__init__(self, redshift, None, single_epoch_cosmo,
@@ -916,6 +916,7 @@ class HaloTrispectrum(Halo):
         i_1_2_k1k2 = self.i_1_2(k1, k2)
         i_1_3_k1k1k2 = self.i_1_3(k1, k1, k2)
         i_1_3_k2k2k1 = self.i_1_3(k2, k2, k1)
+        
         ### Equation representing correlations between 3 points in one halo and 
         ### one in another halo. There are 4 terms here however there are 2
         ### pairs that are identical for a parallelogram. Hence we show only 2
@@ -926,10 +927,12 @@ class HaloTrispectrum(Halo):
                       i_1_3_k1k1k2 * self.i_1_1(k2))
         
         ### Need to know the length of the subtraction of our two k vectors
-        k12 = numpy.sqrt(k1*k1 + k2*k2 - 2.0*k1*k2*z)
+        k1m2 = numpy.sqrt(k1*k1 + k2*k2 - 2.0*k1*k2*z)
+        k1p2 = numpy.sqrt(k1*k1 + k2*k2 + 2.0*k1*k2*z)
         ### Equation for 2 sets of points in 2 distinct halos. Again there is 
         ### symetry for a parallelogram that we exploit here.
-        T_22 = 2.0*(self.cosmo.linear_power(k12) * i_1_2_k1k2 * i_1_2_k1k2)
+        T_22 =  i_1_2_k1k2 * i_1_2_k1k2 * (
+            self.cosmo.linear_power(k1m2) + self.cosmo.linear_power(k1p2))
         
         return T_31 + T_22
     
@@ -950,11 +953,11 @@ class HaloTrispectrum(Halo):
         ### time.
         i_1_1_k1 = self._h_m(k1)
         i_1_1_k2 = self._h_m(k2)
-        i_1_2_k1k2 = self.i_1_2(k1, k2)
         i_1_2_k1 = self.i_1_2(k1, k1)
         i_1_2_k2 = self.i_1_2(k2, k2)
-        i_2_2_k1k1 = self.i_2_2(k1, k1)
-        i_2_2_k2k2 = self.i_2_2(k2, k2)
+        i_1_2_k1k2 = self.i_1_2(k1, k2)
+        i_2_2_k1 = self.i_2_2(k1, k1)
+        i_2_2_k2 = self.i_2_2(k2, k2)
         i_2_2_k1k2 = self.i_2_2(k1, k2)
         
         ### We are going to need the linear power spectrum several times over
@@ -968,38 +971,55 @@ class HaloTrispectrum(Halo):
         lenminus = numpy.sqrt(k1 * k1 - 2.0 * k1 * k2 * z + k2 * k2)
         z1plus = (k1 * k1 + k1 * k2 * z)/(k1 * lenplus)
         z2plus = (k2 * k2 + k1 * k2 * z)/(k2 * lenplus)
-        z1minus = (k1 * k1 - k1 * k2 * z)/(k1 * lenplus)
-        z2minus = (k2 * k2 - k1 * k2 * z)/(k2 * lenplus)
+        z1minus = (k1 * k1 - k1 * k2 * z)/(k1 * lenminus)
+        z2minus = (k2 * k2 - k1 * k2 * z)/(k2 * lenminus)
         
-        ### To keep things a bit clearer we compute the bispectrum for the case
-        ### where the third input to the bispectrum is a zero length vector.
-        ### as such we have these simplified versions.
-        bispect_k1k1k2k2 = 2.0 * (
-            self.pert.Fs2_len(k1, k1, 1.0)) * P_k1 * P_k1
-        bispect_k2k2k1k1 = 2.0 * (
-            self.pert.Fs2_len(k2, k2, 1.0)) * P_k2 * P_k2
         
-        ### The first 2 permutations use the above as they have wavevector
-        ### compoments that are k1 - k1 and are thus simplier and a bit unique.
-        perm_1 = (bispect_k1k1k2k2 * i_1_2_k2 * i_1_1_k1 * i_1_1_k1 +
-                  P_k1 * P_k1 * i_2_2_k2k2 * i_1_1_k1 * i_1_1_k1)
-        perm_2 = (bispect_k2k2k1k1 * i_1_2_k1 * i_1_1_k2 * i_1_1_k2 +
-                  P_k2 * P_k2 * i_2_2_k1k1 * i_1_1_k2 * i_1_1_k2)
+        ### Since we are dealing only with parallelograms terms in the
+        ### bispectrum with Bi(K, -K, 0) are identically zero elimitinating the
+        ### bispectrum compoment 
+        perm_1 = P_k1 * P_k1 * i_2_2_k2 * i_1_1_k1 * i_1_1_k1
+        perm_2 = P_k2 * P_k2 * i_2_2_k1 * i_1_1_k2 * i_1_1_k2
+        ### For the remaing compments there are 2 pairs of iditical compoments
+        ### for plus and minus pairins of k1, k2
+        ### Originally this term is +-- in z
+        perm_3 = (self.pert.bispectrum_len(k1, k2, lenplus,
+                                           z, -z1plus, -z2plus) *
+                  i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
+                  P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
+        ### Originally this term is ---
+        perm_4 = (self.pert.bispectrum_len(k1, k2, lenminus,
+                                           -z, -z1minus, -z2minus) *
+                  i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
+                  P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
+        return perm_1 + perm_2 + 2.0 * (perm_3 + perm_4)
+        
+        ### OLD VERSION:: KEEPING IT AROUND FOR NOW
+       
+        # bispect_k1k1k2k2 = 2.0 * (
+        #     self.pert.Fs2_len(k1, k1, 1.0)) * P_k1 * P_k1
+        # bispect_k2k2k1k1 = 2.0 * (
+        #     self.pert.Fs2_len(k2, k2, 1.0)) * P_k2 * P_k2
+        
+        # perm_1 = (bispect_k1k1k2k2 * i_1_2_k2 * i_1_1_k1 * i_1_1_k1 +
+        #           P_k1 * P_k1 * i_2_2_k2 * i_1_1_k1 * i_1_1_k1)
+        # perm_2 = (bispect_k2k2k1k1 * i_1_2_k1 * i_1_1_k2 * i_1_1_k2 +
+        #           P_k2 * P_k2 * i_2_2_k1 * i_1_1_k2 * i_1_1_k2)
         
         ### The next two permutations (taking care of the remaining 4 in
         ### Cooray & Hu.) These compoments are either dependent on the vector
         ### k1 - k2 (perm_3) or k1 + k2 (perm_4). Since we are using symetric
         ### version of all functions, we just need to compute these and double 
         ### them in the output.
-        perm_3 = (self.pert.bispectrum_len(k1, k2, lenminus,
-                                           z, z1minus, z2minus) * 
-                  i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
-                  P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
-        perm_4 = (self.pert.bispectrum_len(k1, k2, lenplus,
-                                           z, z1plus, z2plus) * 
-                  i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
-                  P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
-        return perm_1 + perm_2 + 2.0 * perm_3 + 2.0 * perm_4
+        # perm_3 = (self.pert.bispectrum_len(k1, k2, lenminus,
+        #                                    z, z1minus, z2minus) * 
+        #           i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
+        #           P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
+        # perm_4 = (self.pert.bispectrum_len(k1, k2, lenplus,
+        #                                    z, z1plus, z2plus) * 
+        #           i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
+        #           P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
+        # return perm_1 + perm_2 + 2.0 * perm_3 + 2.0 * perm_4
     
     def t_4_h(self, k1, k2, z):
         """
@@ -1023,10 +1043,10 @@ class HaloTrispectrum(Halo):
         
         ### Multilpy and output (eq 23 in Cooray & Hu)
         return i_1_1_k1 * i_1_1_k1 * i_1_1_k2 * i_1_1_k2 * (
-            self.pert.trispectrum_parallelogram(k1, k2, z) + 
-            2.0* (i_1_2_k1 / i_1_1_k1 * P_k1 * P_k2 * P_k2 +
-                  i_1_2_k2 / i_1_1_k2 * P_k2 * P_k1 * P_k1))        
-        
+           self.pert.trispectrum_parallelogram(k1, k2, z) + 
+           2.0 * (i_1_2_k1 / i_1_1_k1 * P_k1 * P_k2 * P_k2 +
+                  i_1_2_k2 / i_1_1_k2 * P_k2 * P_k1 * P_k1))      
+         
     def i_0_4(self, k1, k2, k3, k4):
         """
         Integral over mass for 4 points contained within a single halo. Since
@@ -1051,7 +1071,7 @@ class HaloTrispectrum(Halo):
         y3 = self.y(numpy.log(k3), mass)
         y4 = self.y(numpy.log(k4), mass)
 
-        return nu*self.mass.f_nu(nu)*mass*mass*mass*y1*y2*y3*y4
+        return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass
     
     def i_1_1(self, k):
         """
@@ -1081,7 +1101,7 @@ class HaloTrispectrum(Halo):
             self._i_1_2_integrand, numpy.log(self.mass.nu_min),
             numpy.log(self.mass.nu_max), vec_func=True,
             tol=defaults.default_precision["halo_precision"],
-            args=(k1, k2))/self.rho_bar
+            args=(k1, k2))/(self.rho_bar)
     
     def _i_1_2_integrand(self, ln_nu, k1, k2):
         nu = numpy.exp(ln_nu)
@@ -1117,7 +1137,7 @@ class HaloTrispectrum(Halo):
                 
     def i_2_2(self, k1, k2):
         """
-        Integral over the mass and the second order bias bias for 2 points 
+        Integral over the mass and the second order bias for 2 points 
         within a halo.
         
         Args:
@@ -1129,7 +1149,7 @@ class HaloTrispectrum(Halo):
             self._i_2_2_integrand, numpy.log(self.mass.nu_min),
             numpy.log(self.mass.nu_max), vec_func=True,
             tol=defaults.default_precision["halo_precision"],
-            args=(k1, k2))/self.rho_bar
+            args=(k1, k2))/(self.rho_bar)
     
     def _i_2_2_integrand(self, ln_nu, k1, k2):
         nu = numpy.exp(ln_nu)

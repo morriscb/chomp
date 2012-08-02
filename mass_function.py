@@ -355,7 +355,7 @@ class MassFunctionSecondOrder(MassFunction):
         nu_prime = nu*self.st_little_a
         return self.bias_2_norm + (
             8.0/21.0 * (self.bias_nu(nu) - 1.0) + (nu - 3.0)/(sigma*sigma) +
-            2.0*self.stq/(self.delta_c*(1.0 + nu_prime**self.stq)) * (
+            2.0*self.stq/(self.delta_c**2 *(1.0 + nu_prime**self.stq)) * (
             2.0*self.stq + 2*nu_prime - 1.0))
         
     def bias_2_mass(self, mass):
