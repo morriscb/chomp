@@ -36,7 +36,7 @@ default_halo_dict = {
 ### instead of changing these variables, the integration method quad in
 ### scipy is used.
 default_precision = {
-    "corr_npoints": 25,
+    "corr_npoints": 50,
     "corr_precision":1.48e-8,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
@@ -45,11 +45,11 @@ default_precision = {
     "halo_precision": 1.48e-8,
     "halo_limit" : 100,
     "kernel_npoints": 50,
-    "kernel_precision": 1.48e-16,
+    "kernel_precision": 1.48e-8,
     "kernel_limit": 100, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
                          ### integration
-    "kernel_bessel_limit": 32, ### Defines how many zeros before cutting off
+    "kernel_bessel_limit": 4, ### Defines how many zeros before cutting off
                                ### the Bessel function in kernel.py
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,

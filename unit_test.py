@@ -2,6 +2,7 @@ import cosmology
 import correlation
 import defaults
 import halo
+import halo_trispectrum
 import hod
 import kernel
 import mass_function
@@ -11,26 +12,27 @@ import unittest
 
 ### In order for the unittests to work correctly, these are the assumed
 ### precision values of the code.
-defaults.default_precision = {
+default_precision = {
     "corr_npoints": 25,
     "corr_precision":1.48e-8,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
-    "dNdz_precision": 1.48e-16,
+    "dNdz_precision": 1.48e-8,
     "halo_npoints": 50,
-    "halo_precision": 1.48-8,
+    "halo_precision": 1.48e-8,
     "halo_limit" : 100,
-    "kernel_npoints": 200,
-    "kernel_precision": 1.48e-16,
+    "kernel_npoints": 50,
+    "kernel_precision": 1.48e-8,
     "kernel_limit": 200, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
                          ### integration
-    "kernel_bessel_limit": 32, ### Defines how many zeros before cutting off the
-                               ### bessel function in kernel.py
+    "kernel_bessel_limit": 8, ### Defines how many zeros before cutting off
+                               ### the Bessel function in kernel.py
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,
     "window_npoints": 50,
-    "window_precision": 1.48e-16
+    "window_precision": 1.48e-8,
+    "divmax":20
     }
 
 ### Fix cosmology used in the module in case the user changes the default
@@ -374,23 +376,24 @@ class HaloTest(unittest.TestCase):
             self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
                                    power_gg_list[idx])
 
-
-class HaloTriSpectrumTest(unittest.TestCase):
-    
-    def setUp(self):
-        cosmo = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
-        mass = mass_function.MassFunctionSecondOrder(cosmo_single_epoch=cosmo,
-                                                     halo_dict=h_dict)
-        pert = perturbation_spectra.PerturbationTheory(
-            cosmo_single_epoch=cosmo)
-        self.h = halo.HaloTrispectrum(redshift=0.0, single_epoch_cosmo=cosmo,
-                 mass_func_second=mass, perturbation=pert, halo_dict=h_dict)
-        self.k_array = numpy.logspace(-3, 2, 4)
-        
-    def test_trispectrum(self):
-        for idx, k in enumerate(self.k_array):
-            self.assertGreater(
-                self.h.trispectrum_parallelogram(k, k, 0.0), 0.0)
+### Commented out currently as it is a future feature not yet mature.
+# class HaloTriSpectrumTest(unittest.TestCase):
+#    
+#     def setUp(self):
+#        cosmo = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
+#         mass = mass_function.MassFunctionSecondOrder(cosmo_single_epoch=cosmo,
+#                                                     halo_dict=h_dict)
+#         pert = perturbation_spectra.PerturbationTheory(
+#            cosmo_single_epoch=cosmo)
+#         self.h = halo_trispectrum.HaloTrispectrum(
+#             redshift=0.0, single_epoch_cosmo=cosmo,
+#             mass_func_second=mass, perturbation=pert, halo_dict=h_dict)
+#         self.k_array = numpy.logspace(-3, 2, 4)
+#         
+#     def test_trispectrum(self):
+#         for idx, k in enumerate(self.k_array):
+#             self.assertGreater(
+#                 self.h.trispectrum_parallelogram(k, k, 0.0), 0.0)
 
 
 class dNdzTest(unittest.TestCase):

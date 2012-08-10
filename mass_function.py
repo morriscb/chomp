@@ -188,14 +188,16 @@ class MassFunction(object):
         self.f_norm = 1.0
         norm = integrate.romberg(
             self.f_nu, self.nu_min, self.nu_max, vec_func=True,
-            tol=defaults.default_precision["mass_precision"])
+            tol=defaults.default_precision["mass_precision"],
+            divmax=defaults.default_precision["divmax"])
         self.f_norm = 1.0/norm
 
         self.bias_norm = 1.0
         norm = integrate.romberg(
             lambda x: self.f_nu(x)*self.bias_nu(x),
             self.nu_min, self.nu_max, vec_func=True,
-            tol=defaults.default_precision["mass_precision"])
+            tol=defaults.default_precision["mass_precision"],
+            divmax=defaults.default_precision["divmax"])
         self.bias_norm = 1.0/norm
 
     def f_nu(self, nu):
@@ -333,21 +335,24 @@ class MassFunctionSecondOrder(MassFunction):
         self.f_norm = 1.0
         norm = integrate.romberg(
             self.f_nu, self.nu_min, self.nu_max, vec_func=True,
-            tol=defaults.default_precision["mass_precision"])
+            tol=defaults.default_precision["mass_precision"],
+            divmax=defaults.default_precision["divmax"])
         self.f_norm = 1.0/norm
 
         self.bias_norm = 1.0
         norm = integrate.romberg(
             lambda x: self.f_nu(x)*self.bias_nu(x),
             self.nu_min, self.nu_max, vec_func=True,
-            tol=defaults.default_precision["mass_precision"])
+            tol=defaults.default_precision["mass_precision"],
+            divmax=defaults.default_precision["divmax"])
         self.bias_norm = 1.0/norm
         
         self.bias_2_norm = 0.0
         norm = integrate.romberg(
             lambda x: self.f_nu(x)*self.bias_2_nu(x),
             self.nu_min, self.nu_max, vec_func=True,
-            tol=defaults.default_precision["mass_precision"])
+            tol=defaults.default_precision["mass_precision"],
+            divmax=defaults.default_precision["divmax"])
         self.bias_2_norm = -norm
     
     def bias_2_nu(self, nu):

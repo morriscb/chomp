@@ -4,8 +4,10 @@ import halo
 import hod
 import kernel
 import numpy
+from numpy import vectorize
 from scipy import special
 from scipy import integrate
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 """
 Classes describing different correlation functions.
@@ -163,7 +165,8 @@ class Correlation(object):
         wtheta = integrate.romberg(
             self._correlation_integrand, 
             ln_kmin, ln_kmax, args=(theta,), vec_func=True,
-            tol=defaults.default_precision["corr_precision"])
+            tol=defaults.default_precision["corr_precision"],
+            divmax=defaults.default_precision["divmax"])
         return wtheta
 
     def _correlation_integrand(self, ln_k, theta):
@@ -186,3 +189,106 @@ class Correlation(object):
             self.theta_array, self.wtheta_array):
             f.write("%1.10f %1.10f\n" % (theta/degToRad, wtheta))
         f.close()
+        
+class Covariance(Correlation):
+    """
+    Inherited class to compute the covariance matrix between theta_a and thata_b
+    given input kernel and halo trispectrum objects. This class can be used to
+    estimate the covariance between different estimators as a function.
+
+    Attributes:
+        theta_min: minimum angular extent in radians
+        theta_max: maximum angular extent in radians
+        input_kernel: KernelTrispectrum object from kernel.py
+        input_halo: HaloTrispectrum object from halo.py
+        input_hod: HOD object from hod.py
+        
+        theta_array: array of theta values for computed correlation function
+        wcovar_array: array of computed covariance values at theta_array values
+    """
+
+    def __init__(self, theta_min, theta_max, input_kernel_trispectrum,
+                 input_halo_trispectrum=None, **kws):
+
+        self.log_theta_min = numpy.log10(theta_min)
+        self.log_theta_max = numpy.log10(theta_max)
+        self.theta_array = numpy.logspace(
+            self.log_theta_min, self.log_theta_max,
+            defaults.default_precision["corr_npoints"])
+        if theta_min==theta_max:
+            self.log_theta_min = numpy.log10(theta_min)
+            self.log_theta_max = numpy.log10(theta_min)
+            self.theta_array = numpy.array([theta_min])
+        self.wcovar_array = numpy.zeros(self.theta_array.size)
+
+        self.kernel = input_kernel_trispectrum
+
+        self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
+                      
+        self.halo = input_halo_trispectrum
+        self.halo.set_redshift(self.kernel.z_bar)
+        
+        self.ln_k_min = self.halo._k_min
+        self.ln_k_max = self.halo._k_max
+        
+        self._current_theta_a = -1.0
+        self._current_theta_b = -1.0
+        
+    def covariance(self, theta_a, theta_b):
+        self._initialize_kb_spline(theta_a, theta_b)
+        return 1.0/(2.0*numpy.pi)*integrate.romberg(
+           self._ka_integrand, self.ln_k_min, self.ln_k_max,
+           args=(theta_a, theta_b), vec_func=True,
+            tol=defaults.default_precision["corr_precision"],
+            divmax=defaults.default_precision["divmax"])
+        
+    def _ka_integrand(self, ln_ka, theta_a, theta_b):
+        dln_ka = 1.0
+        ka = numpy.exp(ln_ka)
+        dka = ka*dln_ka
+        return dka*ka*self._kb_integral(ka, theta_a, theta_b)
+    
+    def _initialize_kb_spline(self, theta_a, theta_b):
+        if (self._current_theta_a == theta_a and
+            self._current_theta_a == theta_b):
+            return None
+        k_array = numpy.logspace(
+            -3, 2,defaults.default_precision["corr_npoints"])
+        _kb_int_array = numpy.empty(k_array.shape)
+        
+        for idx, k in enumerate(k_array):
+            _kb_int_array[idx] = self._kb_integral(k, theta_a, theta_b)
+            
+        self._kb_spline = InterpolatedUnivariateSpline(
+            numpy.log(k_array), _kb_int_array)
+    
+    def _kb_integral(self, ka, theta_a, theta_b):
+        if type(ka) == numpy.ndarray:
+            kb_int = numpy.empty(ka.shape)
+            for idx, k in enumerate(ka):
+                kb_int[idx] = 1.0/(2.0*numpy.pi)*integrate.romberg(
+                    self._kb_integrand, self.ln_k_min, self.ln_k_max,
+                    args=(ka, theta_a, theta_b), vec_func=True,
+                    tol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])
+            return kb_int
+        return 1.0/(2.0*numpy.pi)*integrate.romberg(
+           self._kb_integrand, self.ln_k_min, self.ln_k_max,
+           args=(ka, theta_a, theta_b), vec_func=True,
+           tol=defaults.default_precision["corr_precision"],
+           divmax=defaults.default_precision["divmax"])
+    
+    def _kb_integrand(self, ln_kb, ka, theta_a, theta_b):
+        dln_kb = 1.0
+        kb = numpy.exp(ln_kb)
+        dkb = kb*dln_kb
+        return (dkb*kb*self.halo.trispectrum_projected(ka, kb)/(
+            self.D_z*self.D_z*self.D_z*self.D_z)*
+            self.kernel.kernel(numpy.log(ka*theta_a),
+                               numpy.log(kb*theta_b))[0])
+        
+    def correlation(self, theta):
+        pass
+
+    def _correlation_integrand(self, ln_k, theta):
+        pass

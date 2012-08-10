@@ -4,6 +4,7 @@ import numpy
 from scipy import integrate
 from scipy import special
 from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.interpolate import RectBivariateSpline
 
 """This is a set of classes for constructing an angular correlation kernel.
 
@@ -42,7 +43,8 @@ class dNdz(object):
         """
         norm = integrate.romberg(
             self.dndz, self.z_min, self.z_max, vec_func=True,
-            tol=defaults.default_precision["dNdz_precision"])
+            tol=defaults.default_precision["dNdz_precision"],
+            divmax=defaults.default_precision["divmax"])
 
         self.norm = 1.0/norm
 
@@ -371,7 +373,8 @@ class WindowFunctionConvergence(WindowFunction):
                     g_chi[idx] = integrate.romberg(
                         self._lensing_integrand, chi_bound,
                         self.chi_max, args=(value,), vec_func=True,
-                        tol=defaults.default_precision["window_precision"])
+                        tol=defaults.default_precision["window_precision"],
+                        divmax=defaults.default_precision["divmax"])
         except TypeError:
             chi_bound = chi
             if chi_bound < self._g_chi_min: chi_bound = self._g_chi_min
@@ -382,7 +385,8 @@ class WindowFunctionConvergence(WindowFunction):
                 g_chi = integrate.romberg(
                     self._lensing_integrand, chi_bound,
                     self.chi_max, args=(chi,), vec_func=True,
-                    tol=defaults.default_precision["window_precision"])
+                    tol=defaults.default_precision["window_precision"],
+                    divmax=defaults.default_precision["divmax"])
 
         g_chi *= self.cosmo.H0*self.cosmo.H0*chi
 
@@ -504,13 +508,10 @@ class Kernel(object):
         self.window_function_a = window_function_a
         self.window_function_b = window_function_b
 
-        self.z_min = self.window_function_a.z_min
-        if self.window_function_b.z_min < self.z_min:
-            self.z_min = self.window_function_b.z_min
-
-        self.z_max = self.window_function_a.z_max
-        if self.window_function_b.z_max > self.z_max:
-            self.z_max = self.window_function_b.z_max
+        self.z_min = numpy.max([self.window_function_a.z_min,
+                                self.window_function_b.z_min])
+        self.z_max = numpy.min([self.window_function_a.z_max,
+                                self.window_function_b.z_max])
 
         if cosmo_multi_epoch is None:
             cosmo_multi_epoch = cosmology.MultiEpoch(
@@ -520,19 +521,15 @@ class Kernel(object):
         self.window_function_a.set_cosmology_object(self.cosmo)
         self.window_function_b.set_cosmology_object(self.cosmo)
 
-        self.chi_min = self.window_function_a.chi_min
-        if self.window_function_b.chi_min < self.chi_min:
-            self.chi_min = self.window_function_b.chi_min
-
-        self.chi_max = self.window_function_a.chi_max
-        if self.window_function_b.chi_max > self.chi_max:
-            self.chi_max = self.window_function_b.chi_max
+        self.chi_min = self.cosmo.comoving_distance(self.z_min)
+        self.chi_max = self.cosmo.comoving_distance(self.z_max)
 
         self._window_norm = integrate.romberg(
             lambda chi: (self.window_function_a.window_function(chi)*
                          self.window_function_b.window_function(chi)),
             self.chi_min, self.chi_max, vec_func=True,
-            tol=defaults.default_precision["kernel_precision"])
+            tol=defaults.default_precision["kernel_precision"],
+            divmax=defaults.default_precision["divmax"])
         
         self._ln_ktheta_array = numpy.linspace(
             self.ln_ktheta_min, self.ln_ktheta_max,
@@ -577,17 +574,8 @@ class Kernel(object):
         self.window_function_a.set_cosmology_object(self.cosmo)
         self.window_function_b.set_cosmology_object(self.cosmo)
         
-        self.chi_min = self.window_function_a.chi_min
-        self.z_min = self.window_function_a.z_min
-        if self.window_function_b.chi_min < self.chi_min:
-            self.chi_min = self.window_function_b.chi_min
-            self.z_min = self.window_function_b.z_min
-
-        self.chi_max = self.window_function_a.chi_max
-        self.z_max = self.window_function_a.z_max
-        if self.window_function_b.chi_max > self.chi_max:
-            self.chi_max = self.window_function_b.chi_max
-            self.z_max = self.window_function_b.z_max
+        self.chi_min = self.cosmo.comoving_distance(self.z_min)
+        self.chi_max = self.cosmo.comoving_distance(self.z_max)
 
         self._find_z_bar()  
 
@@ -615,7 +603,8 @@ class Kernel(object):
             kernel = integrate.romberg(
                 self._kernel_integrand, self.chi_min,
                 self.chi_max, args=(ktheta,), vec_func=True,
-                tol=defaults.default_precision["kernel_precision"])
+                tol=defaults.default_precision["kernel_precision"],
+                divmax=defaults.default_precision["divmax"])
             return kernel
 
     def _kernel_integrand(self, chi, ktheta):
@@ -660,7 +649,8 @@ class Kernel(object):
                          self.window_function_a.window_function(chi)*
                          self.window_function_b.window_function(chi)),
             self.chi_min, self.chi_max, vec_func=True,
-            tol=defaults.default_precision["kernel_precision"])
+            tol=defaults.default_precision["kernel_precision"],
+            divmax=defaults.default_precision["divmax"])
 
         return mean/self._window_norm
 
@@ -728,7 +718,8 @@ class GalaxyGalaxyLensingKernel(Kernel):
             kernel = integrate.romberg(
                 self._kernel_integrand_j2, self.chi_min,
                 chi_max, args=(ktheta,), vec_func=True,
-                tol=defaults.default_precision["kernel_precision"])
+                tol=defaults.default_precision["kernel_precision"],
+                divmax=defaults.default_precision["divmax"])
             return kernel
 
     def _kernel_integrand_j2(self, chi, ktheta):
@@ -738,3 +729,240 @@ class GalaxyGalaxyLensingKernel(Kernel):
         return (self.window_function_a.window_function(chi)*
                 self.window_function_b.window_function(chi)*
                 D_z*D_z*special.jn(2, ktheta*chi))
+        
+        
+class KernelTrispectrum(Kernel):
+    """
+    Inherited class from Kernel defining the redshift integral over the various
+    redshift dependent window functions. We also include in this integral the
+    Bessel functions. The of the kernel gives the fouier transform of the
+    coveriance matrix between two probes at two k scales. The probes
+    (clustering, cosmic shear, magnification, etc.) are refered a and b and
+    their kernels are a1 a2.
+    
+    K(k_a, k_b, theta_a, theta_b) = 4pi^2*int(0, inf, D^4(chi)*
+        W_a1(chi)*W_a2(chi)*W_b1(chi)*W_b2*
+        J_0(k_a*theta_a*chi)*J_0(k_b*theta_b*chi))
+                            
+    In addition to providing the kernel function, a kernel object also
+    calculates z_bar, the peak in the kernel redshift sensitivity.
+
+    Args:
+        ktheta_min: float k*theta minimum value for the kernel
+        ktheta_min: float k*theta maximum value for the kernel
+        window_function_a1: first window function for kernel
+        window_function_a2: second window function for kernel
+        window_function_b1: first window function for kernel
+        window_function_b2: second window function for kernel
+        cosmo_multi_epoch: MultiEpoch cosmology object from cosmology.py
+        force_quad: If the romberg integration is giving too much numerical
+            noise at large ktheta set this flag to True to use quad integration 
+            for more accuracy at the cost of speed.  
+    """
+
+    def __init__(self, ktheta_min, ktheta_max,
+                 window_function_a1, window_function_a2,
+                 window_function_b1, window_function_b2,
+                 cosmo_multi_epoch, force_quad=False):
+        self.initialized_spline = False
+
+        self.ln_ktheta_min = numpy.log(ktheta_min)
+        self.ln_ktheta_max = numpy.log(ktheta_max)
+
+        self.window_function_a1 = window_function_a1
+        self.window_function_a2 = window_function_a2
+        self.window_function_b1 = window_function_b1
+        self.window_function_b2 = window_function_b2
+
+        self.z_min = numpy.max(
+            [self.window_function_a1.z_min, self.window_function_a2.z_min,
+             self.window_function_b1.z_min, self.window_function_b2.z_min])
+
+        self.z_max = numpy.min(
+            [self.window_function_a1.z_max, self.window_function_a2.z_max,
+             self.window_function_b1.z_max, self.window_function_b2.z_max])
+
+        if cosmo_multi_epoch is None:
+            cosmo_multi_epoch = cosmology.MultiEpoch(
+                self.z_min, self.z_max)
+        self.cosmo = cosmo_multi_epoch
+
+        self.window_function_a1.set_cosmology_object(self.cosmo)
+        self.window_function_a2.set_cosmology_object(self.cosmo)
+        self.window_function_b1.set_cosmology_object(self.cosmo)
+        self.window_function_b2.set_cosmology_object(self.cosmo)
+
+
+        self.chi_min = self.cosmo.comoving_distance(self.z_min)
+        self.chi_max = self.cosmo.comoving_distance(self.z_max)
+        
+        self._ln_ktheta_array = numpy.linspace(
+            self.ln_ktheta_min, self.ln_ktheta_max,
+            defaults.default_precision["kernel_npoints"])
+        self._kernel_array = numpy.empty(
+            (defaults.default_precision["kernel_npoints"],
+             defaults.default_precision["kernel_npoints"]))
+
+        self._j0_limit = special.jn_zeros(
+            0, defaults.default_precision["kernel_bessel_limit"])[-1]
+
+        self._force_quad = force_quad
+
+        self._find_z_bar()
+        
+    def _find_z_bar(self):
+        z_array = numpy.linspace(self.z_min, self.z_max,
+                               defaults.default_precision["kernel_npoints"])
+        self.z_bar = z_array[numpy.argmax(
+                self._kernel_integrand(self.cosmo.comoving_distance(z_array), 
+                                       0.0, 0.0))]
+
+    ### Currently Splines are not implimented in this version of Kernel. Use
+    ### raw_kernel to return the value of the kernal at a given ktheta_a(b)
+    ### value.
+    def _initialize_spline(self):
+        for idx1, ln_ktheta_a in enumerate(self._ln_ktheta_array):
+            for idx2, ln_ktheta_b in enumerate(self._ln_ktheta_array):
+                self._kernel_array[idx1, idx2] = self.raw_kernel(ln_ktheta_a,
+                                                                 ln_ktheta_b)
+        self._kernel_spline = RectBivariateSpline(self._ln_ktheta_array,
+                                                  self._ln_ktheta_array,
+                                                  self._kernel_array)
+        self.initialized_spline = True
+                
+
+    def set_cosmology(self, cosmo_dict):
+        """
+        Reset the cosmology
+
+        Args:
+            cosmo_dict: dictionary of floats defining a cosmology (see
+                defaults.py for details)
+        """
+        self.initialized_spline = False
+
+        self.cosmo.set_cosmology(cosmo_dict)
+        self.window_function_a1.set_cosmology_object(self.cosmo)
+        self.window_function_a2.set_cosmology_object(self.cosmo)
+        self.window_function_b1.set_cosmology_object(self.cosmo)
+        self.window_function_b2.set_cosmology_object(self.cosmo)
+        
+        self.chi_min = self.cosmo.comoving_distance(self.z_min)
+        self.chi_max = self.cosmo.comoving_distance(self.z_max)
+
+        self._find_z_bar()
+        
+    ### Not Implimented currently as there are no valid splines computed.
+    def kernel(self, ln_ktheta_a, ln_ktheta_b):
+        if not self.initialized_spline:
+            self._initialize_spline()
+        ln_ktheta_a = numpy.where(ln_ktheta_a < self.ln_ktheta_min,
+                                  self.ln_ktheta_min, ln_ktheta_a)
+        ln_ktheta_b = numpy.where(ln_ktheta_b < self.ln_ktheta_min,
+                                  self.ln_ktheta_min, ln_ktheta_b)
+        return numpy.where(
+            numpy.logical_and(ln_ktheta_a <= self.ln_ktheta_max,
+                              ln_ktheta_b <= self.ln_ktheta_max),
+            self._kernel_spline(ln_ktheta_a, ln_ktheta_b), 0.0)
+
+    def raw_kernel(self, ln_ktheta_a, ln_ktheta_b):
+        """
+        Raw kernel function. Projected power as a function of chi.
+
+        Args:
+            ln_ktheta: float array natural logathim of k*theta
+        Returns:
+            float array kernel value
+        """
+        ktheta_a = numpy.exp(ln_ktheta_a)
+        ktheta_b = numpy.exp(ln_ktheta_b)
+
+        if type(ktheta_a) == numpy.ndarray and type(ktheta_b) == numpy.ndarray:
+            kern = numpy.empty((len(ktheta_a), len(ktheta_b)))
+            for idx1, ktheta_1 in enumerate(ktheta_a):
+                for idx2, ktheta_2 in enumerate(ktheta_b):
+                    chi_max = numpy.min(
+                        [self._j0_limit/ktheta_1, self._j0_limit/ktheta_2])
+                    if chi_max >= self.chi_max:
+                        chi_max = self.chi_max
+                    kern[idx1, idx2] = self._raw_kernel_integral(
+                        ktheta_1, ktheta_2, chi_max)
+            return kern
+        if type(ktheta_a) == numpy.ndarray:
+            kern = numpy.empty(len(ktheta_a))
+            for idx1, ktheta_1 in enumerate(ktheta_a):
+                chi_max = numpy.min(
+                    [self._j0_limit/ktheta_1, self._j0_limit/ktheta_b])
+                if chi_max >= self.chi_max:
+                    chi_max = self.chi_max
+                kern[idx1] = self._raw_kernel_integral(
+                    ktheta_1, ktheta_b, chi_max)
+            return kern
+        if type(ktheta_b) == numpy.ndarray:
+            kern = numpy.empty(len(ktheta_b))
+            for idx2, ktheta_2 in enumerate(ktheta_b):
+                chi_max = numpy.min(
+                    [self._j0_limit/ktheta_a, self._j0_limit/ktheta_2])
+                if chi_max >= self.chi_max:
+                    chi_max = self.chi_max
+                kern[idx2] = self._raw_kernel_integral(
+                    ktheta_a, ktheta_2, chi_max)
+            return kern
+        chi_max = numpy.min(
+            [self._j0_limit/ktheta_a, self._j0_limit/ktheta_b])
+        if chi_max >= self.chi_max:
+            chi_max = self.chi_max
+        return self._raw_kernel_integral(ktheta_a, ktheta_b, chi_max)
+                        
+        
+    def _raw_kernel_integral(self, ktheta_a, ktheta_b, chi_max):
+        if self._force_quad:
+            kernel = integrate.quad(
+                self._kernel_integrand, self.chi_min,
+                chi_max, args=(ktheta_a, ktheta_b),
+                limit=defaults.default_precision["kernel_limit"])[0]
+            return kernel
+        else:
+            kernel = integrate.romberg(
+                self._kernel_integrand, self.chi_min,
+                chi_max, args=(ktheta_a, ktheta_b), vec_func=True,
+                tol=defaults.default_precision["kernel_precision"],
+                divmax=defaults.default_precision["divmax"])
+            return kernel
+
+    def _kernel_integrand(self, chi, ktheta_a, ktheta_b):
+        D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
+        z = self.cosmo.redshift(chi)
+        
+        return (self.window_function_a1.window_function(chi)*
+                self.window_function_a2.window_function(chi)*
+                self.window_function_b1.window_function(chi)*
+                self.window_function_b2.window_function(chi)*
+                D_z*D_z*D_z*D_z*
+                special.j0(ktheta_a*chi)*special.j0(ktheta_b*chi))
+
+    ### Kernel mean currently not normalized as it is questionable it is needed
+    def kernel_weighted_mean(self, function):
+        pass
+
+    def write(self, output_file_name):
+        """
+        Output current values of the kernel
+
+        Args:
+            output_file_name: string file name
+        """
+        if not self.initialized_spline:
+            self._initialize_spline()
+
+        f = open(output_file_name, "w")
+        f.write("#type1 = k_a*theta_a [h/Mpc*Radians]\n"
+                "#type2 = k_b*theta_b"
+                "#ttype2 = kernel\n")
+        for ln_ktheta_a in self._ln_ktheta_array:
+            for ln_ktheta_b in self._ln_ktheta_array:
+                f.write("%1.10f %1.10f %1.10f\n" % 
+                        (numpy.exp(ln_ktheta_a), numpy.exp(ln_ktheta_b),
+                         self.kernel(ln_ktheta_a, ln_ktheta_b)))
+        f.close()
+        

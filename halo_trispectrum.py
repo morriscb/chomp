@@ -141,13 +141,37 @@ class HaloTrispectrum(halo.Halo):
                 self.t_4_h(k1, k2, z))
         
     def trispectrum_projected(self, k1, k2):
+        if not self._initialized_i_0_4:
+            self._initialize_i_0_4()
+        if not self._initialized_h_m:
+            self._initialize_h_m()
+        if not self._initialized_i_1_2:
+            self._initialize_i_1_2()
+        if not self._initialized_i_1_3:
+            self._initialize_i_1_3()
+        if not self._initialized_i_2_1:
+            self._initialize_i_2_1()
+        if not self._initialized_i_2_2:
+            self._initialize_i_2_2()
         if not self._initialized_tri_proj:
             self._initialize_tri_proj()
         return numpy.where(
             numpy.logical_and(
                 numpy.logical_and(k1 >= self._k_min, k1 <= self._k_max),
                 numpy.logical_and(k2 >= self._k_min, k2 <= self._k_max)),
-            self._tri_proj_spline(numpy.log(k1), numpy.log(k2)), 0.0)[0][0]
+            numpy.exp(
+                self._tri_proj_spline(numpy.log(k1), numpy.log(k2))[0][0]) -
+            self._spline_norm, 0.0)
+            
+    def tri_spec_proj_integral(self, k1, k2):
+        theta_int = 2.0*integrate.romberg(
+            self._trispectrum_parallelogram_wrap, 
+            0.0 , numpy.pi,
+            args=(k1, k2), vec_func=True,
+            tol=defaults.default_precision["halo_precision"],
+            divmax=defaults.default_precision["divmax"])
+        return (numpy.pi*self.t_1_h(k1, k2) +
+                theta_int/(2.0*numpy.pi))
         
     def _initialize_tri_proj(self):
         _tri_proj_array = numpy.empty((len(self._ln_k_array),
@@ -165,12 +189,18 @@ class HaloTrispectrum(halo.Halo):
                     divmax=defaults.default_precision["divmax"])
                 _tri_proj_array[idx1, idx2] = (
                     numpy.pi*self.t_1_h(k1, k2) + theta_int/(2.0*numpy.pi))
-                if idx1%10 == 0 and idx2%10 == 0:
+                if (idx1+1)%10 == 0 and (idx2+1)%10 == 0:
                     print "Running idx1, idx2:", idx1, k1, idx2, k2
                     print "\tvalue:", _tri_proj_array[idx1, idx2]
-        
+
+        min_value = numpy.min(_tri_proj_array)
+        if min_value <= 0.0:
+            self._spline_norm = -min_value + 1
+        else:
+            self._spline_norm = 0.0
         self._tri_proj_spline = RectBivariateSpline(
-            self._ln_k_array, self._ln_k_array, _tri_proj_array)
+            self._ln_k_array, self._ln_k_array,
+            numpy.log(_tri_proj_array + self._spline_norm))
         
         print "Initialized::Tripectrum Projection"
         self._initialized_tri_proj = True
@@ -578,7 +608,7 @@ class HaloTrispectrum(halo.Halo):
                     args=(numpy.exp(ln_k1), numpy.exp(ln_k2)),
                     tol=defaults.default_precision["halo_precision"],
                     divmax=defaults.default_precision["divmax"])/(self.rho_bar)
-                    
+        
         self._i_2_2_spline = RectBivariateSpline(self._ln_k_array,
                                                  self._ln_k_array,
                                                  _i_2_2_array)
