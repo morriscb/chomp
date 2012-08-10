@@ -40,13 +40,13 @@ default_precision = {
     "corr_precision":1.48e-8,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
-    "dNdz_precision": 1.48e-16,
+    "dNdz_precision": 1.48e-8,
     "halo_npoints": 50,
-    "halo_precision": 1.48-8,
+    "halo_precision": 1.48e-8,
     "halo_limit" : 100,
-    "kernel_npoints": 200,
+    "kernel_npoints": 50,
     "kernel_precision": 1.48e-16,
-    "kernel_limit": 200, ### If the variable force_quad is set in the Kernel 
+    "kernel_limit": 100, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
                          ### integration
     "kernel_bessel_limit": 32, ### Defines how many zeros before cutting off
@@ -54,5 +54,6 @@ default_precision = {
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,
     "window_npoints": 50,
-    "window_precision": 1.48e-16
+    "window_precision": 1.48e-8,
+    "divmax":20
     }

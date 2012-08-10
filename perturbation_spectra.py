@@ -103,11 +103,9 @@ class PerturbationTheory(object):
         return res
     
     def Fs2_len(self, k1, k2, z):
-        if k1 < 1.e-8 or k1 < 1.e-8:
-            res = 5. / 7.
-        else:
-            res = ((5. / 7. + (z / 2.) * (k1 / k2 + k2 / k1) + 
-                   (2. / 7.) * z * z))
+        res = numpy.where(numpy.logical_or(k1 < 1.e-8, k2 < 1.e-8), 5.0/7.0,
+                          ((5. / 7. + (z / 2.) * (k1 / k2 + k2 / k1) + 
+                            (2. / 7.) * z * z)))
         return res
 
     def Fs2_parallelogram(self, k1, mu):
@@ -285,7 +283,7 @@ class PerturbationTheory(object):
               self.Fs3(k1, k2, k4) * p1 * p2 * p4 +
               self.Fs3(k1, k3, k4) * p1 * p3 * p4 +
               self.Fs3(k2, k3, k4) * p2 * p3 * p4)
-        print 6. * b2, 4. * b1
+        # print 6. * b2, 4. * b1
         res = 4. * b1 + 6. * b2
         return res
 
@@ -309,7 +307,8 @@ class PerturbationTheory(object):
         z = 1 + x ** 2 - 2 * x * mu
         p1 = self.cosmo.linear_power(k1)
         p2 = self.cosmo.linear_power(k2)
-        p12 = self.cosmo.linear_power(k1 * numpy.sqrt(z))  # k1 - k2
+        k1mk2 = k1 * numpy.sqrt(z)
+        p12 = self.cosmo.linear_power(k1 * numpy.sqrt(z)) # k1 - k2
         F21 = self.Fs2_parallelogram(k1 - k2, k2)
         F22 = self.Fs2_parallelogram(k2 - k1, k1)
         a1 = 12. * self.Fs3_parallelogram(k1, -k1, k2) * (p1 ** 2) * p2
@@ -320,5 +319,5 @@ class PerturbationTheory(object):
         b2 = 8. * F22 ** 2 * p12 * p1 ** 2
 
         res = a1 + b1 + a2 + b2 + 2. * a3
-        print a1 + b1, a2 + b2 + 2. * a3
+        # print a1 + b1, a2 + b2 + 2. * a3
         return res

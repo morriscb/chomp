@@ -386,8 +386,8 @@ class Halo(object):
         f.close()
 
     def _h_m(self, k):
-        return numpy.where(numpy.logical_and(k >= self._k_min,
-                                             k <= self._k_max),
+        k = numpy.where(k < self._k_min, self._k_min, k)
+        return numpy.where( k <= self._k_max,
                            self._h_m_spline(numpy.log(k)), 0.0)
 
     def _pp_mm(self, k):
@@ -414,7 +414,8 @@ class Halo(object):
         self.n_bar_over_rho_bar = integrate.romberg(
             self._nbar_integrand, numpy.log(self.mass.nu_min),
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"])
+            tol=defaults.default_precision["halo_precision"],
+            divmax=defaults.default_precision["divmax"])
 
         self.n_bar = self.n_bar_over_rho_bar*self.rho_bar
 
@@ -435,7 +436,8 @@ class Halo(object):
         self.bias = integrate.romberg(
             self._bias_integrand, numpy.log(self.mass.nu_min), 
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"])
+            tol=defaults.default_precision["halo_precision"],
+            divmax=defaults.default_precision["divmax"])
 
         self.bias = self.bias/self.n_bar_over_rho_bar
         return self.bias
@@ -458,7 +460,8 @@ class Halo(object):
         self.m_eff = integrate.romberg(
             self._m_eff_integrand, numpy.log(self.mass.nu_min), 
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"])
+            tol=defaults.default_precision["halo_precision"],
+            divmax=defaults.default_precision["divmax"])
 
         self.m_eff = self.m_eff/self.n_bar_over_rho_bar
 
@@ -483,7 +486,8 @@ class Halo(object):
         self.f_sat= integrate.romberg(
             self._f_sat_integrand, numpy.log(self.mass.nu_min), 
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"])
+            tol=defaults.default_precision["halo_precision"],
+            divmax=defaults.default_precision["divmax"])
 
         self.f_sat = self.f_sat/self.n_bar_over_rho_bar
 
@@ -569,6 +573,7 @@ class Halo(object):
                 self._h_m_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
+                divmax=defaults.default_precision["divmax"],
                 args=(self._ln_k_array[idx],))
             h_m_array[idx] = h_m
 
@@ -590,6 +595,7 @@ class Halo(object):
                 self._h_g_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
+                divmax=defaults.default_precision["divmax"],
                 args=(self._ln_k_array[idx],))
             # h_g, h_g_err = integrate.quad(
             #     self._h_g_integrand, numpy.log(self.mass.nu_min),
@@ -617,6 +623,7 @@ class Halo(object):
                 self._pp_mm_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
+                divmax=defaults.default_precision["divmax"],
                 args=(self._ln_k_array[idx],))
             # pp_mm, pp_mm_err = integrate.quad(
             #     self._pp_mm_integrand, numpy.log(self.mass.nu_min),
@@ -645,7 +652,8 @@ class Halo(object):
                 self._pp_gg_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx],))
+                args=(self._ln_k_array[idx],),
+                divmax=defaults.default_precision["divmax"])
             # pp_gg, pp_gg_err = integrate.quad(
             #     self._pp_gg_integrand, numpy.log(self.mass.nu_min),
             #     numpy.log(self.mass.nu_max),
@@ -675,7 +683,8 @@ class Halo(object):
                 self._pp_gm_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx],))
+                args=(self._ln_k_array[idx],),
+                divmax=defaults.default_precision["divmax"])
             # pp_gm, pp_gm_err = integrate.quad(
             #     self._pp_gm_integrand, numpy.log(self.mass.nu_min),
             #     numpy.log(self.mass.nu_max),
@@ -761,7 +770,8 @@ class HaloExclusion(Halo):
                 self._h_g_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx],))
+                args=(self._ln_k_array[idx],),
+                divmax=defaults.default_precision["divmax"])
             h_g_array[idx] = h_g/self.n_bar_over_rho_bar
 
         self._h_g_spline = InterpolatedUnivariateSpline(
@@ -783,378 +793,3 @@ class HaloExclusion(Halo):
         kR = k*R
         return ((kR*numpy.cos(kR) + kR*kR*kR*special.sici(kR)[1] +
                  (2 - kR*kR)*numpy.sin(kR))/(3.0*kR))
-
- 
-class HaloTrispectrum(Halo):
-    """
-    Derived Halo class for computing the higher order power specrum of matter.
-    
-    Given an input cosmology, an input mass function, and an input pertubation
-    theory definition (also cosmology dependent), compute the trispectrum power
-    in the halo model. Note that the mass function used must have a second order
-    bias method bias_2_nu. The default API for MassFunction does not contain
-    this. Instead a derived class like MassFunctionSecondOrder must be used.
-    
-    The API for the trispectrum works differently than that of the Halo class in
-    that instead of simplily inputting a length of a vector k we need a set of 
-    4 k vectors to specify a trispectrum amplitude. For the cacluations we are 
-    currently considering we only consider 4 vectors that form a paraleagram.
-    That is T(k1, k2, k3, k4) -> T(k1, -k1, k2, -k2) == T(k1,k2). Or in terms of
-    scalars we have T(k1, k2) == T(|k1|, |k2|, cos(theta)) where theta is the
-    angle between vectors k1 and k2.
-    
-    For this class we follow the definitions as presented in Cooray & Hu 2001
-    
-    Attributes:
-        redshift: float redshift at which to compute the halo model
-        input_hod: Set to None by default. No implimation in higher order
-            spectra currently.
-        cosmo_single_epoch: SingleEpoch object from cosmology.py
-        mass_func_second: MassFunctionSecondOrder object from mass_function.py
-        perturbation: PertubationTheory object from perturbation_spectra.py
-        halo_dict: dictionary of floats defining halo properties. (see 
-            defaults.py for details)
-        
-    """
-    
-    def __init__(self, redshift=0.0, single_epoch_cosmo=None,
-                 mass_func_second=None, perturbation=None, halo_dict=None):
-        self.pert = perturbation
-        Halo.__init__(self, redshift, None, single_epoch_cosmo,
-                      mass_func_second, halo_dict)
-        
-    def set_cosmology(self, cosmo_dict, redshift=None):
-        """
-        Reset the internal cosmology to the values in cosmo_dict and 
-        re-initialize the internal splines. Optionaly reset the internal
-        redshift value.
-
-        Args:
-            cosmo_dict: dictionary of floats defining a cosmology. (see
-                defaults.py for details)
-            redshift: float redshift at which to compute halo model.
-        """
-        if redshift==None:
-            redshift = self._redshift
-        self.cosmo_dict = cosmo_dict
-        self._redshift = redshift
-        self.cosmo = cosmology.SingleEpoch(redshift, cosmo_dict)
-        self.pert.set_cosmology_object(self.cosmo)
-        self.delta_v = self.cosmo.delta_v()
-        self.rho_bar = self.cosmo.rho_bar()
-        self._h = self.cosmo._h
-
-        self.c0 = self.halo_dict["c0"]/(1.0 + redshift)
-
-        self.mass.set_cosmology_object(self.cosmo)
-
-        self._calculate_n_bar()
-        self._initialize_halo_splines()
-
-        self._initialized_h_m = False
-        self._initialized_h_g = False
-
-        self._initialized_pp_mm = False
-        self._initialized_pp_gm = False
-        self._initialized_pp_gg = False
-        
-    def set_redshift(self, redshift):
-        """
-        Reset internal variable redshift and recompute all internal splines:
-        
-        Args:
-            redshift: float value at which to compute all cosmology dependent
-                values/
-        """
-        self.set_cosmology(self.cosmo_dict, redshift)
-        
-    def trispectrum_parallelogram(self, k1, k2, z):
-        """
-        Return the trispectrum of the matter power spectrum given the input
-        lengths of the parallelogram sides and the cosine of the interior angle.
-        
-        Args:
-            k1, k2: float length of wavevector
-            z: float cosine of angle between k1, k2
-        Returns:
-            float trispectrum power
-        """
-        if not self._initialized_h_m:
-            self._initialize_h_m()
-        return (self.t_1_h(k1, k2) +
-                self.t_2_h(k1, k2, z) +
-                self.t_3_h(k1, k2, z) +
-                self.t_4_h(k1, k2, z))
-    
-    def t_1_h(self, k1, k2):
-        """
-        First compoment of the trispectrum, the poisonian term of correlations
-        within one halo.
-        
-        Args:
-            k1, k2: float length of wavevector
-        Retuns:
-            float value of the piossonian term in the trispectrum.
-        """
-        return self.i_0_4(k1, k1, k2, k2)
-    
-    def t_2_h(self, k1, k2, z):
-        """
-        Trispectrum compoment describing correlations between 2
-        different halos. This can either be 3 points in one halo and one in the
-        other or 2 in both halos.
-        
-        Args:
-            k1, k2: float length of wavevector
-            z: cosine of the angle between the two wavevectors
-        Return:
-            float value of the 2 halo correlation component of the trispectrum.
-        """
-        
-        ### convienience variables to caculate the mass integrals of the halos
-        ### ahead of time
-        i_1_2_k1k2 = self.i_1_2(k1, k2)
-        i_1_3_k1k1k2 = self.i_1_3(k1, k1, k2)
-        i_1_3_k2k2k1 = self.i_1_3(k2, k2, k1)
-        
-        ### Equation representing correlations between 3 points in one halo and 
-        ### one in another halo. There are 4 terms here however there are 2
-        ### pairs that are identical for a parallelogram. Hence we show only 2
-        ### and double the output.
-        T_31 = 2.0 * (self.cosmo.linear_power(k1) * 
-                      i_1_3_k2k2k1 * self.i_1_1(k1) +
-                      self.cosmo.linear_power(k2) * 
-                      i_1_3_k1k1k2 * self.i_1_1(k2))
-        
-        ### Need to know the length of the subtraction of our two k vectors
-        k1m2 = numpy.sqrt(k1*k1 + k2*k2 - 2.0*k1*k2*z)
-        k1p2 = numpy.sqrt(k1*k1 + k2*k2 + 2.0*k1*k2*z)
-        ### Equation for 2 sets of points in 2 distinct halos. Again there is 
-        ### symetry for a parallelogram that we exploit here.
-        T_22 =  i_1_2_k1k2 * i_1_2_k1k2 * (
-            self.cosmo.linear_power(k1m2) + self.cosmo.linear_power(k1p2))
-        
-        return T_31 + T_22
-    
-    def t_3_h(self, k1, k2, z):
-        """
-        Trispectrum compoment representing correlations between 3 halos with 2
-        points in 1 and 1 point in each of the others. This is the most
-        complicated of the terms and would be exected to be the slowest in
-        calculations
-        
-        Args:
-            k1, k2: float length of wavevector
-            z: cosine of the angle between the two wavevectors
-        Return:
-            float value of the 3 halo correltion compoment of the trispectrum
-        """
-        ### convinience variables to compute the needed mass integrals ahead of
-        ### time.
-        i_1_1_k1 = self._h_m(k1)
-        i_1_1_k2 = self._h_m(k2)
-        i_1_2_k1 = self.i_1_2(k1, k1)
-        i_1_2_k2 = self.i_1_2(k2, k2)
-        i_1_2_k1k2 = self.i_1_2(k1, k2)
-        i_2_2_k1 = self.i_2_2(k1, k1)
-        i_2_2_k2 = self.i_2_2(k2, k2)
-        i_2_2_k1k2 = self.i_2_2(k1, k2)
-        
-        ### We are going to need the linear power spectrum several times over
-        ### so we precompute it for both wavevectors
-        P_k1 = self.linear_power(k1)
-        P_k2 = self.linear_power(k2)
-        
-        ### We need to know the length of the addition and subtraction of the 
-        ### two input vectors as well as the cosine of the angle between them
-        lenplus = numpy.sqrt(k1 * k1 + 2.0 * k1 * k2 * z + k2 * k2)
-        lenminus = numpy.sqrt(k1 * k1 - 2.0 * k1 * k2 * z + k2 * k2)
-        z1plus = (k1 * k1 + k1 * k2 * z)/(k1 * lenplus)
-        z2plus = (k2 * k2 + k1 * k2 * z)/(k2 * lenplus)
-        z1minus = (k1 * k1 - k1 * k2 * z)/(k1 * lenminus)
-        z2minus = (k2 * k2 - k1 * k2 * z)/(k2 * lenminus)
-        
-        
-        ### Since we are dealing only with parallelograms terms in the
-        ### bispectrum with Bi(K, -K, 0) are identically zero elimitinating the
-        ### bispectrum compoment 
-        perm_1 = P_k1 * P_k1 * i_2_2_k2 * i_1_1_k1 * i_1_1_k1
-        perm_2 = P_k2 * P_k2 * i_2_2_k1 * i_1_1_k2 * i_1_1_k2
-        ### For the remaing compments there are 2 pairs of iditical compoments
-        ### for plus and minus pairins of k1, k2
-        ### Originally this term is +-- in z
-        perm_3 = (self.pert.bispectrum_len(k1, k2, lenplus,
-                                           z, -z1plus, -z2plus) *
-                  i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
-                  P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
-        ### Originally this term is ---
-        perm_4 = (self.pert.bispectrum_len(k1, k2, lenminus,
-                                           -z, -z1minus, -z2minus) *
-                  i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
-                  P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
-        return perm_1 + perm_2 + 2.0 * (perm_3 + perm_4)
-        
-        ### OLD VERSION:: KEEPING IT AROUND FOR NOW
-       
-        # bispect_k1k1k2k2 = 2.0 * (
-        #     self.pert.Fs2_len(k1, k1, 1.0)) * P_k1 * P_k1
-        # bispect_k2k2k1k1 = 2.0 * (
-        #     self.pert.Fs2_len(k2, k2, 1.0)) * P_k2 * P_k2
-        
-        # perm_1 = (bispect_k1k1k2k2 * i_1_2_k2 * i_1_1_k1 * i_1_1_k1 +
-        #           P_k1 * P_k1 * i_2_2_k2 * i_1_1_k1 * i_1_1_k1)
-        # perm_2 = (bispect_k2k2k1k1 * i_1_2_k1 * i_1_1_k2 * i_1_1_k2 +
-        #           P_k2 * P_k2 * i_2_2_k1 * i_1_1_k2 * i_1_1_k2)
-        
-        ### The next two permutations (taking care of the remaining 4 in
-        ### Cooray & Hu.) These compoments are either dependent on the vector
-        ### k1 - k2 (perm_3) or k1 + k2 (perm_4). Since we are using symetric
-        ### version of all functions, we just need to compute these and double 
-        ### them in the output.
-        # perm_3 = (self.pert.bispectrum_len(k1, k2, lenminus,
-        #                                    z, z1minus, z2minus) * 
-        #           i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
-        #           P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
-        # perm_4 = (self.pert.bispectrum_len(k1, k2, lenplus,
-        #                                    z, z1plus, z2plus) * 
-        #           i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
-        #           P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
-        # return perm_1 + perm_2 + 2.0 * perm_3 + 2.0 * perm_4
-    
-    def t_4_h(self, k1, k2, z):
-        """
-        Trispectrum term representing correlations between 4 distict halos. 
-        
-        Args:
-            k1, k2: length of the wavevector
-            z: cosine of the angle between wavevectors k1 and k2
-        Returns:
-            float trispectrum correlation between 4 distict halos.
-        """
-        ### Precompute our mass integrals for later use
-        i_1_1_k1 = self._h_m(k1)
-        i_1_1_k2 = self._h_m(k2)
-        i_1_2_k1 = self.i_1_2(k1, k1)
-        i_1_2_k2 = self.i_1_2(k2, k2)
-        
-        ### also with the linear power spectra
-        P_k1 = self.linear_power(k1)
-        P_k2 = self.linear_power(k2)
-        
-        ### Multilpy and output (eq 23 in Cooray & Hu)
-        return i_1_1_k1 * i_1_1_k1 * i_1_1_k2 * i_1_1_k2 * (
-           self.pert.trispectrum_parallelogram(k1, k2, z) + 
-           2.0 * (i_1_2_k1 / i_1_1_k1 * P_k1 * P_k2 * P_k2 +
-                  i_1_2_k2 / i_1_1_k2 * P_k2 * P_k1 * P_k1))      
-         
-    def i_0_4(self, k1, k2, k3, k4):
-        """
-        Integral over mass for 4 points contained within a single halo. Since
-        all halos considered are spherically symetric the input values are all
-        scalars
-        Args:
-            k1,...k4: float length of wavevector
-        Returns:
-            float Integral over all halo masses for 4 points in a halo
-        """
-        return integrate.romberg(
-            self._i_0_4_integrand, numpy.log(self.mass.nu_min),
-            numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
-            args=(k1, k2, k3, k4))/(self.rho_bar*self.rho_bar*self.rho_bar)
-        
-    def _i_0_4_integrand(self, ln_nu, k1, k2, k3, k4):
-        nu = numpy.exp(ln_nu)
-        mass = self.mass.mass(nu)
-        y1 = self.y(numpy.log(k1), mass)
-        y2 = self.y(numpy.log(k2), mass)
-        y3 = self.y(numpy.log(k3), mass)
-        y4 = self.y(numpy.log(k4), mass)
-
-        return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass
-    
-    def i_1_1(self, k):
-        """
-        Integral over mass for 1 point contained within a single halo and the
-        halo average halo bias as a function of nu. This integral uses the 
-        spline from the Halo class as it is identical to the term _h_m. Since 
-        all halos considered are spherically symetric the input values are all
-        scalars
-        
-        Args:
-            k: float length of wavevector
-        Returns:
-            float Integral over all halo masses for 4 points in a halo
-        """
-        return self._h_m(k)
-        
-    def i_1_2(self, k1, k2):
-        """
-        Integral over the mass and bias for 2 points within a halo.
-        
-        Args:
-            k1, k2: float length of wavevector
-        Returns:
-            float Integral over all halo masses for 4 points in a halo
-        """
-        return integrate.romberg(
-            self._i_1_2_integrand, numpy.log(self.mass.nu_min),
-            numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
-            args=(k1, k2))/(self.rho_bar)
-    
-    def _i_1_2_integrand(self, ln_nu, k1, k2):
-        nu = numpy.exp(ln_nu)
-        mass = self.mass.mass(nu)
-        y1 = self.y(numpy.log(k1), mass)
-        y2 = self.y(numpy.log(k2), mass)
-        
-        return nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*y1*y2*mass
-        
-    def i_1_3(self, k1, k2, k3):
-        """
-        Integral over the mass and bias for 3 points within a halo.
-        
-        Args:
-            k1,...k3: float length of wavevector
-        Returns:
-            float Integral over all halo masses for 4 points in a halo
-        """
-        return integrate.romberg(
-            self._i_1_3_integrand, numpy.log(self.mass.nu_min),
-            numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
-            args=(k1, k2, k3))/(self.rho_bar*self.rho_bar)
-    
-    def _i_1_3_integrand(self, ln_nu, k1, k2, k3):
-        nu = numpy.exp(ln_nu)
-        mass = self.mass.mass(nu)
-        y1 = self.y(numpy.log(k1), mass)
-        y2 = self.y(numpy.log(k2), mass)
-        y3 = self.y(numpy.log(k3), mass)
-        
-        return nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*y1*y2*y3*mass*mass
-                
-    def i_2_2(self, k1, k2):
-        """
-        Integral over the mass and the second order bias for 2 points 
-        within a halo.
-        
-        Args:
-            k1, k2: float length of wavevector
-        Returns:
-            float Integral over all halo masses for 4 points in a halo
-        """
-        return integrate.romberg(
-            self._i_2_2_integrand, numpy.log(self.mass.nu_min),
-            numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
-            args=(k1, k2))/(self.rho_bar)
-    
-    def _i_2_2_integrand(self, ln_nu, k1, k2):
-        nu = numpy.exp(ln_nu)
-        mass = self.mass.mass(nu)
-        y1 = self.y(numpy.log(k1), mass)
-        y2 = self.y(numpy.log(k2), mass)
-        
-        return nu*self.mass.f_nu(nu)*self.mass.bias_2_nu(nu)*y1*y2*mass
