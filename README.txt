@@ -1,7 +1,7 @@
 ================================================================================
 CHOMP:
 Cosmology and HalO Model Python code
-version: Beta 2 (6/4/12)
+version: Beta 2 (8/22/12)
 
 Authors:
 Christopher Morrison
