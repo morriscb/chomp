@@ -1,7 +1,7 @@
 ================================================================================
 CHOMP:
 Cosmology and HalO Model Python code
-version: Beta 1.0 (6/4/12)
+version: Beta 2 (6/4/12)
 
 Authors:
 Christopher Morrison
@@ -26,7 +26,7 @@ implementing their preferred model.
 
 The mininum requirements for the code are:
 
-python2.6
+python2.7
 numpy
 scipy
 matplotlib is recommended for plotting but not required

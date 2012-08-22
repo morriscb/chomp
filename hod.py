@@ -24,6 +24,12 @@ class HOD(object):
         self._hod = {}
         self._hod[1] = self.first_moment
         self._hod[2] = self.second_moment
+        
+        ### These variables are useful for focusing the halo model mass integral
+        ### on non-zero ranges of the integrand. Default -1 forces code to 
+        ### integrate over the whole mass range.
+        self.first_moment_zero = -1
+        self.second_moment_zero = -1
 
     def first_moment(self, mass, redshift=None):
         """
@@ -70,10 +76,11 @@ class HOD(object):
         if n in self._hod:
             exp_nth = self._hod[n](mass, z)
         else:
-            exp_nth = self.first_moment(mass, z)**n
+            first_mom = self.first_moment(mass, z)
+            exp_nth = first_mom**n
             alpha_m2 = numpy.where(
-                exp_nth > 0.0,
-                self.second_moment(mass, z)/self.first_moment(mass, z)**2, 0.0)
+                 first_mom > 0.0,
+                self.second_moment(mass, z)/first_mom**2, 0.0)
             for j in xrange(n):
                 exp_nth *= (j*alpha_m2 - j + 1)
         return exp_nth
@@ -185,9 +192,15 @@ class HODZheng(HOD):
         self.M_1p = M_1p
         self.alpha = alpha
         HOD.__init__(self)
+        
+        ### These variables are useful for focusing the halo model mass integral
+        ### on non-zero ranges of the integrand. Default -1 forces code to 
+        ### integrate over the whole mass range.
+        self.first_moment_zero = numpy.power(10, numpy.log10(M_min) - 6*sigma)
+        self.second_moment_zero = M_0
 
     def first_moment(self, mass, z=None):
-        return (self.central_first_moment(mass)+
+        return (self.central_first_moment(mass) +
                 self.satellite_first_moment(mass))
 
     def second_moment(self, mass, z=None):
@@ -222,7 +235,8 @@ class HODZheng(HOD):
             float array of <N>
         """
         diff = mass - self.M_0
-        return numpy.where(diff >= 0.0,self.central_first_moment(mass)*
+        return numpy.where(diff >= 0.0,
+                           self.central_first_moment(mass)*
                            numpy.power(diff/self.M_1p, self.alpha), 0.0)
 
 class HODMandelbaum(HOD):

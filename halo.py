@@ -19,7 +19,6 @@ function of mass and wave-number.
 __author__ = ("Chris Morrison <morrison.chrisb@gmail.com>"+
               "Ryan Scranton <ryan.scranton@gmail.com>, ")
 
-
 class Halo(object):
     """Basic halo model object.
 
@@ -141,7 +140,6 @@ class Halo(object):
 
         self._calculate_n_bar()
 
-        self._initialized_h_m = False
         self._initialized_h_g = False
 
         self._initialized_pp_mm = False
@@ -386,35 +384,42 @@ class Halo(object):
         f.close()
 
     def _h_m(self, k):
-        k = numpy.where(k < self._k_min, self._k_min, k)
-        return numpy.where( k <= self._k_max,
-                           self._h_m_spline(numpy.log(k)), 0.0)
+        return numpy.where(
+            numpy.logical_and(k >= self._k_min, k <= self._k_max),
+            self._h_m_spline(numpy.log(k)), 0.0)
 
     def _pp_mm(self, k):
-        return numpy.where(numpy.logical_and(k >= self._k_min,
-                                             k <= self._k_max),
-                           self._pp_mm_spline(numpy.log(k)), 0.0)
+        return numpy.where(
+            numpy.logical_and(k >= self._k_min, k <= self._k_max),
+            self._pp_mm_spline(numpy.log(k)), 0.0)
 
     def _pp_gm(self, k):
-        return numpy.where(numpy.logical_and(k >= self._k_min,
-                                             k <= self._k_max),
-                           self._pp_gm_spline(numpy.log(k)), 0.0)
+        return numpy.where(
+            numpy.logical_and(k >= self._k_min, k <= self._k_max),
+            self._pp_gm_spline(numpy.log(k)), 0.0)
 
     def _h_g(self, k):
-        return numpy.where(numpy.logical_and(k >= self._k_min,
-                                             k <= self._k_max),
-                           self._h_g_spline(numpy.log(k)), 0.0)
+        return numpy.where(
+            numpy.logical_and(k >= self._k_min, k <= self._k_max),
+            self._h_g_spline(numpy.log(k)), 0.0)
 
     def _pp_gg(self, k):
-        return numpy.where(numpy.logical_and(k >= self._k_min,
-                                             k <= self._k_max),
-                           self._pp_gg_spline(numpy.log(k)), 0.0)
+        return numpy.where(
+            numpy.logical_and(k >= self._k_min, k <= self._k_max),
+            self._pp_gg_spline(numpy.log(k)), 0.0)
 
     def _calculate_n_bar(self):
+        nu_min = self.mass.nu_min
+        if (self.local_hod.first_moment_zero > -1 and 
+            self.local_hod.first_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
+        
         self.n_bar_over_rho_bar = integrate.romberg(
-            self._nbar_integrand, numpy.log(self.mass.nu_min),
+            self._nbar_integrand, numpy.log(nu_min),
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
         self.n_bar = self.n_bar_over_rho_bar*self.rho_bar
@@ -436,7 +441,8 @@ class Halo(object):
         self.bias = integrate.romberg(
             self._bias_integrand, numpy.log(self.mass.nu_min), 
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
         self.bias = self.bias/self.n_bar_over_rho_bar
@@ -460,7 +466,8 @@ class Halo(object):
         self.m_eff = integrate.romberg(
             self._m_eff_integrand, numpy.log(self.mass.nu_min), 
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
         self.m_eff = self.m_eff/self.n_bar_over_rho_bar
@@ -486,7 +493,8 @@ class Halo(object):
         self.f_sat= integrate.romberg(
             self._f_sat_integrand, numpy.log(self.mass.nu_min), 
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
         self.f_sat = self.f_sat/self.n_bar_over_rho_bar
@@ -572,7 +580,8 @@ class Halo(object):
             h_m = integrate.romberg(
                 self._h_m_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"],
                 args=(self._ln_k_array[idx],))
             h_m_array[idx] = h_m
@@ -589,20 +598,32 @@ class Halo(object):
 
     def _initialize_h_g(self):
         h_g_array = numpy.zeros_like(self._ln_k_array)
-
+        
+        ### To make the romberg intergration more effecient we use an internal
+        ### HOD variable to tell the code the limit below which the selected
+        ### moment is zero.
+        nu_min = self.mass.nu_min
+        if (self.local_hod.first_moment_zero > -1 and
+            self.local_hod.first_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
         for idx in xrange(self._ln_k_array.size):
             h_g = integrate.romberg(
                 self._h_g_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"],
                 args=(self._ln_k_array[idx],))
-            # h_g, h_g_err = integrate.quad(
-            #     self._h_g_integrand, numpy.log(self.mass.nu_min),
+            # h_g = integrate.quad(
+            #     self._h_g_integrand, numpy.log(nu_min),
             #     numpy.log(self.mass.nu_max),
-            #     limit=defaults.default_precision["halo_limit"],
-            #     args=(self._ln_k_array[idx],))
-            h_g_array[idx] = h_g/self.n_bar_over_rho_bar
+            #     args=(self._ln_k_array[idx],),
+            #     limit=defaults.default_precision["halo_limit"])[0]
+            
+            ### We move the mass density normalization into the integrand here
+            ### to prevent romberg having to integrate very small values.
+            h_g_array[idx] = h_g
 
         self._h_g_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, h_g_array)
@@ -613,7 +634,8 @@ class Halo(object):
         mass = self.mass.mass(nu)
 
         return (nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*
-                self.y(ln_k, mass)*self.local_hod.first_moment(mass)/mass)
+                self.y(ln_k, mass)*self.local_hod.first_moment(mass)/(
+                mass*self.n_bar_over_rho_bar))
 
     def _initialize_pp_mm(self):
         pp_mm_array = numpy.zeros_like(self._ln_k_array)
@@ -622,14 +644,10 @@ class Halo(object):
             pp_mm = integrate.romberg(
                 self._pp_mm_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"],
                 args=(self._ln_k_array[idx],))
-            # pp_mm, pp_mm_err = integrate.quad(
-            #     self._pp_mm_integrand, numpy.log(self.mass.nu_min),
-            #     numpy.log(self.mass.nu_max),
-            #     limit=defaults.default_precision["halo_limit"],
-            #     args=(self._ln_k_array[idx],))
             pp_mm_array[idx] = pp_mm/self.rho_bar
 
         self._pp_mm_spline = InterpolatedUnivariateSpline(
@@ -646,20 +664,32 @@ class Halo(object):
     def _initialize_pp_gg(self):
         pp_gg_array = numpy.zeros_like(self._ln_k_array)
 
+        ### To make the romberg intergration more effecient we use an internal
+        ### HOD variable to tell the code the limit below which the selected
+        ### moment is zero.
+        nu_min = self.mass.nu_min
+        if (self.local_hod.second_moment_zero > -1 and
+            self.local_hod.second_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.second_moment_zero)
         ### Some Numerical Differnce between romberg and quad here.
         for idx in xrange(self._ln_k_array.size):
             pp_gg = integrate.romberg(
-                self._pp_gg_integrand, numpy.log(self.mass.nu_min),
+                self._pp_gg_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
                 args=(self._ln_k_array[idx],),
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"])
-            # pp_gg, pp_gg_err = integrate.quad(
+            # pp_gg = integrate.quad(
             #     self._pp_gg_integrand, numpy.log(self.mass.nu_min),
             #     numpy.log(self.mass.nu_max),
-            #     limit=defaults.default_precision["halo_limit"],
-            #     args=(self._ln_k_array[idx],))
-            pp_gg_array[idx] = pp_gg*self.rho_bar/(self.n_bar*self.n_bar)
+            #     args=(self._ln_k_array[idx],),
+            #     limit=defaults.default_precision["halo_limit"])[0]
+            
+            ### We move the mass density normalization into the integrand here
+            ### to prevent romberg having to integrate very small values.
+            pp_gg_array[idx] = pp_gg*self.rho_bar
 
         self._pp_gg_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, pp_gg_array)
@@ -669,24 +699,35 @@ class Halo(object):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y = self.y(ln_k, mass)
-        n_pair = self.local_hod.second_moment(self.mass.mass(nu))
+        n_pair = self.local_hod.second_moment(mass)
 
-        return numpy.where(n_pair < 1,
-                           nu*self.mass.f_nu(nu)*n_pair*y/mass,
-                           nu*self.mass.f_nu(nu)*n_pair*y*y/mass)
+        return numpy.where(
+            n_pair < 1,
+            nu*self.mass.f_nu(nu)*n_pair*y/(mass*self.n_bar*self.n_bar),
+            nu*self.mass.f_nu(nu)*n_pair*y*y/(mass*self.n_bar*self.n_bar))
 
     def _initialize_pp_gm(self):
         pp_gm_array = numpy.zeros_like(self._ln_k_array)
 
+        ### To make the romberg intergration more effecient we use an internal
+        ### HOD variable to tell the code the limit below which the selected
+        ### moment is zero.
+        nu_min = self.mass.nu_min
+        if (self.local_hod.first_moment_zero > -1 and
+            self.local_hod.first_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
+        ### Some Numerical Differences between romberg and Quad here.
         for idx in xrange(self._ln_k_array.size):
             pp_gm = integrate.romberg(
-                self._pp_gm_integrand, numpy.log(self.mass.nu_min),
+                self._pp_gm_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
                 args=(self._ln_k_array[idx],),
                 divmax=defaults.default_precision["divmax"])
             # pp_gm, pp_gm_err = integrate.quad(
-            #     self._pp_gm_integrand, numpy.log(self.mass.nu_min),
+            #     self._pp_gm_integrand, numpy.log(nu_min),
             #     numpy.log(self.mass.nu_max),
             #     limit=defaults.default_precision["halo_limit"],
             #     args=(self._ln_k_array[idx],))
@@ -763,17 +804,25 @@ class HaloExclusion(Halo):
     def _initialize_h_g(self):
         h_g_array = numpy.zeros_like(self._ln_k_array)
 
+        nu_min = self.mass.nu_min
+        if (self.local_hod.first_moment_zero > -1 and
+            self.local_hod.first_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
         for idx in xrange(self._ln_k_array.size):
             k = numpy.exp(self._ln_k_array[idx])
             
             h_g = integrate.romberg(
-                self._h_g_integrand, numpy.log(self.mass.nu_min),
+                self._h_g_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
                 args=(self._ln_k_array[idx],),
                 divmax=defaults.default_precision["divmax"])
-            h_g_array[idx] = h_g/self.n_bar_over_rho_bar
+            h_g_array[idx] = h_g
 
+        ### We move the mass density normalization into the integrand here
+        ### to prevent romberg having to integrate very small values.
         self._h_g_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, h_g_array)
         self._initialized_h_g = True
@@ -785,7 +834,7 @@ class HaloExclusion(Halo):
         return (nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
                 self.mass.bias_nu(nu)*self.y(ln_k, mass)*
                 self.local_hod.first_moment(mass)/(
-                mass))
+                mass*self.n_bar_over_rho_bar))
 
     def _mass_window(self, mass, ln_k):
         k = numpy.exp(ln_k)
@@ -793,3 +842,185 @@ class HaloExclusion(Halo):
         kR = k*R
         return ((kR*numpy.cos(kR) + kR*kR*kR*special.sici(kR)[1] +
                  (2 - kR*kR)*numpy.sin(kR))/(3.0*kR))
+        
+        
+class HaloFit(Halo):
+    """
+    HALOFIT class with functional form of the non-linear power specrum from
+    Smith2003 with new fit parameters from Takahashi2012. The HALOFIT method 
+    derives only the non-linear power spectrum, other power spectra (gg and gm)
+    are still from the halo model, however they utilize the HALOFIT non-linear
+    power for the 2 halo term.
+    
+    Attributes:
+         redshift: float redshift at which to compute the halo power spectra
+         input_hod: HOD object from hod.py. Determines how galaxies populate 
+             halos
+         cosmo_single_epoch: SingleEpoch object from cosmology.py
+         mass_func: MassFunction object from mass_function.py
+         halo_dict: dictionary of floats defining halo properties. (see 
+             defaults.py for details)
+    """
+    
+    def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
+                 mass_func=None, halo_dict=None, **kws):
+        Halo.__init__(self, redshift, input_hod, cosmo_single_epoch, mass_func,
+                      halo_dict)
+        self._initialize_halo_fit()
+        self._initialized_sigma_spline = False
+        
+    def _initialize_halo_fit(self):
+        self._f_1 = numpy.power(self.cosmo.omega_m(), -0.0307)
+        self._f_2 = numpy.power(self.cosmo.omega_m(), -0.0585)
+        self._f_3 = numpy.power(self.cosmo.omega_m(),  0.0743)
+        self._omega_l = self.cosmo.omega_l()
+        self._w = self.cosmo.w(self._redshift)
+        
+    def _initialize_sigma_spline(self):
+        self._ln_R_array = numpy.linspace(
+            numpy.log(0.1), numpy.log(10.0),
+            defaults.default_precision["halo_npoints"])
+        self._ln_sigma2_array = numpy.empty(
+            defaults.default_precision["halo_npoints"])
+        
+        for idx, ln_R in enumerate(self._ln_R_array):
+            R = numpy.exp(ln_R)
+            sigma2 = integrate.romberg(
+                self._sigma2_integrand, self._ln_k_min, self._ln_k_max,
+                args=(R,), vec_func=True,
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
+                divmax=defaults.default_precision["divmax"])
+            self._ln_sigma2_array[idx] = numpy.log(sigma2)
+        
+        ln_r_sigma2_spline = InterpolatedUnivariateSpline(
+            self._ln_sigma2_array[::-1], self._ln_R_array[::-1])
+        self._k_s = 1.0/numpy.exp(ln_r_sigma2_spline(0.0))
+        ln_sigma2_r_spline = InterpolatedUnivariateSpline(
+            self._ln_R_array, self._ln_sigma2_array,k=5)
+        print "k_s:", self._k_s
+        print "Derivatives:", ln_sigma2_r_spline.derivatives(
+            numpy.log(1.0/self._k_s))
+        (dev1, dev2) = ln_sigma2_r_spline.derivatives(
+            numpy.log(1.0/self._k_s))[1:3]
+        self._n_eff = -dev1 - 3.0
+        self._C = -dev2
+        
+        self._a_n = numpy.power(10,
+            1.5222 + 2.8553*self._n_eff + 2.3706*self._n_eff*self._n_eff +
+            0.9903*self._n_eff*self._n_eff*self._n_eff +
+            0.2250*self._n_eff*self._n_eff*self._n_eff*self._n_eff +
+            -0.6038*self._C + 0.1749*self._omega_l*(1 + self._w))
+        self._b_n = numpy.power(10,
+            -0.5642 + 0.5864*self._n_eff + 0.5716*self._n_eff*self._n_eff +
+            -1.5474*self._C + 0.2279*self._omega_l*(1 + self._w))
+        self._c_n = numpy.power(10,
+            0.3698 + 2.0404*self._n_eff + 0.8161*self._n_eff*self._n_eff +
+            0.5869*self._C)
+        self._gamma_n = 0.1971 - 0.0843*self._n_eff + 0.8460*self._C
+        self._alpha_n = numpy.fabs(
+            6.0835 + 1.3373*self._n_eff - 0.1959*self._n_eff*self._n_eff +
+            -5.5274*self._C)
+        self._beta_n = (
+            2.0379 - 0.7354*self._n_eff + 0.3157*self._n_eff*self._n_eff +
+            1.2490*self._n_eff*self._n_eff*self._n_eff +
+            0.3980*self._n_eff*self._n_eff*self._n_eff*self._n_eff +
+            -0.1682*self._C)
+        self._mu_n = 0.0
+        self._nu_n = numpy.power(10, 5.2105 + 3.6902*self._n_eff)
+    
+    def _sigma2_integrand(self, ln_k, R):
+        k = numpy.exp(ln_k)
+        return self.cosmo.delta_k(k)*numpy.exp(-k*k*R*R)
+        
+    def power_mm(self, k):
+        """
+        Non-Linear matter power spectrum derived from HALOFIT. This power
+        spectrum should be used for correlations that depend only on dark matter
+        (ie cosmo shear and magnification).
+
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear matter power spectrum [Mpc/h]**3
+        """
+
+        if not self._initialized_sigma_spline:
+            self._initialize_sigma_spline()
+        return 2.0*numpy.pi*numpy.pi/numpy.power(k, 3)*(
+            self._delta2_Q(k) + self._delta2_H(k))
+        
+    def _delta2_Q(self, k):
+        delta_k = self.cosmo.delta_k(k)
+        return delta_k*(
+            numpy.power(1 + delta_k, self._beta_n)/(1 + self._alpha_n*delta_k)*
+            numpy.exp(-self._f(k)))
+        
+    def _f(self, k):
+        y = k/self._k_s
+        return y/4.0 + y*y/8.0
+        
+    def _delta2_H(self, k):
+        y = k/self._k_s
+        return self._delta2_prime_H(k)/(
+            1 + self._mu_n/y + self._nu_n/(y*y))
+        
+    def _delta2_prime_H(self, y):
+        return self._a_n*numpy.power(y, 3.0*self._f_1)/(
+            1.0 + self._b_n*numpy.power(y, self._f_2) +
+            numpy.power(self._c_n*self._f_3*y, 3.0 - self._gamma_n))
+            
+    def power_gm(self, k):
+        """
+        Non-Linear galaxy-matter cross power spectrum derived from the halo
+        model and input halo occupation distribution.This power spectrum should
+        be used for correlations that depend on the cross-correlation between
+        galaxies and dark matter.
+        (ie galaxy-galaxy shear and magnification).
+
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear galaxy-matter power spectrum [Mpc/h]**3
+        """
+        if not self._initialized_h_m:
+            self._initialize_h_m()
+        if not self._initialized_h_g:
+            self._initialize_h_g()
+        if not self._initialized_pp_gm:
+            self._initialize_pp_gm()
+
+        return self.power_mm(k)*self._h_g(k)*self._h_m(k) + self._pp_gm(k)
+
+    def power_mg(self, k):
+        """
+        Non-Linear galaxy-matter cross power spectrum derived from the halo
+        model and input halo occupation distribution. This power spectrum 
+        should be used for correlations between galaxies and matter.
+        themselves. (ie galaxy clustering/auto-correlations)
+
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear galaxy-matter power spectrum [Mpc/h]**3
+        """
+        return self.power_gm(k)
+
+    def power_gg(self, k):
+        """
+        Non-Linear galaxy power spectrum derived from the halo
+        model and input halo occupation distribution.
+
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear galaxy power spectrum [Mpc/h]**3
+        """
+        if not self._initialized_h_g:
+            self._initialize_h_g()
+        if not self._initialized_pp_gg:
+            self._initialize_pp_gg()
+
+        return self.power_mm(k)*self._h_g(k)*self._h_g(k) + self._pp_gg(k)
+        
+    

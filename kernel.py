@@ -43,7 +43,8 @@ class dNdz(object):
         """
         norm = integrate.romberg(
             self.dndz, self.z_min, self.z_max, vec_func=True,
-            tol=defaults.default_precision["dNdz_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["dNdz_precision"],
             divmax=defaults.default_precision["divmax"])
 
         self.norm = 1.0/norm
@@ -229,8 +230,7 @@ class WindowFunction(object):
         Reset cosmology to values in cosmo_dict
 
         Args:
-            cosmo_dict: dictionary of floats defining a cosmology. (see 
-                defaults.py for details)
+            cosmo_multi_epoch: a MultiEpoch cosmology object from cosmology.py
         """
         #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict)
         if cosmo_multi_epoch.z_min > self.z_min:
@@ -276,8 +276,8 @@ class WindowFunction(object):
         if not self.initialized_spline:
             self._initialize_spline()
 
-        return numpy.where(numpy.logical_and(chi <= self.chi_max,
-                                             chi > self.chi_min),
+        return numpy.where(numpy.logical_and(chi >= self.chi_min,
+                                             chi <= self.chi_max),
                            self._wf_spline(chi), 0.0)
 
     def write(self, output_file_name):
@@ -367,25 +367,27 @@ class WindowFunctionConvergence(WindowFunction):
                 chi_bound = value
                 if chi_bound < self._g_chi_min: chi_bound = self._g_chi_min
 
-                if value <= defaults.default_precision["window_precision"]:
+                if chi_bound <= 1e-16:
                     g_chi[idx] = 0.0;
                 else:
                     g_chi[idx] = integrate.romberg(
                         self._lensing_integrand, chi_bound,
                         self.chi_max, args=(value,), vec_func=True,
-                        tol=defaults.default_precision["window_precision"],
+                        tol=defaults.default_precision["global_precision"],
+                        rtol=defaults.default_precision["window_precision"],
                         divmax=defaults.default_precision["divmax"])
         except TypeError:
             chi_bound = chi
             if chi_bound < self._g_chi_min: chi_bound = self._g_chi_min
 
-            if chi_bound <= defaults.default_precision["window_precision"]:
+            if chi_bound <= 1e-16:
                 g_chi = 0.0;
             else:
                 g_chi = integrate.romberg(
                     self._lensing_integrand, chi_bound,
                     self.chi_max, args=(chi,), vec_func=True,
-                    tol=defaults.default_precision["window_precision"],
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["window_precision"],
                     divmax=defaults.default_precision["divmax"])
 
         g_chi *= self.cosmo.H0*self.cosmo.H0*chi
@@ -528,7 +530,8 @@ class Kernel(object):
             lambda chi: (self.window_function_a.window_function(chi)*
                          self.window_function_b.window_function(chi)),
             self.chi_min, self.chi_max, vec_func=True,
-            tol=defaults.default_precision["kernel_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["kernel_precision"],
             divmax=defaults.default_precision["divmax"])
         
         self._ln_ktheta_array = numpy.linspace(
@@ -545,10 +548,9 @@ class Kernel(object):
 
     def _find_z_bar(self):
         z_array = numpy.linspace(self.z_min, self.z_max,
-                               defaults.default_precision["kernel_npoints"])
+                                 defaults.default_precision["kernel_npoints"])
         self.z_bar = z_array[numpy.argmax(
-                self._kernel_integrand(self.cosmo.comoving_distance(z_array), 
-                                       0.0))]
+            self._kernel_integrand(self.cosmo.comoving_distance(z_array), 0.0))]
 
     def _initialize_spline(self):
         for idx in xrange(self._ln_ktheta_array.size):
@@ -603,7 +605,8 @@ class Kernel(object):
             kernel = integrate.romberg(
                 self._kernel_integrand, self.chi_min,
                 self.chi_max, args=(ktheta,), vec_func=True,
-                tol=defaults.default_precision["kernel_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["kernel_precision"],
                 divmax=defaults.default_precision["divmax"])
             return kernel
 
@@ -649,7 +652,8 @@ class Kernel(object):
                          self.window_function_a.window_function(chi)*
                          self.window_function_b.window_function(chi)),
             self.chi_min, self.chi_max, vec_func=True,
-            tol=defaults.default_precision["kernel_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["kernel_precision"],
             divmax=defaults.default_precision["divmax"])
 
         return mean/self._window_norm
@@ -718,7 +722,8 @@ class GalaxyGalaxyLensingKernel(Kernel):
             kernel = integrate.romberg(
                 self._kernel_integrand_j2, self.chi_min,
                 chi_max, args=(ktheta,), vec_func=True,
-                tol=defaults.default_precision["kernel_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["kernel_precision"],
                 divmax=defaults.default_precision["divmax"])
             return kernel
 
@@ -926,7 +931,8 @@ class KernelTrispectrum(Kernel):
             kernel = integrate.romberg(
                 self._kernel_integrand, self.chi_min,
                 chi_max, args=(ktheta_a, ktheta_b), vec_func=True,
-                tol=defaults.default_precision["kernel_precision"],
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["kernel_precision"],
                 divmax=defaults.default_precision["divmax"])
             return kernel
 

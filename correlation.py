@@ -25,7 +25,8 @@ correlations functions.
 speed_of_light = 3*10**5
 degToRad = numpy.pi/180.0
 
-__author__ = "Chris Morrison <morrison.chrisb@gmail.com>"
+__author__ = ("Chris Morrison <morrison.chrisb@gmail.com>, "+
+              "Ryan Scranton <ryan.scranton@gmail.com>")
 
 
 class Correlation(object):
@@ -165,7 +166,8 @@ class Correlation(object):
         wtheta = integrate.romberg(
             self._correlation_integrand, 
             ln_kmin, ln_kmax, args=(theta,), vec_func=True,
-            tol=defaults.default_precision["corr_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["corr_precision"],
             divmax=defaults.default_precision["divmax"])
         return wtheta
 
@@ -239,7 +241,8 @@ class Covariance(Correlation):
         return 1.0/(2.0*numpy.pi)*integrate.romberg(
            self._ka_integrand, self.ln_k_min, self.ln_k_max,
            args=(theta_a, theta_b), vec_func=True,
-            tol=defaults.default_precision["corr_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["corr_precision"],
             divmax=defaults.default_precision["divmax"])
         
     def _ka_integrand(self, ln_ka, theta_a, theta_b):
@@ -269,13 +272,15 @@ class Covariance(Correlation):
                 kb_int[idx] = 1.0/(2.0*numpy.pi)*integrate.romberg(
                     self._kb_integrand, self.ln_k_min, self.ln_k_max,
                     args=(ka, theta_a, theta_b), vec_func=True,
-                    tol=defaults.default_precision["corr_precision"],
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
                     divmax=defaults.default_precision["divmax"])
             return kb_int
         return 1.0/(2.0*numpy.pi)*integrate.romberg(
            self._kb_integrand, self.ln_k_min, self.ln_k_max,
            args=(ka, theta_a, theta_b), vec_func=True,
-           tol=defaults.default_precision["corr_precision"],
+           tol=defaults.default_precision["global_precision"],
+           rtol=defaults.default_precision["corr_precision"],
            divmax=defaults.default_precision["divmax"])
     
     def _kb_integrand(self, ln_kb, ka, theta_a, theta_b):

@@ -37,23 +37,31 @@ default_halo_dict = {
 ### scipy is used.
 default_precision = {
     "corr_npoints": 50,
-    "corr_precision":1.48e-8,
+    "corr_precision":1.48e-6,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
     "dNdz_precision": 1.48e-8,
     "halo_npoints": 50,
-    "halo_precision": 1.48e-8,
+    "halo_precision": 1.48e-4, ### This value is mostly due to integrations over
+                               ### the HOD. If you are intrested in dark matter
+                               ### only, this precision can be increased with
+                               ### no major hit to speed.
     "halo_limit" : 100,
     "kernel_npoints": 50,
-    "kernel_precision": 1.48e-8,
+    "kernel_precision": 1.48e-6,
     "kernel_limit": 100, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
                          ### integration
     "kernel_bessel_limit": 4, ### Defines how many zeros before cutting off
-                               ### the Bessel function in kernel.py
+                              ### the Bessel function integration in kernel.py
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,
     "window_npoints": 50,
-    "window_precision": 1.48e-8,
+    "window_precision": 1.48e-6,
+    "global_precision": 1.48e-32, ### Since the code has large range of values
+                                  ### from say 1e-10 to 1e10 don't want to use
+                                  ### absolute tolerances, instead using 
+                                  ### relative tolerances to define convergence
+                                  ### of our integrands
     "divmax":20
     }
