@@ -938,7 +938,6 @@ class KernelTrispectrum(Kernel):
 
     def _kernel_integrand(self, chi, ktheta_a, ktheta_b):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
-        z = self.cosmo.redshift(chi)
         
         return (self.window_function_a1.window_function(chi)*
                 self.window_function_a2.window_function(chi)*

@@ -2,13 +2,14 @@
 ### angular correlation function from the import of chomp down to writing of the
 ### correlation. This example uses the correlation induced from galaxy-galaxy
 ### magnification as the example, however any correlation currently available
-### or created by the user (assuming it conforms to the template class).
+### or created by the user (assuming it conforms to the template class) could
+### be used.
 
 ### import all the modules of CHOMP. This assumes that the user has implemented
 ### their own inherited objects. If the default classes are desired the only
-### imports required are correlation and kernel. However, if the default objects
-### are used additional set_cosmology commands are required if a non WMAP7
-### cosmology is desired.
+### imports required are correlation, kernel, and halo. However, if the default
+### objects are used additional set_cosmology commands are required if a non
+### WMAP7 cosmology is desired.
 import correlation
 import cosmology
 import halo
@@ -74,25 +75,25 @@ halo_model = halo.Halo(redshift=0.0, input_hod=sdss_hod,
 
 
 ### From this point we have fully defined our cosmology and halo model.
-### The next step is defining the z redshift distributions and appropriate 
+### The next step is defining the redshift distributions and appropriate 
 ### window functions.
 
 ### Below we define our foreground lenses and background source distributions 
 ### needed for projecting our power spectrum from halo onto the sky. We use
 ### the functional form of a magnitude limited sample for the lens and for the
-### we use a Gaussian with mean z=1.0. Other options could be used here, see
-### kernel.py for other implemented distributions.
+### sources we use a Gaussian with mean z=1.0. Other options could be used here,
+### see kernel.py for other implemented distributions.
 lens_dist = kernel.dNdzMagLim(0.0, 2.0, 2.0, 0.3, 2.0)
 source_dist = kernel.dNdzGaussian(0.0, 2.0, 1.0, 0.2)
 
-### Now we need to create the appropriate window functions that will allow use 
+### Now we need to create the appropriate window functions that will allow us 
 ### to project the power spectrum from halo. Currently these come in two
 ### varieties. The first is WindowFunctionGalaxy which defines the dn/dchi
-### distribution of galaxies. If one is interested in the cluster of two(one)
+### distribution of galaxies. If one is interested in the clustering of two(one)
 ### galaxy populations this is correlation should be used. The second is
 ### WindowFunctionConvergence which defines the lensing kernel weighted
-### distribution. Using cosmic shear and magnification studies should use 2 of 
-### these. For galaxy-galaxy magnification which we are trying to compute we
+### distribution. Cosmic shear and magnification studies should use 2 of 
+### these. For the galaxy-galaxy magnification which we are trying to compute we
 ### need both a galaxy window function (for the lenses) and a convergence
 ### window function (for the sources).
 lens_window = kernel.WindowFunctionGalaxy(lens_dist, cosmo_multi)

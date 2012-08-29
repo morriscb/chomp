@@ -143,6 +143,9 @@ class HaloTrispectrum(halo.Halo):
     def trispectrum_projected(self, k1, k2):
         if not self._initialized_i_0_4:
             self._initialize_i_0_4()
+        return self.i_0_4_parallelogram(k1, k2)
+    
+    
         if not self._initialized_h_m:
             self._initialize_h_m()
         if not self._initialized_i_1_2:
