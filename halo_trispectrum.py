@@ -9,6 +9,105 @@ from scipy import special
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.interpolate import RectBivariateSpline
 
+class HaloTrispectrumOneHalo(halo.Halo):
+    """
+    Simplified version of HaloTrispectrum that only caculates the one halo term
+    of the tri_spectrum. This version can be used in the CovarianceG_NG for
+    calculating a simple covaraince model.
+    """
+    def __init__(self, redshift=0.0, single_epoch_cosmo=None,
+                 mass_func_second=None, perturbation=None, halo_dict=None):
+        self.pert = perturbation
+        halo.Halo.__init__(self, redshift, None, single_epoch_cosmo,
+                      mass_func_second, halo_dict)
+        self._initialized_i_0_4 = False
+        
+    def set_cosmology(self, cosmo_dict, redshift=None):
+        """
+        Reset the internal cosmology to the values in cosmo_dict and 
+        re-initialize the internal splines. Optionaly reset the internal
+        redshift value.
+
+        Args:
+            cosmo_dict: dictionary of floats defining a cosmology. (see
+                defaults.py for details)
+            redshift: float redshift at which to compute halo model.
+        """
+        if redshift==None:
+            redshift = self._redshift
+        halo.Halo.set_cosmology(self, cosmo_dict, redshift)
+        self.pert.set_cosmology_object(self.cosmo)
+        
+        self._initialized_i_0_4 = False
+        
+    def trispectrum(self, k1, k2, k3, k4):
+        return self.i_0_4(k1, k2, k3, k4)
+    
+    def trispectrum_parallelogram(self, k1, k2):
+        if not self._initialized_i_0_4:
+            self._initialize_i_0_4()
+        return self.i_0_4_parallelogram(k1, k2)
+        
+    def i_0_4(self, k1, k2, k3, k4):
+        """
+        Integral over mass for 4 points contained within a single halo. Since
+        all halos considered are spherically symetric the input values are all
+        scalars
+        Args:
+            k1,...k4: float length of wavevector
+        Returns:
+            float Integral over all halo masses for 4 points in a halo
+        """
+        return integrate.romberg(
+            self._i_0_4_integrand, numpy.log(self.mass.nu_min),
+            numpy.log(self.mass.nu_max), vec_func=True,
+            tol=defaults.default_precision["halo_precision"],
+            divmax=defaults.default_precision["divmax"],
+            args=(k1, k2, k3, k4))/(self.rho_bar*self.rho_bar*self.rho_bar)
+            
+    def i_0_4_parallelogram(self, k1, k2):
+        k1 = numpy.where(k1 < self._k_min, self._k_min, k1)
+        k2 = numpy.where(k2 < self._k_min, self._k_min, k2)
+        return numpy.where(
+            numpy.logical_and(k1 <= self._k_max, k2 <= self._k_max),
+            self._i_0_4_spline(numpy.log(k1), numpy.log(k2))[0,0], 0.0)
+        
+    def _initialize_i_0_4(self):
+        _i_0_4_array = numpy.empty((len(self._ln_k_array),
+                                    len(self._ln_k_array)))
+        
+        for idx1 in xrange(len(self._ln_k_array)):
+            for idx2 in xrange(idx1, len(self._ln_k_array)):
+                k1 = numpy.exp(self._ln_k_array[idx1])
+                k2 = numpy.exp(self._ln_k_array[idx2])
+                if idx1 == idx2:
+                    _i_0_4_array[idx1, idx1] = self.i_0_4(k1, k1, k1, k1)
+                else:
+                    _i_0_4_array[idx1, idx2] = self.i_0_4(k1, k1, k2, k2)
+                    _i_0_4_array[idx2, idx1] = self.i_0_4(k1, k1, k2, k2)
+                
+        for idx1, ln_k1 in enumerate(self._ln_k_array):
+            for idx2, ln_k2 in enumerate(self._ln_k_array):
+                k1 = numpy.exp(ln_k1)
+                k2 = numpy.exp(ln_k2)
+                _i_0_4_array[idx1, idx2] = self.i_0_4(k1, k1, k2, k2)
+        
+        self._i_0_4_spline = RectBivariateSpline(
+            self._ln_k_array, self._ln_k_array, _i_0_4_array)
+        
+        print "Initialized::I_0_4_parallelogram"
+        
+        self._initialized_i_0_4 = True
+        
+    def _i_0_4_integrand(self, ln_nu, k1, k2, k3, k4):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
+        y1 = self.y(numpy.log(k1), mass)
+        y2 = self.y(numpy.log(k2), mass)
+        y3 = self.y(numpy.log(k3), mass)
+        y4 = self.y(numpy.log(k4), mass)
+
+        return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass
 
 class HaloTrispectrum(halo.Halo):
     """
@@ -68,27 +167,8 @@ class HaloTrispectrum(halo.Halo):
         """
         if redshift==None:
             redshift = self._redshift
-        self.cosmo_dict = cosmo_dict
-        self._redshift = redshift
-        self.cosmo = cosmology.SingleEpoch(redshift, cosmo_dict)
+        halo.Halo.set_cosmology(self, cosmo_dict, redshift)
         self.pert.set_cosmology_object(self.cosmo)
-        self.delta_v = self.cosmo.delta_v()
-        self.rho_bar = self.cosmo.rho_bar()
-        self._h = self.cosmo._h
-
-        self.c0 = self.halo_dict["c0"]/(1.0 + redshift)
-
-        self.mass.set_cosmology_object(self.cosmo)
-
-        self._calculate_n_bar()
-        self._initialize_halo_splines()
-
-        self._initialized_h_m = False
-        self._initialized_h_g = False
-
-        self._initialized_pp_mm = False
-        self._initialized_pp_gm = False
-        self._initialized_pp_gg = False
         
         self._initialized_i_0_4 = False
         self._initialized_i_1_2 = False
@@ -123,39 +203,12 @@ class HaloTrispectrum(halo.Halo):
             Force trispectrum to give well behaved results in the case where
             z=-1,1.
         """
-        if not self._initialized_i_0_4:
-            self._initialize_i_0_4()
-        if not self._initialized_h_m:
-            self._initialize_h_m()
-        if not self._initialized_i_1_2:
-            self._initialize_i_1_2()
-        if not self._initialized_i_1_3:
-            self._initialize_i_1_3()
-        if not self._initialized_i_2_1:
-            self._initialize_i_2_1()
-        if not self._initialized_i_2_2:
-            self._initialize_i_2_2()
         return (self.t_1_h(k1, k2) +
                 self.t_2_h(k1, k2, z) +
                 self.t_3_h(k1, k2, z) +
                 self.t_4_h(k1, k2, z))
         
     def trispectrum_projected(self, k1, k2):
-        if not self._initialized_i_0_4:
-            self._initialize_i_0_4()
-        return self.i_0_4_parallelogram(k1, k2)
-    
-    
-        if not self._initialized_h_m:
-            self._initialize_h_m()
-        if not self._initialized_i_1_2:
-            self._initialize_i_1_2()
-        if not self._initialized_i_1_3:
-            self._initialize_i_1_3()
-        if not self._initialized_i_2_1:
-            self._initialize_i_2_1()
-        if not self._initialized_i_2_2:
-            self._initialize_i_2_2()
         if not self._initialized_tri_proj:
             self._initialize_tri_proj()
         return numpy.where(
@@ -223,6 +276,8 @@ class HaloTrispectrum(halo.Halo):
         Retuns:
             float value of the piossonian term in the trispectrum.
         """
+        if not self._initialized_i_0_4:
+            self._initialize_i_0_4()
         return self.i_0_4_parallelogram(k1, k2)
     
     def t_2_h(self, k1, k2, z):
@@ -237,7 +292,11 @@ class HaloTrispectrum(halo.Halo):
         Return:
             float value of the 2 halo correlation component of the trispectrum.
         """
-        
+        if not self._initialized_i_1_2:
+            self._initialize_i_1_2()
+        if not self._initialized_i_1_3:
+            self._initialize_i_1_3()
+            
         ### convienience variables to caculate the mass integrals of the halos
         ### ahead of time
         i_1_2_k1k2 = self.i_1_2(k1, k2)
@@ -281,6 +340,15 @@ class HaloTrispectrum(halo.Halo):
         Return:
             float value of the 3 halo correltion compoment of the trispectrum
         """
+        if not self._initialized_h_m:
+            self._initialize_h_m()
+        if not self._initialized_i_1_2:
+            self._initialize_i_1_2()
+        if not self._initialized_i_1_2:
+            self._initialize_i_1_2()
+        if not self._initialized_i_2_2:
+            self._initialize_i_2_2()
+        
         ### convinience variables to compute the needed mass integrals ahead of
         ### time.
         i_1_1_k1 = self._h_m(k1)
@@ -373,6 +441,11 @@ class HaloTrispectrum(halo.Halo):
         Returns:
             float trispectrum correlation between 4 distict halos.
         """
+        if not self._initialized_h_m:
+            self._initialize_h_m()
+        if not self._initialized_i_2_1:
+            self._initialize_i_2_1()
+            
         ### Precompute our mass integrals for later use
         i_1_1_k1 = self._h_m(k1)
         i_1_1_k2 = self._h_m(k2)
@@ -417,6 +490,16 @@ class HaloTrispectrum(halo.Halo):
         _i_0_4_array = numpy.empty((len(self._ln_k_array),
                                     len(self._ln_k_array)))
         
+        for idx1 in xrange(len(self._ln_k_array)):
+            for idx2 in xrange(idx1, len(self._ln_k_array)):
+                k1 = numpy.exp(self._ln_k_array[idx1])
+                k2 = numpy.exp(self._ln_k_array[idx2])
+                if idx1 == idx2:
+                    _i_0_4_array[idx1, idx1] = self.i_0_4(k1, k1, k1, k1)
+                else:
+                    _i_0_4_array[idx1, idx2] = self.i_0_4(k1, k1, k2, k2)
+                    _i_0_4_array[idx2, idx1] = self.i_0_4(k1, k1, k2, k2)
+                
         for idx1, ln_k1 in enumerate(self._ln_k_array):
             for idx2, ln_k2 in enumerate(self._ln_k_array):
                 k1 = numpy.exp(ln_k1)
@@ -474,14 +557,20 @@ class HaloTrispectrum(halo.Halo):
         _i_1_2_array = numpy.empty((len(self._ln_k_array),
                                     len(self._ln_k_array)))
         
-        for idx1, ln_k1 in enumerate(self._ln_k_array):
-            for idx2, ln_k2 in enumerate(self._ln_k_array):
-                _i_1_2_array[idx1, idx2] = integrate.romberg(
+        for idx1 in xrange(len(self._ln_k_array)):
+            for idx2 in xrange(idx1, len(self._ln_k_array)):
+                k1 = numpy.exp(self._ln_k_array[idx1])
+                k2 = numpy.exp(self._ln_k_array[idx2])
+                _i_1_2 = integrate.romberg(
                     self._i_1_2_integrand, numpy.log(self.mass.nu_min),
-                    numpy.log(self.mass.nu_max), vec_func=True,
-                    args=(numpy.exp(ln_k1), numpy.exp(ln_k2)),
+                    numpy.log(self.mass.nu_max), vec_func=True, args=(k1, k1),
                     tol=defaults.default_precision["halo_precision"],
                     divmax=defaults.default_precision["divmax"])/(self.rho_bar)
+                if idx1 == idx2:
+                    _i_1_2_array[idx1, idx1] = _i_1_2
+                else:
+                    _i_1_2_array[idx1, idx2] = _i_1_2
+                    _i_1_2_array[idx2, idx1] = _i_1_2
                     
         self._i_1_2_spline = RectBivariateSpline(self._ln_k_array,
                                                  self._ln_k_array,
@@ -603,14 +692,19 @@ class HaloTrispectrum(halo.Halo):
         _i_2_2_array = numpy.empty((len(self._ln_k_array),
                               len(self._ln_k_array)))
         
-        for idx1, ln_k1 in enumerate(self._ln_k_array):
-            for idx2, ln_k2 in enumerate(self._ln_k_array):
-                _i_2_2_array[idx1, idx2] = integrate.romberg(
+        for idx1 in xrange(len(self._ln_k_array)):
+            for idx2 in xrange(len(self._ln_k_array)):
+                _i_2_2 = integrate.romberg(
                     self._i_2_2_integrand, numpy.log(self.mass.nu_min),
                     numpy.log(self.mass.nu_max), vec_func=True,
                     args=(numpy.exp(ln_k1), numpy.exp(ln_k2)),
                     tol=defaults.default_precision["halo_precision"],
                     divmax=defaults.default_precision["divmax"])/(self.rho_bar)
+                if idx1 == idx2:
+                    _i_2_2_array[idx1, idx2] = _i_2_2
+                else:
+                    _i_2_2_array[idx1, idx2] = _i_2_2
+                    _i_2_2_array[idx2, idx1] = _i_2_2
         
         self._i_2_2_spline = RectBivariateSpline(self._ln_k_array,
                                                  self._ln_k_array,

@@ -33,6 +33,8 @@ class SingleEpoch(object):
     """
 
     def __init__(self, redshift, cosmo_dict=None, with_bao=False, **kws):
+        if redshift < 0.0:
+            redshift = 0.0
         self._redshift = redshift
 
         if cosmo_dict is None:
@@ -70,8 +72,8 @@ class SingleEpoch(object):
         else:
             self._closed = False
 
-        self._k_min = 0.001
-        self._k_max = 100.0
+        self._k_min = defaults.default_limits['k_min']
+        self._k_max = defaults.default_limits['k_max']
         self.delta_H = (
             1.94e-5*self._omega_m0**(-0.785 - 0.05*numpy.log(self._omega_m0))*
             numpy.exp(-0.95*(self._n - 1) - 0.169*(self._n - 1)**2))
@@ -479,8 +481,8 @@ class SingleEpoch(object):
             float array linear power spectrum P(k)
         """
         return numpy.where(
-            k > defaults.default_precision["cosmo_precision"],
-            2.0*numpy.pi*numpy.pi*self.delta_k(k)/(k*k*k), 0.0)
+            k > 1e-16,
+            2.0*numpy.pi*numpy.pi*self.delta_k(k)/(k*k*k), 1e-16)
 
     def sigma_r(self, scale):
         """
@@ -491,18 +493,32 @@ class SingleEpoch(object):
         Returns:
             float RMS power at scale
         """
-        if 1.0/scale <= self._k_min and self._k_min > 0.0001:
-            self._k_min = (1.0/scale)/2.0
-            print "WARNING: Requesting scale greater than k_min."
-            print "\tResetting k_min to",self._k_min
-        if 1.0/scale >= self._k_max and self._k_max < 10000:
-            self._k_max = (1.0/scale)*2.0
-            print "WARNING: Requesting scale greater than k_max."
-            print "\tResetting k_max to",self._k_max
+        k_min = self._k_min
+        k_max = self._k_max
+        needed_k_min = 1.0/scale/10.0
+        needed_k_max = 1.0/scale*14.0662 ### 4 zeros of the window function
+        if (needed_k_min <= k_min and
+            needed_k_min > self._k_min/100.0):
+            k_min = needed_k_min
+        elif (needed_k_min <= k_min and
+              needed_k_min <= self._k_min/100.0):
+            k_min = self._k_min/100.0
+            # print "In cosmology.SingleEpoch.sigma_r:"
+            # print "\tWARNING: Requesting scale greater than k_min."
+            # print "\tExtrapolating to k_min=",k_min
+        elif (needed_k_max >= k_max and
+              needed_k_max < self._k_max*100.0):
+            k_max = needed_k_max
+        elif (needed_k_max >= k_max and
+              needed_k_max >= self._k_max*100.0):
+            k_max = self._k_max*100.0
+            # print "In cosmology.SingleEpoch.sigma_r:"
+            # print "\tWARNING: Requesting scale greater than k_max."
+            # print "\tExtrapolating to k_max=",k_max
 
         sigma2 = integrate.romberg(
-            self._sigma_integrand, numpy.log(self._k_min),
-            numpy.log(self._k_max), args=(scale,), vec_func=True,
+            self._sigma_integrand, numpy.log(k_min),
+            numpy.log(k_max), args=(scale,), vec_func=True,
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["cosmo_precision"],
             divmax=defaults.default_precision["divmax"])
@@ -748,8 +764,9 @@ class MultiEpoch(object):
                                self._chi_spline(redshift), 0.0)
         if numpy.any(numpy.logical_or(redshift>self.z_max,
                                       redshift<self.z_min)):
-            print ("Warning: a requested redshift was outside of bounds!  "
-                   "Returning 0 for this redshift.")
+            print ("In cosmology.MultiEpoch.comoving_distance:"
+                   "\n\tWarning: a requested redshift was outside of bounds!  "
+                   "\n\tReturning 1e-16 for this redshift.")
 
         return distance
 
@@ -1012,8 +1029,8 @@ class MultiEpoch(object):
         f.close()
 
         if not output_power_file_name is None:
-            k_min = 0.001
-            k_max = 100.0
+            k_min = self._k_min
+            k_max = self._k_max
 
             ln_k_array = numpy.linspace(numpy.log(k_min), numpy.log(k_max), 100)
             f = open(output_power_file_name, "w")

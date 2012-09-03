@@ -26,6 +26,18 @@ default_halo_dict = {
     "alpha": -1 ### Halo mass profile slope. [NFW = -1]
     }
 
+### Default global integration limits for the code.
+default_limits = {
+    "k_min": 0.001,
+    "k_max": 100.0,
+    "mass_min": -1, ### If instead of integrating the mass function over a fixed
+    "mass_max": -1  ### range of nu a fixed mass range is desired, set these
+                    ### limits to control the mass integration range. Setting
+                    ### These to hard limits can halve the running time of the
+                    ### code at the expense of less integration range consitency
+                    ### as a function of redshift and cosmology.
+}
+
 ### default precision parameters defining how many steps splines are evaluated
 ### for as well as the convergence of the Romberg integration used.
 ### If a user defines new derived classes it is recommended that they test if

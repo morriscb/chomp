@@ -35,7 +35,6 @@ class MassFunction(object):
         halo_dict: dictionary of floats defining halo and mass function 
             parameters (see defualts.py for details)
     """
-    #def __init__(self, redshift=0.0, cosmo_dict=None, halo_dict=None, **kws):
     def __init__(self, redshift=0.0, cosmo_single_epoch=None, 
                  halo_dict=None, **kws):
         self._redshift = redshift
@@ -130,6 +129,14 @@ class MassFunction(object):
     def _set_mass_limits(self):
         mass_min = 1.0e9
         mass_max = 1.0e16
+        if (defaults.default_limits["mass_min"] > 0 and 
+            defaults.default_limits["mass_max"] > 0):
+            self.ln_mass_min = numpy.log(defaults.default_limits["mass_min"])
+            self.ln_mass_max = numpy.log(defaults.default_limits["mass_max"])
+            self._ln_mass_array = numpy.linspace(
+                self.ln_mass_min, self.ln_mass_max,
+                defaults.default_precision["mass_npoints"])
+            return None
 
         mass_limit_not_set = True
         while mass_limit_not_set:

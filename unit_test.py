@@ -29,7 +29,7 @@ defaults.default_precision = {
     "kernel_limit": 100, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
                          ### integration
-    "kernel_bessel_limit": 4, ### Defines how many zeros before cutting off
+    "kernel_bessel_limit": 8, ### Defines how many zeros before cutting off
                               ### the Bessel function in kernel.py
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,
@@ -243,8 +243,8 @@ class MassFunctionTest(unittest.TestCase):
         self.mass_array = numpy.logspace(9, 16, 4)
         
     def test_mass_function(self):
-        nu_list = [-2.00781697, -0.84190606, 0.87876348, 3.70221194]
-        f_mass_list = [0.43461015, -0.47338496, -2.30333085, -17.49868274]
+        nu_list = [-2.00781786, -0.84190606, 0.87876348, 3.70221194]
+        f_mass_list = [0.43457575, -0.47342005, -2.30336595, -17.49871784]
         for idx, mass in enumerate(self.mass_array):
             if (mass < numpy.exp(self.mass.ln_mass_min) or 
                 mass > numpy.exp(self.mass.ln_mass_max)):
@@ -255,8 +255,8 @@ class MassFunctionTest(unittest.TestCase):
                                    f_mass_list[idx], p_dict["cosmo"])
 
     def test_set_redshift(self):
-        nu_list = [-1.37245339, -0.34899603, 1.1147666, 3.42069564]
-        f_mass_list = [-0.06735656, -0.91980723, -2.69848010, -13.83725413]
+        nu_list = [-1.37242994, -0.34899534, 1.11477110, 3.42073448]
+        f_mass_list = [-0.04868790,  -0.90112098, -2.67980091, -13.81901049]
         self.mass.set_redshift(1.0)
         for idx, mass in enumerate(self.mass_array):
             if (mass < numpy.exp(self.mass.ln_mass_min) or 
@@ -281,8 +281,8 @@ class MassFunctionTest(unittest.TestCase):
                                    f_mass_list[idx], p_dict["cosmo"])
 
     def test_set_halo(self):
-        nu_list = [-2.00781697, -0.84190606, 0.87876348, 3.70221194]
-        f_mass_list = [0.56718188, -0.52200862, -2.37759012, -13.76878321]
+        nu_list = [-2.00781786, -0.84190606, 0.87876348, 3.70221194]
+        f_mass_list = [0.56714078, -0.52205057, -2.37763207, -13.76882516]
         self.mass.set_halo(h_dict_2)
         for idx, mass in enumerate(self.mass_array):
             if (mass < numpy.exp(self.mass.ln_mass_min) or 
@@ -339,12 +339,12 @@ class HaloTest(unittest.TestCase):
     def test_set_redshift(self):
         linear_power_list = [7.20478501, 8.51067786,
                              1.34332833, -8.73288266]
-        power_mm_list = [7.2499,  8.5229,
-                         3.5101, -5.3865]
-        power_gm_list = [7.6939,  8.9648,
-                         4.1798, -2.6148]
-        power_gg_list = [8.1260,  9.4032,
-                         4.4452, -1.8025]
+        power_mm_list = [7.2508,  8.5229,
+                         3.5269, -5.3679]
+        power_gm_list = [7.6848,  8.9551,
+                         4.1791, -2.6148]
+        power_gg_list = [8.1065,  9.3837,
+                         4.4264, -1.8212]
         self.h.set_redshift(1.0)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
@@ -461,7 +461,7 @@ class WindowFunctionTest(unittest.TestCase):
     
     def test_window_function(self):
         lens_window_list = [0.0, -14.00096, -13.30840, -12.903527]
-        source_window_list = [-51.993790, -17.217075, -16.52400, -16.118615]
+        source_window_list = [0.0, -17.217075, -16.52400, -16.118615]
         for idx, z in enumerate(self.z_array):
             self.assertAlmostEqual(
                 numpy.where(self.lens_window.window_function(z) > 1e-16,
@@ -473,7 +473,7 @@ class WindowFunctionTest(unittest.TestCase):
                             0.0), source_window_list[idx], p_dict["window"])
 
     def test_set_cosmology(self):
-        lens_window_list = [-47.27529, -13.99938, -13.30648, -12.901265]
+        lens_window_list = [0.0, -13.99938, -13.30648, -12.901265]
         source_window_list = [0.0, -16.01303, -15.320053, -14.91476]
         
         cosmo = cosmology.MultiEpoch(0.0, 5.0, c_dict_2)
@@ -555,7 +555,7 @@ class CorrelationTest(unittest.TestCase):
         self.theta_array = numpy.logspace(-3, 0, 4)*degToRad
         
     def test_correlation(self):
-        corr_list = [-4.734171, -5.188541, -6.84052, -8.89917]
+        corr_list = [-4.733175, -5.187615, -6.840129, -8.89917]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)), corr_list[idx],
@@ -563,7 +563,7 @@ class CorrelationTest(unittest.TestCase):
 
     def test_set_redshift(self):
         self.corr.set_redshift(0.5)
-        corr_list = [-4.823852, -5.276084, -6.916416, -8.89967]
+        corr_list = [-4.824394, -5.276586, -6.916602, -8.899675]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)), corr_list[idx],
@@ -581,7 +581,7 @@ class CorrelationTest(unittest.TestCase):
         zheng = hod.HODZheng(10**12.0, 0.15, 10**12.0, 10**13.0, 1.0)
         self.corr.set_hod(zheng)
         self.corr.set_power_spectrum('power_gm')
-        corr_list = [-4.321247, -5.156678, -6.879646, -8.852446]
+        corr_list = [-4.321297, -5.156788, -6.880080, -8.853055]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)), corr_list[idx],

@@ -76,9 +76,11 @@ class PerturbationTheory(object):
         if redshift is None:
             redshift = self._redshift
         self.cosmo.set_cosmology(cosmo_dict, redshift)
+        self._redshift = redshift
     
     def set_cosmology_object(self, cosmo_single_epoch):
         self.cosmo = cosmo_single_epoch
+        self._redshift = self.cosmo._redshift
     
     def set_redshift(self, redshift):
         self._redshift = redshift
