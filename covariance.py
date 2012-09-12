@@ -1,200 +1,26 @@
 from copy import copy
 import cosmology
 import defaults
-import halo
-import hod
 import kernel
+import halo
+import halo_trispectrum
 import numpy
 from scipy import special
 from scipy import integrate
+from scipy.interpolate import InterpolatedUnivariateSpline
 
-"""
-Classes describing different correlation functions.
-
-Each correlation function can be defined as
-
-w(theta) = int(z, g_1(z)*g_2(z)*int(k, k/(2*pi) P_x(k, z) J(k*theta*chi(z))))
-
-where P_x is a power spectrum from halo, J is the Bessel function, and g_1/g_2
-are window functions with redshift. This class is the final wrapper method uses
-each all of the combined classes of the code base together to predict observable
-correlations functions.
+"""Objects for computing covariance marix given an input survey are, theta
+   limits, and binning.
 """
 
-speed_of_light = 3*10**5
 deg_to_rad = numpy.pi/180.0
 rad_to_deg = 180.0/numpy.pi
+deg2_to_strad = deg_to_rad*deg_to_rad
+strad_to_deg2 = rad_to_deg*rad_to_deg
 
-__author__ = ("Chris Morrison <morrison.chrisb@gmail.com>, "+
-              "Ryan Scranton <ryan.scranton@gmail.com>")
-
-
-class Correlation(object):
-    """
-    Bass class for correlation functions.
-
-    Given a maximum and minimum angular extent in radians, two window functions
-    from kernel.py, dictionaries defining the cosmology and halo properties,
-    an input HOD from hod.py, and a requested power spectrum type, 
-    returns the predicted correlation function.
-    
-    Derived classes should return an array of the projected variable (in this
-    case theta in radians) and return the value of the correlation w.
-
-    Attributes:
-        theta_min: minimum angular extent in radians
-        theta_max: maximum angular extent in radians
-        input_kernel: Kernel object from kernel.py
-        input_halo: Halo object from halo.py
-        input_hod: HOD object from hod.py
-        powSpec: string defining a power spectrum
-        
-        theta_array: array of theta values for computed correlation function
-        wtheta_array: array of computed correlation values at theta_array values
-    """
-
-    def __init__(self, theta_min_deg, theta_max_deg, input_kernel,
-                 input_halo=None, powSpec=None, **kws):
-
-        self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
-        self.log_theta_max = numpy.log10(theta_max_deg*deg_to_rad)
-        self.theta_array = numpy.logspace(
-            self.log_theta_min, self.log_theta_max,
-            defaults.default_precision["corr_npoints"])
-        if theta_min==theta_max:
-            self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
-            self.log_theta_max = numpy.log10(theta_min_deg*deg_to_rad)
-            self.theta_array = numpy.array([theta__deg_min*deg_to_rad])
-        self.wtheta_array = numpy.zeros(self.theta_array.size)
-
-        # Hard coded, but we shouldn't expect halos outside of this range.
-
-        self.kernel = input_kernel
-
-        self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
-                      
-        if input_halo is None:
-            input_halo = halo.Halo(self.kernel.z_bar)
-        self.halo = input_halo
-        self.halo.set_redshift(self.kernel.z_bar)
-
-        if powSpec==None:
-            powSpec = 'linear_power'
-        try:
-            self.power_spec = self.halo.__getattribute__(powSpec)
-        except AttributeError or TypeError:
-            print "WARNING: Invalid input for power spectra variable,"
-            print "\t setting to linear_power"
-            self.power_spec = self.halo.__getattribute__('linear_power')
-
-    def set_redshift(self, redshift):
-        """
-        Force redshift of all objects to input value.
-
-        Args:
-            redshift: float value of redshift
-        """
-        self.kernel.z_bar = redshift
-        self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
-        self.halo.set_redshift(self.kernel.z_bar)
-            
-    def set_cosmology(self, cosmo_dict):
-        """
-        Set all objects to the cosmology of cosmo_dict
-
-        Args:
-            cosmo_dict: dictionary of float values defining a cosmology (see
-                defaults.py for details)
-        """
-        self.kernel.set_cosmology(cosmo_dict)
-        self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
-        self.halo.set_cosmology(cosmo_dict, self.kernel.z_bar)
-
-    def set_power_spectrum(self, powSpec):
-        """
-        Set power spectrum to type specified in powSpec. Of powSpec is not a
-        member of the halo object return the linear power spectrum.
-
-        Args:
-            powSpec: string name of power spectrum to use from halo.py object.
-        """
-        try:
-            self.power_spec = self.halo.__getattribute__(powSpec)
-        except AttributeError or TypeError:
-            print "WARNING: Invalid input for power spectra variable,"
-            print "\t setting to 'linear_power'"
-            self.power_spec = self.halo.__getattribute__('linear_power')
-
-    def set_halo(self, halo_dict):
-        """
-        Reset halo parameters to halo_dict
-
-        Args:
-            halo_dict: dictionary of floats defining halos (see defaults.py
-                for details)
-        """
-        self.halo.set_halo(halo_dict)
-
-    def set_hod(self, input_hod):
-        """
-        Reset hod object to input_hod
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
-        Args:
-            input_hod: an HOD object from hod.py
-        """
-        self.halo.set_hod(input_hod)
-
-    def compute_correlation(self):
-        """
-        Compute the value of the correlation over the range
-        theta_min - theta_max
-        """
-        for idx,theta in enumerate(self.theta_array):
-            self.wtheta_array[idx] = self.correlation(theta)
-
-    def correlation(self, theta_deg):
-        """
-        Compute the value of the correlation at array values theta
-
-        Args:
-            theta: float array of angular values in radians to compute the
-                correlation
-        """
-        ln_kmin = numpy.log(self.halo._k_min)
-        ln_kmax = numpy.log(self.halo._k_max)
-        wtheta = integrate.romberg(
-            self._correlation_integrand, 
-            ln_kmin, ln_kmax, args=(theta_deg*deg_to_rad,), vec_func=True,
-            tol=defaults.default_precision["global_precision"],
-            rtol=defaults.default_precision["corr_precision"],
-            divmax=defaults.default_precision["divmax"])
-        return wtheta
-
-    def _correlation_integrand(self, ln_k, theta):
-        dln_k = 1.0
-        k = numpy.exp(ln_k)
-        dk = k*dln_k
-        return (dk*k/(2.0*numpy.pi)*self.power_spec(k)/(self.D_z*self.D_z)*
-                self.kernel.kernel(numpy.log(k*theta)))
-
-    def write(self, output_file_name):
-        """
-        Write out current values of the correlation object.
-
-        Args:
-            output_file_name: string name of file to output
-        """
-        f = open(output_file_name, "w")
-        f.write("#ttype1 = theta [deg]\n#ttype2 = wtheta\n")
-        for theta, wtheta in zip(
-            self.theta_array, self.wtheta_array):
-            f.write("%1.10f %1.10f\n" % (theta/deg_to_rad, wtheta))
-        f.close()
-        
 class Covariance(object):
     """
-    Inherited class to compute the covariance matrix between theta_a and thata_b
+    Class to compute the covariance matrix between theta_a and thata_b
     given input kernel and halo trispectrum objects. This class can be used to
     estimate the covariance between different estimators as a function.
 
@@ -209,17 +35,28 @@ class Covariance(object):
         wcovar_array: array of computed covariance values at theta_array values
     """
 
-    def __init__(self, theta_min_deg, theta_max_deg, 
+    def __init__(self, theta_min_deg, theta_max_deg,
+                 bins_per_decade=5,
+                 survey_area_deg2=4*numpy.pi*strad_to_deg2,
+                 n_pairs=1e6*1e6, variance=1.0,
                  input_kernel_covariance=None,
                  input_halo=None,
                  input_halo_trispectrum=None, **kws):
-
-        self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
-        self.log_theta_max = numpy.log10(theta_max_deg*deg_to_rad)
-        self.theta_array = numpy.logspace(
-            self.log_theta_min, self.log_theta_max,
-            defaults.default_precision["corr_npoints"])
-        self.wcovar_array = numpy.zeros(self.theta_array.size)
+        
+        self.annular_bins = []
+        unit_double = numpy.floor(numpy.log10(theta_min_deg))*bins_per_decade
+        theta = numpy.power(10.0, unit_double/bins_per_decade)
+        while theta < theta_max_deg:
+            if theta >= theta_min_deg and theta < theta_max_deg:
+                self.annular_bins.append(AnnulusBin(
+                    theta, numpy.power(
+                               10.0, (unit_double+1.0)/bins_per_decade)))
+                unit_double += 1.0
+                theta = numpy.power(10.0, unit_double/bins_per_decade)
+                
+        self.area = survey_area_deg2*deg2_to_strad
+        self.n_pairs = n_pairs
+        self.variance = variace
 
         self.kernel = input_kernel_covariance
         
@@ -271,7 +108,7 @@ class Covariance(object):
         
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
-        
+               
     def _projected_halo_a(self, K):
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
@@ -283,65 +120,70 @@ class Covariance(object):
         return numpy.exp(self._halo_b_spline(numpy.log(K)))
     
     def get_covariance(self):
-        pass
+        out_covar = numpy.zeros((len(self.annular_bins),
+                                 len(self.annular_bins)), 'float128')
+        for idx1 in xrange(out_covar.shape[0]):
+            for idx2 in xrange(idx1, out_covar.shape[1]):
+                cov = self.covariance(self.annular_bins[idx1],
+                                      self.annular_bins[idx2])
+                if idx1 == idx2:
+                    out_covar[idx1, idx2] = cov
+                else:
+                    out_covar[idx1, idx2] = cov
+                    out_covar[idx2, idx1] = cov
+                print (str(self.annular_bins[idx1].center)+' '+
+                       str(self.annular_bins[idx2].center)+' '+
+                       str(cov))
+        return out_covar
         
-    def covariance(self, theta_a_deg, theta_b_deg):
+    def covariance(self, annular_bin_a, annular_bin_b):
         cov_P = 0.0
-        theta_a = theta_a_deg*deg_to_rad
-        theta_b = theta_b_deg*deg_to_rad
-        if theta_a_deg == theta_b_deg:
-            cov_P = self.covariance_P(theta_a)
-        return (cov_P +
-                self.covariance_G(theta_a, theta_b))
+        theta_a = annular_bin_a.center*deg_to_rad
+        theta_b = annular_bin_b.center*deg_to_rad
+        if annular_bin_a == annular_bin_b:
+            cov_P = self.covariance_P(annular_bin_a.delta)
+        return (cov_P + self.covariance_G(theta_a, theta_b) +
+                self.covariance_NG(theta_a, theta_b))
     
-    def covariance_P(self, theta_min_rad, theta_max_rad):
-        return 1.0/(numpy.pi*(theta_max*theta_max - theta_min*theta_min))
+    def covariance_P(self, delta):
+        return self.area*self.variance/(
+            self.n_pairs*2.0*numpy.pi*delta*deg_to_rad)
         
-    def covariance_G(self, theta_a_rad, theta_b_rad):
+    def covariance_G(self, theta_a, theta_b):
         ### We normalize the integral so that romberg will have an easier time
         ### integrating it.
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
-        ln_K_max = numpy.log(numpy.max([self._j0_limit/theta_a_rad,
-                                        self._j0_limit/theta_b_rad]))
+        ln_K_max = numpy.log(numpy.max([self._j0_limit/theta_a,
+                                        self._j0_limit/theta_b]))
         if ln_K_max > self._ln_K_max:
             ln_K_max = self._ln_K_max
         elif ln_K_max <= self._ln_K_min:
             return 0.0
         
-        self._norm_G = 1.0
-        self._norm_G = 1.0/self._covariance_G_integrand(0, 0.0, 0.0)
-        norm = 1.0/
-            
-        return = integrate.romberg(
+        norm = 1.0/self._covariance_G_integrand(0.0, 0.0, 0.0, 1.0)
+        return integrate.romberg(
             self._covariance_G_integrand, self._ln_K_min, ln_K_max,
-            args=(theta_a_rad, theta_b_rad, norm),vec_func=True, 
+            args=(theta_a, theta_b, norm), vec_func=True, 
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["corr_precision"],
-            divmax=defaults.default_precision["divmax"]))/(
-            norm*self._D_z_a*self._D_z_a*self._D_z_b*self._D_z_b*numpy.pi)
+            divmax=defaults.default_precision["divmax"])/(
+                norm*self._D_z_a*self._D_z_a*self._D_z_b*self._D_z_b*
+                numpy.pi*self.area)
     
-    def _covariance_G_integrand(self, ln_K, theta_a, theta_b, nor=1.0):
+    def _covariance_G_integrand(self, ln_K, theta_a, theta_b, norm=1.0):
         K = numpy.exp(ln_K)
         dK = K
         return (dK*K*norm*self._projected_halo_a(K)*self._projected_halo_b(K)*
                 special.j0(K*theta_a)*special.j0(K*theta_b))
         
-    def _projected_halo_a(self, K):
-        if not self._initialized_halo_splines:
-            self._initialize_halo_splines()
-        return numpy.exp(self._halo_a_spline(numpy.log(K)))
-    
-    def _projected_halo_b(self, K):
-        if not self._initialized_halo_splines:
-            self._initialize_halo_splines()
-        return numpy.exp(self._halo_b_spline(numpy.log(K)))
-        
     def _initialize_halo_splines(self):
         z_array_a = numpy.linspace(self._z_min_a, self._z_max_a,
-                                   defaults.default_precision['kernel_npoints'])
+                                   defaults.default_precision['kernel_npoints'],
+                                   'float128')
         z_array_b = numpy.linspace(self._z_min_b, self._z_max_b,
-                                   defaults.default_precision['kernel_npoints'])
+                                   defaults.default_precision['kernel_npoints'],
+                                   'float128')
         self._z_bar_G_a = z_array_a[numpy.argmax(
             self.kernel._kernel_G_a_integrand(
                 self.kernel.cosmo.comoving_distance(z_array_a)))]
@@ -361,18 +203,17 @@ class Covariance(object):
         _halo_b_array = numpy.empty(self._ln_K_array.shape)
         
         for idx, ln_K in enumerate(self._ln_K_array):
-            norm = 1.0/_halo_a_integrand(chi_peak_a, ln_K, 1.0)
+            norm = 1.0/self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0)
             _halo_a_array[idx] = integrate.romberg(
                 self._halo_a_integrand, self._chi_min_a, self._chi_max_a,
                 args=(ln_K, norm), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])/norm
-                
-            norm = 1.0/_halo_b_integrand(chi_peak_b, ln_K, 1.0)
+            norm = 1.0/self._halo_a_integrand(chi_peak_b, ln_K, norm=1.0)
             _halo_b_array[idx] = integrate.romberg(
                 self._halo_b_integrand, self._chi_min_b, self._chi_max_b,
-                args=(ln_K, norn), vec_func=True,
+                args=(ln_K, norm), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])/norm
@@ -386,7 +227,6 @@ class Covariance(object):
     
     def _halo_a_integrand(self, chi, ln_K, norm=1.0):
         K = numpy.exp(ln_K)
-        
         return (norm*self.halo_a.power_mm(K/chi)*
                 self.kernel._kernel_G_a_integrand(chi))
     
@@ -398,70 +238,82 @@ class Covariance(object):
     def covariance_NG(self, theta_a_rad, theta_b_rad):
         self._initialize_kb_spline(theta_a_rad, theta_b_rad)
         
-        self._ka_norm = 1.0
-        self._ka_norm = 1.0/self._ka_integrand(0.0)
+        norm = 1.0/self._ka_integrand(0.0, 1.0)
         
-        return 1.0/(4.0*numpy.pi*self._D_z_NG*self._D_z_NG*self._D_z_NG*
-                    self._D_z_NG*numpy.pi*self._ka_norm)*integrate.romberg(
+        return integrate.romberg(
             self._ka_integrand, self._ln_k_min, self._ln_k_max, vec_func=True,
+            args=(norm,),
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["corr_precision"],
-            divmax=defaults.default_precision["divmax"])
+            divmax=defaults.default_precision["divmax"])/(
+                4.0*numpy.pi*numpy.pi*norm*self.area)
         
-    def _ka_integrand(self, ln_ka):
+    def _ka_integrand(self, ln_ka, norm=1.0):
         dln_ka = 1.0
         ka = numpy.exp(ln_ka)
         dka = ka*dln_ka
-        return dka*ka*self._kb_spline(ln_ka)*self._ka_norm/self._kb_norm
+        return dka*ka*(
+            numpy.exp(self._kb_spline(ln_ka)) + self._kb_min - 1e-16)*norm
     
     def _initialize_kb_spline(self, theta_a, theta_b):
         if (self._current_theta_a == theta_a and
-            self._current_theta_a == theta_b):
+            self._current_theta_b == theta_b):
             return None
         
-        _kb_int_array = numpy.empty(self._ln_k_array.shape)
-        self._kb_norm = 1.0
-        self._kb_norm = 1.0/self._kb_integrand(0.0, 1.0, theta_a, theta_b)
+        _kb_int_array = numpy.empty(self._ln_k_array.shape, 'float128')
         
         for idx, ln_k in enumerate(self._ln_k_array):
-            _kb_int_array[idx] = self._kb_integral(numpy.exp(ln_k),
-                                                   theta_a, theta_b)
+            _kb_int_array[idx] = self._kb_integral(ln_k, theta_a, theta_b)
             
+        self._kb_min = numpy.min(_kb_int_array)
         self._kb_spline = InterpolatedUnivariateSpline(
-            self._ln_k_array, _kb_int_array)
+            self._ln_k_array, numpy.log(_kb_int_array - self._kb_min + 1e-16))
     
-    def _kb_integral(self, ka, theta_a, theta_b):
-        if type(ka) == numpy.ndarray:
-            kb_int = numpy.empty(ka.shape)
-            for idx, k in enumerate(ka):
+    def _kb_integral(self, ln_k, theta_a, theta_b):
+        if type(ln_k) == numpy.ndarray:
+            kb_int = numpy.empty(ln_k.shape)
+            
+            inv_norm = self._kb_integrand(0.0, ln_k, theta_a, 
+                                          theta_b, 1.0)
+            norm = 1.0
+            if inv_norm > 1e-16 or inv_norm < -1e-16:
+                norm = 1/inv_norm
+            else:
+                norm = 1e16
+            for idx, ln_k in enumerate(ln_k):
                 kb_int[idx] = integrate.romberg(
                     self._kb_integrand, self._ln_k_min, self._ln_k_max,
-                    args=(ka, theta_a, theta_b), vec_func=True,
+                    args=(ln_k, theta_a, theta_b, norm), vec_func=True,
                     tol=defaults.default_precision["global_precision"],
                     rtol=defaults.default_precision["corr_precision"],
-                    divmax=defaults.default_precision["divmax"])
+                    divmax=defaults.default_precision["divmax"])/(
+                        norm*self.D_z_NG*self.D_z_NG*self.D_z_NG*self.D_z_NG)
             return kb_int
+
+        inv_norm = self._kb_integrand(0.0, ln_k, theta_a, 
+                                          theta_b, 1.0)
+        norm = 1.0
+        if inv_norm > 1e-16 or inv_norm < -1e-16:
+            norm = 1/inv_norm
+        else:
+            norm = 1e16
         return integrate.romberg(
            self._kb_integrand, self._ln_k_min, self._ln_k_max,
-           args=(ka, theta_a, theta_b), vec_func=True,
+           args=(ln_k, theta_a, theta_b, norm), vec_func=True,
            tol=defaults.default_precision["global_precision"],
            rtol=defaults.default_precision["corr_precision"],
-           divmax=defaults.default_precision["divmax"])
+           divmax=defaults.default_precision["divmax"])/(
+               norm*self.D_z_NG*self.D_z_NG*self.D_z_NG*self.D_z_NG)
     
-    def _kb_integrand(self, ln_kb, ka, theta_a, theta_b):
+    def _kb_integrand(self, ln_kb, ln_ka, theta_a, theta_b, norm=1.0):
         dln_kb = 1.0
+        ka = numpy.exp(ln_ka)
         kb = numpy.exp(ln_kb)
         dkb = kb*dln_kb
-        return (dkb*kb*self.halo_tri.trispectrum_parallelogram(ka, kb)*
-            self._kb_norm/(self.D_z_NG*self.D_z_NG*self.D_z_NG*self.D_z_NG)*
+        return (dkb*kb*norm*self.halo_tri.trispectrum_parallelogram(ka, kb)*
             self.kernel.kernel(numpy.log(ka*theta_a),
                                numpy.log(kb*theta_b))[0])
-        
-    def correlation(self, theta):
-        pass
-
-    def _correlation_integrand(self, ln_k, theta):
-        pass
+    
     
 class CovarianceFourier(object):
     
@@ -674,4 +526,11 @@ class CovarianceFourier(object):
         return (norm*window1(chi)*window2(chi)*D_z*D_z/(chi*chi)*
                 halo.power_mm(k))
         
+class AnnulusBin(object):
     
+    def __init__(self, inner, outer):
+        self.inner = inner
+        self.outer = outer
+        self.center = numpy.power(10.0,0.5*(numpy.log10(inner)+
+                                            numpy.log10(outer)))
+        self.delta = outer - inner

@@ -812,7 +812,7 @@ class KernelCovariance(Kernel):
             defaults.default_precision["kernel_npoints"])
         self._kernel_array = numpy.empty(
             (defaults.default_precision["kernel_npoints"],
-             defaults.default_precision["kernel_npoints"]))
+             defaults.default_precision["kernel_npoints"]), 'float128')
 
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
@@ -835,13 +835,6 @@ class KernelCovariance(Kernel):
         chi_array = self.cosmo.comoving_distance(z_array)
         self.z_bar_NG = z_array[numpy.argmax(self._kernel_NG_integrand(
             numpy.where(chi_array > 1e-8, chi_array, 1e-8), 0.0, 0.0))]
-        
-        peak_NG_chi = self.cosmo.comoving_distance(self.z_bar_NG)
-        ### This is a dummy normalization factor to ensure that our integral
-        ### over the chi space kernel is numerically well behaved.
-        self._int_NG_norm = 1.0/self._kernel_NG_integrand(
-            peak_NG_chi, 0.0, 0.0)
-        
 
     def set_cosmology(self, cosmo_dict):
         """
@@ -882,8 +875,8 @@ class KernelCovariance(Kernel):
         return numpy.where(
             numpy.logical_and(ln_ktheta_a <= self.ln_ktheta_max,
                               ln_ktheta_b <= self.ln_ktheta_max),
-            self._kernel_NG_spline(ln_ktheta_a, ln_ktheta_b)/
-            self._int_NG_norm, 0.0)
+            numpy.exp(self._kernel_NG_spline(ln_ktheta_a, ln_ktheta_b)) + 
+            self._kernel_NG_min*10.0, 0.0)
 
     def _initialize_NG_spline(self):
         for idx1 in xrange(len(self._ln_ktheta_array)):
@@ -895,10 +888,10 @@ class KernelCovariance(Kernel):
                 else:
                     self._kernel_array[idx1, idx2] = kern
                     self._kernel_array[idx2, idx1] = kern
-                    
-        self._kernel_NG_spline = RectBivariateSpline(self._ln_ktheta_array,
-                                                     self._ln_ktheta_array,
-                                                     self._kernel_array)
+        self._kernel_NG_min = numpy.min(self._kernel_array)
+        self._kernel_NG_spline = RectBivariateSpline(
+            self._ln_ktheta_array, self._ln_ktheta_array,
+            numpy.log(self._kernel_array - self._kernel_NG_min*10.0))
         self._initialized_NG_spline = True
         
     def raw_kernel(self, ln_ktheta_a, ln_ktheta_b):
@@ -923,20 +916,28 @@ class KernelCovariance(Kernel):
         elif chi_max <= self.chi_min:
             return 0.0
         
+        peak_NG_chi = self.cosmo.comoving_distance(self.z_bar_NG)
+        inv_norm = self._kernel_NG_integrand(
+            peak_NG_chi, ln_ktheta_a, ln_ktheta_a, 1.0)
+        norm = 1.0
+        if inv_norm > 1e-16 or inv_norm < -1e-16:
+            norm = 1.0/inv_norm
+        else:
+            norm = 1e16
         if self._force_quad:
             kernel = integrate.quad(
                 self._kernel_NG_integrand, self.chi_min, chi_max,
-                args=(ktheta_a, ktheta_b),
+                args=(ktheta_a, ktheta_b, norm),
                 limit=defaults.default_precision["kernel_limit"])[0]
-            return kernel
+            return kernel/norm
         else:
             kernel = integrate.romberg(
                 self._kernel_NG_integrand, self.chi_min, chi_max,
-                args=(ktheta_a, ktheta_b), vec_func=True,
+                args=(ktheta_a, ktheta_b, norm), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["kernel_precision"],
                 divmax=defaults.default_precision["divmax"])
-            return kernel
+            return kernel/norm
 
     def _kernel_G_a_integrand(self, chi):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
@@ -952,10 +953,10 @@ class KernelCovariance(Kernel):
                 self.window_function_b2.window_function(chi)*
                 D_z*D_z/(chi*chi))
         
-    def _kernel_NG_integrand(self, chi, ktheta_a, ktheta_b):
+    def _kernel_NG_integrand(self, chi, ktheta_a, ktheta_b, norm=1.0):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
         
-        return (self.window_function_a1.window_function(chi)*
+        return (norm*self.window_function_a1.window_function(chi)*
                 self.window_function_a2.window_function(chi)*
                 self.window_function_b1.window_function(chi)*
                 self.window_function_b2.window_function(chi)*

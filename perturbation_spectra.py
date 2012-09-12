@@ -305,20 +305,30 @@ class PerturbationTheory(object):
         See also:
             pertTheory.trispectrum(k1, k2, k3, k4)
         """
-        x = k2 / k1
-        z = 1 + x ** 2 - 2 * x * mu
+        
+        ### First we need to compute the difference vector and the angles
+        ### between the difference and our k vectors.
+        k1mk2 = numpy.sqrt(k1*k1 + k2*k2 - 2.0*k1*k2*mu)
+        zmk1 = numpy.where(k1mk2 > 0, (k1*k1 - k1*k2*mu)/(k1mk2*k1), 0.0)
+        zmk2 = numpy.where(k1mk2 > 0, (k2*k2 - k1*k2*mu)/(k1mk2*k2), 0.0)
+        
+        ### Precompute power spectra and perturbation theory factors.
         p1 = self.cosmo.linear_power(k1)
         p2 = self.cosmo.linear_power(k2)
-        k1mk2 = k1 * numpy.sqrt(z)
-        p12 = self.cosmo.linear_power(k1 * numpy.sqrt(z)) # k1 - k2
-        F21 = self.Fs2_parallelogram(k1 - k2, k2)
-        F22 = self.Fs2_parallelogram(k2 - k1, k1)
-        a1 = 12. * self.Fs3_parallelogram(k1, -k1, k2) * (p1 ** 2) * p2
-        a2 = 8. * F21 ** 2 * p12 * p2 ** 2
-        a3 = 16. * F21 * F22 * p1 * p2 * p12
+        p12 = self.cosmo.linear_power(k1mk2) # k1 - k2
+        Fm1 = self.Fs2_len(k1mk2, k1, zmk1)
+        Fm2 = self.Fs2_len(k1mk2, k2, zmk2)
+        Fs3_12 = numpy.where(numpy.logical_and(k1==k2, mu==1.0), 0.0,
+                             self.Fs3_parallelogram(k1, k2, mu))
+        Fs3_21 = numpy.where(numpy.logical_and(k1==k2, mu==1.0), 0.0,
+                             self.Fs3_parallelogram(k2, k1, mu))
+        
+        a1 = 12. * Fs3_12 * (p1 ** 2) * p2
+        a2 = 8. * Fm2 ** 2 * p12 * p2 ** 2
+        a3 = 16. * Fm1 * Fm2 * p1 * p2 * p12
 
-        b1 = 12. * self.Fs3_parallelogram(k2, -k2, k1) * (p2 ** 2) * p1
-        b2 = 8. * F22 ** 2 * p12 * p1 ** 2
+        b1 = 12. * Fs3_21 * (p2 ** 2) * p1
+        b2 = 8. * Fm1 ** 2 * p12 * p1 ** 2
 
         res = a1 + b1 + a2 + b2 + 2. * a3
         # print a1 + b1, a2 + b2 + 2. * a3

@@ -36,7 +36,7 @@ default_limits = {
                     ### These to hard limits can halve the running time of the
                     ### code at the expense of less integration range consitency
                     ### as a function of redshift and cosmology.
-}
+    }
 
 ### default precision parameters defining how many steps splines are evaluated
 ### for as well as the convergence of the Romberg integration used.

@@ -4,6 +4,7 @@ import halo
 import hod
 import mass_function
 import numpy
+import perturbation_spectra
 from scipy import integrate
 from scipy import special
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -58,48 +59,46 @@ class HaloTrispectrumOneHalo(halo.Halo):
         Returns:
             float Integral over all halo masses for 4 points in a halo
         """
+        norm = 1.0/self._i_0_4_integrand(0.0, k1, k2, k3, k4, 1.0)
         return integrate.romberg(
             self._i_0_4_integrand, numpy.log(self.mass.nu_min),
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
-            divmax=defaults.default_precision["divmax"],
-            args=(k1, k2, k3, k4))/(self.rho_bar*self.rho_bar*self.rho_bar)
+            args=(k1, k2, k3, k4),
+            rtol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
+            divmax=defaults.default_precision["divmax"])/(
+                self.rho_bar*self.rho_bar*self.rho_bar)
             
     def i_0_4_parallelogram(self, k1, k2):
         k1 = numpy.where(k1 < self._k_min, self._k_min, k1)
         k2 = numpy.where(k2 < self._k_min, self._k_min, k2)
         return numpy.where(
             numpy.logical_and(k1 <= self._k_max, k2 <= self._k_max),
-            self._i_0_4_spline(numpy.log(k1), numpy.log(k2))[0,0], 0.0)
+            self._i_0_4_spline(numpy.log(k1), numpy.log(k2))[0], 0.0)
         
     def _initialize_i_0_4(self):
-        _i_0_4_array = numpy.empty((len(self._ln_k_array),
+        self._i_0_4_array = numpy.empty((len(self._ln_k_array),
                                     len(self._ln_k_array)))
         
         for idx1 in xrange(len(self._ln_k_array)):
             for idx2 in xrange(idx1, len(self._ln_k_array)):
                 k1 = numpy.exp(self._ln_k_array[idx1])
                 k2 = numpy.exp(self._ln_k_array[idx2])
+                i_0_4 = self.i_0_4(k1, k1, k2, k2)
                 if idx1 == idx2:
-                    _i_0_4_array[idx1, idx1] = self.i_0_4(k1, k1, k1, k1)
+                    self._i_0_4_array[idx1, idx2] = i_0_4
                 else:
-                    _i_0_4_array[idx1, idx2] = self.i_0_4(k1, k1, k2, k2)
-                    _i_0_4_array[idx2, idx1] = self.i_0_4(k1, k1, k2, k2)
-                
-        for idx1, ln_k1 in enumerate(self._ln_k_array):
-            for idx2, ln_k2 in enumerate(self._ln_k_array):
-                k1 = numpy.exp(ln_k1)
-                k2 = numpy.exp(ln_k2)
-                _i_0_4_array[idx1, idx2] = self.i_0_4(k1, k1, k2, k2)
+                    self._i_0_4_array[idx1, idx2] = i_0_4
+                    self._i_0_4_array[idx2, idx1] = i_0_4
         
         self._i_0_4_spline = RectBivariateSpline(
-            self._ln_k_array, self._ln_k_array, _i_0_4_array)
+            self._ln_k_array, self._ln_k_array, self._i_0_4_array)
         
         print "Initialized::I_0_4_parallelogram"
         
         self._initialized_i_0_4 = True
         
-    def _i_0_4_integrand(self, ln_nu, k1, k2, k3, k4):
+    def _i_0_4_integrand(self, ln_nu, k1, k2, k3, k4, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y1 = self.y(numpy.log(k1), mass)
@@ -143,6 +142,8 @@ class HaloTrispectrum(halo.Halo):
     
     def __init__(self, redshift=0.0, single_epoch_cosmo=None,
                  mass_func_second=None, perturbation=None, halo_dict=None):
+        if perturbation == None:
+            perturbation = perturbation_spectra.PerturbationTheory()
         self.pert = perturbation
         halo.Halo.__init__(self, redshift, None, single_epoch_cosmo,
                       mass_func_second, halo_dict)
@@ -152,6 +153,7 @@ class HaloTrispectrum(halo.Halo):
         self._initialized_i_2_1 = False
         self._initialized_i_2_2 = False
         
+        self._initialzied_PT_averaged = False
         self._initialized_tri_proj = False
         
     def set_cosmology(self, cosmo_dict, redshift=None):
@@ -176,6 +178,7 @@ class HaloTrispectrum(halo.Halo):
         self._initialized_i_2_1 = False
         self._initialized_i_2_2 = False
         
+        self._initialzied_PT_averaged = False
         self._initialized_tri_proj = False
         
     def set_redshift(self, redshift):
@@ -216,55 +219,61 @@ class HaloTrispectrum(halo.Halo):
                 numpy.logical_and(k1 >= self._k_min, k1 <= self._k_max),
                 numpy.logical_and(k2 >= self._k_min, k2 <= self._k_max)),
             numpy.exp(
-                self._tri_proj_spline(numpy.log(k1), numpy.log(k2))[0][0]) -
-            self._spline_norm, 0.0)
+                self._tri_proj_spline(numpy.log(k1), numpy.log(k2))[0][0]) +
+                self._min_value - 1.0, 0.0)
             
     def tri_spec_proj_integral(self, k1, k2):
+        norm = 1.0/self._trispectrum_parallelogram_wrap(
+                    numpy.pi/2.0, k1, k2, 1.0)
         theta_int = 2.0*integrate.romberg(
             self._trispectrum_parallelogram_wrap, 
             0.0 , numpy.pi,
-            args=(k1, k2), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
+            args=(k1, k2, norm), vec_func=True,
+            rtol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
             divmax=defaults.default_precision["divmax"])
-        return (numpy.pi*self.t_1_h(k1, k2) +
-                theta_int/(2.0*numpy.pi))
+        return (self.t_1_h(k1, k2) +
+                theta_int/(norm*numpy.pi))
         
     def _initialize_tri_proj(self):
         _tri_proj_array = numpy.empty((len(self._ln_k_array),
                                        len(self._ln_k_array)))
         
-        for idx1, ln_k1 in enumerate(self._ln_k_array):
-            for idx2, ln_k2 in enumerate(self._ln_k_array):
-                k1 = numpy.exp(ln_k1)
-                k2 = numpy.exp(ln_k2)
+        for idx1 in xrange(len(self._ln_k_array)):
+            for idx2 in xrange(idx1, len(self._ln_k_array)):
+                k1 = numpy.exp(self._ln_k_array[idx1])
+                k2 = numpy.exp(self._ln_k_array[idx2])
+                norm = 1.0/self._trispectrum_parallelogram_wrap(
+                    numpy.pi/2.0, k1, k2, 1.0)
                 theta_int = 2.0*integrate.romberg(
                     self._trispectrum_parallelogram_wrap, 
                     0.0 , numpy.pi,
-                    args=(k1, k2), vec_func=True,
-                    tol=defaults.default_precision["halo_precision"],
+                    args=(k1, k2, norm), vec_func=True,
+                    rtol=defaults.default_precision["halo_precision"],
+                    tol=defaults.default_precision["global_precision"],
                     divmax=defaults.default_precision["divmax"])
-                _tri_proj_array[idx1, idx2] = (
-                    numpy.pi*self.t_1_h(k1, k2) + theta_int/(2.0*numpy.pi))
+                proj = self.t_1_h(k1, k2) + theta_int/(norm*numpy.pi)
+                if idx1 == idx2:
+                    _tri_proj_array[idx1, idx2] = proj/norm
+                else:
+                    _tri_proj_array[idx1, idx2] = proj/norm
+                    _tri_proj_array[idx2, idx1] = proj/norm
                 if (idx1+1)%10 == 0 and (idx2+1)%10 == 0:
                     print "Running idx1, idx2:", idx1, k1, idx2, k2
                     print "\tvalue:", _tri_proj_array[idx1, idx2]
 
-        min_value = numpy.min(_tri_proj_array)
-        if min_value <= 0.0:
-            self._spline_norm = -min_value + 1
-        else:
-            self._spline_norm = 0.0
+        self._min_value = numpy.min(_tri_proj_array)
         self._tri_proj_spline = RectBivariateSpline(
             self._ln_k_array, self._ln_k_array,
-            numpy.log(_tri_proj_array + self._spline_norm))
+            numpy.log(_tri_proj_array - self._min_value + 1.0))
         
         print "Initialized::Tripectrum Projection"
         self._initialized_tri_proj = True
     
-    def _trispectrum_parallelogram_wrap(self, theta, k1, k2):
+    def _trispectrum_parallelogram_wrap(self, theta, k1, k2, norm=1.0):
         z = numpy.cos(theta)
         return (self.t_2_h(k1, k2, z) + self.t_3_h(k1, k2, z)  +
-                self.t_4_h(k1, k2, z))
+                self.t_4_h(k1, k2, z))*norm
         
     def t_1_h(self, k1, k2):
         """
@@ -292,6 +301,8 @@ class HaloTrispectrum(halo.Halo):
         Return:
             float value of the 2 halo correlation component of the trispectrum.
         """
+        if not self._initialized_h_m:
+            self._initialize_h_m()
         if not self._initialized_i_1_2:
             self._initialize_i_1_2()
         if not self._initialized_i_1_3:
@@ -317,12 +328,8 @@ class HaloTrispectrum(halo.Halo):
         k1p2 = numpy.sqrt(k1*k1 + k2*k2 + 2.0*k1*k2*z)
         ### Equation for 2 sets of points in 2 distinct halos. Again there is 
         ### symetry for a parallelogram that we exploit here.
-        P_k1m2 = numpy.where(k1m2 > 0.0 + 
-                             defaults.default_precision["halo_precision"],
-                             self.cosmo.linear_power(k1m2), 0.0)
-        P_k1p2 = numpy.where(k1p2 > 0.0 + 
-                             defaults.default_precision["halo_precision"],
-                             self.cosmo.linear_power(k1p2), 0.0)
+        P_k1m2 = self.cosmo.linear_power(k1m2)
+        P_k1p2 = self.cosmo.linear_power(k1p2)
         T_22 =  2.0* i_1_2_k1k2 * i_1_2_k1k2 * (P_k1m2 + P_k1p2)
         
         return T_31 + T_22
@@ -388,14 +395,14 @@ class HaloTrispectrum(halo.Halo):
         ### components for plus and minus pairings of k1, k2
         ### Originally this term is +-- in z
         bispec_plus = numpy.where(
-            lenplus > defaults.default_precision["halo_precision"],
+            lenplus > 1e-8,
             self.pert.bispectrum_len(k1, k2, lenplus, z, -z1plus, -z2plus),
             2.0 * (self.pert.Fs2_len(k1, k2, z) * P_k1 * P_k2))
         perm_3 = (bispec_plus * i_1_2_k1k2 * i_1_1_k1 * i_1_1_k2 + 
                   P_k1 * P_k2 * i_2_2_k1k2 * i_1_1_k1 * i_1_1_k2)
         ### Originally this term is ---
         bispec_minus = numpy.where(
-            lenminus > defaults.default_precision["halo_precision"],
+            lenminus > 1e-8,
             self.pert.bispectrum_len(k1, k2, lenminus, -z, -z1minus, -z2minus),
             2.0 * (self.pert.Fs2_len(k1, k2, -z) * P_k1 * P_k2))
         perm_4 = (self.pert.bispectrum_len(k1, k2, lenminus,
@@ -460,9 +467,61 @@ class HaloTrispectrum(halo.Halo):
         return i_1_1_k1 * i_1_1_k1 * i_1_1_k2 * i_1_1_k2 * (
            self.pert.trispectrum_parallelogram(k1, k2, z) + 
            2.0 * (i_2_1_k1 * P_k1 * P_k2 * P_k2 +
-                  i_2_1_k2 * P_k2 * P_k1 * P_k1))      
-         
-    def i_0_4(self, k1, k2, k3, k4):
+                  i_2_1_k2 * P_k2 * P_k1 * P_k1))   
+        
+    def t_PT(self, k1, k2, z):
+        return self.pert.trispectrum_parallelogram(k1, k2, z)
+    
+    def t_PT_averaged(self, k1, k2):
+        if not self._initialzied_PT_averaged:
+            self._initialize_PT_averaged()
+        return numpy.where(
+            numpy.logical_and(numpy.logical_and(k1 >= self._k_min,
+                                                k2 >= self._k_min),
+                              numpy.logical_and(k1 <= self._k_max,
+                                                k2 <= self._k_max)),
+            numpy.exp(self._t_PT_ave_spline(numpy.log(k1), numpy.log(k2))) +
+            self._min_pt_ave - 1.0, 0.0)
+    
+    def _initialize_PT_averaged(self):
+        
+        _pt_ave_array = numpy.empty((len(self._ln_k_array),
+                                     len(self._ln_k_array)))
+        _pt_norm_array = numpy.empty((len(self._ln_k_array),
+                                      len(self._ln_k_array)))
+        
+        for idx1 in xrange(len(self._ln_k_array)):
+            for idx2 in xrange(idx1, len(self._ln_k_array)):
+                ln_k1 = self._ln_k_array[idx1]
+                ln_k2 = self._ln_k_array[idx2]
+                pt_ave_norm = 1.0/self._pt_ave_integrand(numpy.pi/2.0,
+                                                         ln_k1, ln_k2, 1.0)
+                print "Norm", ln_k1, ln_k2, pt_ave_norm
+                pt = 1.0/numpy.pi*integrate.romberg(
+                    self._pt_ave_integrand, 0.0, numpy.pi,
+                    args=(ln_k1, ln_k2, pt_ave_norm), vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["halo_precision"],
+                    divmax=defaults.default_precision["divmax"])
+                if idx1 == idx2:
+                    _pt_ave_array[idx1, idx2] = pt/pt_ave_norm
+                else:
+                    _pt_ave_array[idx1, idx2] = pt/pt_ave_norm
+                    _pt_ave_array[idx2, idx1] = pt/pt_ave_norm
+                    
+        self._min_pt_ave = numpy.min(_pt_ave_array)
+        self._t_PT_ave_spline = RectBivariateSpline(
+            self._ln_k_array, self._ln_k_array,
+            numpy.log(_pt_ave_array - self._min_pt_ave + 1.0))
+        
+        self._initialzied_PT_averaged = True
+                
+    def _pt_ave_integrand(self, theta, ln_k1, ln_k2, norm):
+        k1 = numpy.exp(ln_k1)
+        k2 = numpy.exp(ln_k2)
+        return self.t_PT(k1, k2, numpy.cos(theta))*norm
+            
+    def i_0_4(self, k1, k2, k3, k4, norm=1.0):
         """
         Integral over mass for 4 points contained within a single halo. Since
         all halos considered are spherically symetric the input values are all
@@ -475,9 +534,11 @@ class HaloTrispectrum(halo.Halo):
         return integrate.romberg(
             self._i_0_4_integrand, numpy.log(self.mass.nu_min),
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"],
-            args=(k1, k2, k3, k4))/(self.rho_bar*self.rho_bar*self.rho_bar)
+            args=(k1, k2, k3, k4, norm))/(
+                self.rho_bar*self.rho_bar*self.rho_bar*norm)
             
     def i_0_4_parallelogram(self, k1, k2):
         k1 = numpy.where(k1 < self._k_min, self._k_min, k1)
@@ -494,17 +555,13 @@ class HaloTrispectrum(halo.Halo):
             for idx2 in xrange(idx1, len(self._ln_k_array)):
                 k1 = numpy.exp(self._ln_k_array[idx1])
                 k2 = numpy.exp(self._ln_k_array[idx2])
+                norm = 1.0/self._i_0_4_integrand(0.0, k1, k1, k2, k2, 1.0)
+                i_0_4 = self.i_0_4(k1, k1, k2, k2, norm)
                 if idx1 == idx2:
-                    _i_0_4_array[idx1, idx1] = self.i_0_4(k1, k1, k1, k1)
+                    _i_0_4_array[idx1, idx2] = i_0_4
                 else:
-                    _i_0_4_array[idx1, idx2] = self.i_0_4(k1, k1, k2, k2)
-                    _i_0_4_array[idx2, idx1] = self.i_0_4(k1, k1, k2, k2)
-                
-        for idx1, ln_k1 in enumerate(self._ln_k_array):
-            for idx2, ln_k2 in enumerate(self._ln_k_array):
-                k1 = numpy.exp(ln_k1)
-                k2 = numpy.exp(ln_k2)
-                _i_0_4_array[idx1, idx2] = self.i_0_4(k1, k1, k2, k2)
+                    _i_0_4_array[idx1, idx2] = i_0_4
+                    _i_0_4_array[idx2, idx1] = i_0_4
         
         self._i_0_4_spline = RectBivariateSpline(
             self._ln_k_array, self._ln_k_array, _i_0_4_array)
@@ -513,7 +570,7 @@ class HaloTrispectrum(halo.Halo):
         
         self._initialized_i_0_4 = True
         
-    def _i_0_4_integrand(self, ln_nu, k1, k2, k3, k4):
+    def _i_0_4_integrand(self, ln_nu, k1, k2, k3, k4, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y1 = self.y(numpy.log(k1), mass)
@@ -521,7 +578,7 @@ class HaloTrispectrum(halo.Halo):
         y3 = self.y(numpy.log(k3), mass)
         y4 = self.y(numpy.log(k4), mass)
 
-        return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass
+        return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass*norm
     
     def i_1_1(self, k):
         """
@@ -559,18 +616,20 @@ class HaloTrispectrum(halo.Halo):
         
         for idx1 in xrange(len(self._ln_k_array)):
             for idx2 in xrange(idx1, len(self._ln_k_array)):
-                k1 = numpy.exp(self._ln_k_array[idx1])
-                k2 = numpy.exp(self._ln_k_array[idx2])
-                _i_1_2 = integrate.romberg(
+                ln_k1 = self._ln_k_array[idx1]
+                ln_k2 = self._ln_k_array[idx2]
+                norm = 1.0/self._i_1_2_integrand(0.0, ln_k1, ln_k2, 1.0)
+                i_1_2 = integrate.romberg(
                     self._i_1_2_integrand, numpy.log(self.mass.nu_min),
-                    numpy.log(self.mass.nu_max), vec_func=True, args=(k1, k1),
-                    tol=defaults.default_precision["halo_precision"],
+                    numpy.log(self.mass.nu_max), args=(ln_k1, ln_k2, norm),
+                    rtol=defaults.default_precision["halo_precision"],
+                    tol=defaults.default_precision["global_precision"],
                     divmax=defaults.default_precision["divmax"])/(self.rho_bar)
                 if idx1 == idx2:
-                    _i_1_2_array[idx1, idx1] = _i_1_2
+                    _i_1_2_array[idx1, idx1] = i_1_2/norm
                 else:
-                    _i_1_2_array[idx1, idx2] = _i_1_2
-                    _i_1_2_array[idx2, idx1] = _i_1_2
+                    _i_1_2_array[idx1, idx2] = i_1_2/norm
+                    _i_1_2_array[idx2, idx1] = i_1_2/norm
                     
         self._i_1_2_spline = RectBivariateSpline(self._ln_k_array,
                                                  self._ln_k_array,
@@ -578,15 +637,15 @@ class HaloTrispectrum(halo.Halo):
         print "Initialized::I_1_2"
         self._initialized_i_1_2 = True
     
-    def _i_1_2_integrand(self, ln_nu, k1, k2):
+    def _i_1_2_integrand(self, ln_nu, ln_k1, ln_k2, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
-        y1 = self.y(numpy.log(k1), mass)
-        y2 = self.y(numpy.log(k2), mass)
+        y1 = self.y(ln_k1, mass)
+        y2 = self.y(ln_k2, mass)
         
-        return nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*y1*y2*mass
+        return nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*y1*y2*mass*norm
         
-    def i_1_3(self, k1, k2, k3):
+    def i_1_3(self, k1, k2, k3, norm=1.0):
         """
         Integral over the mass and bias for 3 points within a halo.
         
@@ -598,9 +657,10 @@ class HaloTrispectrum(halo.Halo):
         return integrate.romberg(
             self._i_1_3_integrand, numpy.log(self.mass.nu_min),
             numpy.log(self.mass.nu_max), vec_func=True,
-            tol=defaults.default_precision["halo_precision"],
+            rtol=defaults.default_precision["halo_precision"],
+            tol=defaults.default_precision["global_precision"],
             divmax=defaults.default_precision["divmax"],
-            args=(k1, k2, k3))/(self.rho_bar*self.rho_bar)
+            args=(k1, k2, k3, norm))/(self.rho_bar*self.rho_bar*norm)
             
     def i_1_3_parallelogram(self, k1, k2):
         k1 = numpy.where(k1 < self._k_min, self._k_min, k1)
@@ -613,11 +673,17 @@ class HaloTrispectrum(halo.Halo):
         _i_1_3_array = numpy.empty((len(self._ln_k_array),
                                     len(self._ln_k_array)))
         
-        for idx1, ln_k1 in enumerate(self._ln_k_array):
-            for idx2, ln_k2 in enumerate(self._ln_k_array):
-                k1 = numpy.exp(ln_k1)
-                k2 = numpy.exp(ln_k2)
-                _i_1_3_array[idx1, idx2] = self.i_1_3(k1, k1, k2)
+        for idx1 in xrange(len(self._ln_k_array)):
+            for idx2 in xrange(idx1, len(self._ln_k_array)):
+                k1 = numpy.exp(self._ln_k_array[idx1])
+                k2 = numpy.exp(self._ln_k_array[idx2])
+                norm = 1.0/self._i_1_3_integrand(0.0, k1, k1, k2, 1.0)
+                i_1_3 = self.i_1_3(k1, k1, k2, norm)
+                if idx1 == idx2:
+                    _i_1_3_array[idx1, idx2] = i_1_3
+                else:
+                    _i_1_3_array[idx1, idx2] = i_1_3
+                    _i_1_3_array[idx2, idx1] = i_1_3
         
         self._i_1_3_spline = RectBivariateSpline(
             self._ln_k_array, self._ln_k_array, _i_1_3_array)
@@ -626,14 +692,15 @@ class HaloTrispectrum(halo.Halo):
         
         self._initialized_i_1_3 = True
     
-    def _i_1_3_integrand(self, ln_nu, k1, k2, k3):
+    def _i_1_3_integrand(self, ln_nu, k1, k2, k3, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y1 = self.y(numpy.log(k1), mass)
         y2 = self.y(numpy.log(k2), mass)
         y3 = self.y(numpy.log(k3), mass)
         
-        return nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*y1*y2*y3*mass*mass
+        return (nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*y1*y2*y3*
+                mass*mass*norm)
     
     def i_2_1(self, k):
         """
@@ -653,24 +720,26 @@ class HaloTrispectrum(halo.Halo):
         _i_2_1_array = numpy.empty(self._ln_k_array.shape)
         
         for idx, ln_k in enumerate(self._ln_k_array):
+            norm = 1.0/self._i_2_1_integrand(0.0, ln_k, 1.0)
             _i_2_1_array[idx] = integrate.romberg(
                 self._i_2_1_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["halo_precision"],
+                rtol=defaults.default_precision["halo_precision"],
+                tol=defaults.default_precision["global_precision"],
                 divmax=defaults.default_precision["divmax"],
-                args=(numpy.exp(ln_k),))
+                args=(ln_k,))/norm
         
         self._i_2_1_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, _i_2_1_array)
         print "Initialized::I_2_1"
         self._initialized_i_2_1 = True
     
-    def _i_2_1_integrand(self, ln_nu, k):
+    def _i_2_1_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
-        y = self.y(numpy.log(k), mass)
+        y = self.y(ln_k, mass)
 
-        return nu*self.mass.f_nu(nu)*self.mass.bias_2_nu(nu)*y
+        return nu*self.mass.f_nu(nu)*self.mass.bias_2_nu(nu)*y*norm
                 
     def i_2_2(self, k1, k2):
         """
@@ -693,18 +762,22 @@ class HaloTrispectrum(halo.Halo):
                               len(self._ln_k_array)))
         
         for idx1 in xrange(len(self._ln_k_array)):
-            for idx2 in xrange(len(self._ln_k_array)):
-                _i_2_2 = integrate.romberg(
+            for idx2 in xrange(idx1, len(self._ln_k_array)):
+                ln_k1 = self._ln_k_array[idx1]
+                ln_k2 = self._ln_k_array[idx2]
+                norm = 1.0/self._i_2_2_integrand(0.0, ln_k1, ln_k2, 1.0)
+                i_2_2 = integrate.romberg(
                     self._i_2_2_integrand, numpy.log(self.mass.nu_min),
                     numpy.log(self.mass.nu_max), vec_func=True,
-                    args=(numpy.exp(ln_k1), numpy.exp(ln_k2)),
-                    tol=defaults.default_precision["halo_precision"],
+                    args=(ln_k2, ln_k2, norm),
+                    rtol=defaults.default_precision["halo_precision"],
+                    tol=defaults.default_precision["global_precision"],
                     divmax=defaults.default_precision["divmax"])/(self.rho_bar)
                 if idx1 == idx2:
-                    _i_2_2_array[idx1, idx2] = _i_2_2
+                    _i_2_2_array[idx1, idx2] = i_2_2/norm
                 else:
-                    _i_2_2_array[idx1, idx2] = _i_2_2
-                    _i_2_2_array[idx2, idx1] = _i_2_2
+                    _i_2_2_array[idx1, idx2] = i_2_2/norm
+                    _i_2_2_array[idx2, idx1] = i_2_2/norm
         
         self._i_2_2_spline = RectBivariateSpline(self._ln_k_array,
                                                  self._ln_k_array,
@@ -712,12 +785,12 @@ class HaloTrispectrum(halo.Halo):
         print "Initialized::I_2_2"
         self._initialized_i_2_2 = True
     
-    def _i_2_2_integrand(self, ln_nu, k1, k2):
+    def _i_2_2_integrand(self, ln_nu, ln_k1, ln_k2, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
-        y1 = self.y(numpy.log(k1), mass)
-        y2 = self.y(numpy.log(k2), mass)
+        y1 = self.y(ln_k1, mass)
+        y2 = self.y(ln_k2, mass)
         
-        return nu*self.mass.f_nu(nu)*self.mass.bias_2_nu(nu)*y1*y2*mass
+        return nu*self.mass.f_nu(nu)*self.mass.bias_2_nu(nu)*y1*y2*mass*norm
     
     
