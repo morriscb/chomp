@@ -362,9 +362,9 @@ class HaloTest(unittest.TestCase):
         power_mm_list = [6.6167,  8.2733,
                          5.2013, -4.0939]
         power_gm_list = [6.3380,  8.1487,
-                         5.1058, -1.5243]
+                         5.1066, -1.5243]
         power_gg_list = [5.9692,  8.0168,
-                         4.7047, -1.2701]
+                         4.7071, -1.2701]
         self.h.set_cosmology(c_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
@@ -548,11 +548,11 @@ class CorrelationTest(unittest.TestCase):
         zheng = hod.HODZheng(10**13.0, 0.15, 10**13.0, 10**14.0, 1.0)
         cosmo_single = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
         h = halo.Halo(input_hod=zheng, cosmo_single_epoch=cosmo_single)
-        self.corr = correlation.Correlation(0.001*degToRad, 1.0*degToRad,
+        self.corr = correlation.Correlation(0.001, 1.0,
                                             input_kernel=kern,
                                             input_halo=h,
                                             powSpec='power_mm')
-        self.theta_array = numpy.logspace(-3, 0, 4)*degToRad
+        self.theta_array = numpy.logspace(-3, 0, 4)
         
     def test_correlation(self):
         corr_list = [-4.733175, -5.187615, -6.840129, -8.89917]
@@ -571,7 +571,7 @@ class CorrelationTest(unittest.TestCase):
 
     def test_set_cosmology(self):
         self.corr.set_cosmology(c_dict_2)
-        corr_list = [-3.528808, -3.95577, -5.74402, -9.39054]
+        corr_list = [-3.528807, -3.955774, -5.74402, -9.39054]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)), corr_list[idx],
@@ -581,7 +581,7 @@ class CorrelationTest(unittest.TestCase):
         zheng = hod.HODZheng(10**12.0, 0.15, 10**12.0, 10**13.0, 1.0)
         self.corr.set_hod(zheng)
         self.corr.set_power_spectrum('power_gm')
-        corr_list = [-4.321297, -5.156788, -6.880080, -8.853055]
+        corr_list = [-4.321294, -5.156783, -6.880059, -8.853026]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)), corr_list[idx],
