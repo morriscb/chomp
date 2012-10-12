@@ -120,6 +120,31 @@ class Covariance(object):
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
         return numpy.exp(self._halo_b_spline(numpy.log(K)))
+
+    def set_cosmology(self, cosmo_dict):
+        """
+        Reset the cosmology
+
+        Args:
+            cosmo_dict: dictionary of floats defining a cosmology (see
+                defaults.py for details)
+        """
+        self.kernel.set_cosmology(cosmo_dict)
+        self._chi_min_a = self.kernel.cosmo.comoving_distance(self._z_min_a)
+        if self._chi_min_a < 1e-8:
+            self._chi_min_a = 1e-8
+        self._chi_max_a = self.kernel.cosmo.comoving_distance(self._z_max_a)
+        self._chi_min_b = self.kernel.cosmo.comoving_distance(self._z_min_b)
+        if self._chi_min_b < 1e-8:
+            self._chi_min_b = 1e-8
+        self._chi_max_b = self.kernel.cosmo.comoving_distance(self._z_max_b)
+
+        self.D_z_NG = self.kernel.cosmo.growth_factor(self.kernel.z_bar_NG)
+
+        self.halo_a.set_cosmology(cosmo_dict)
+        self.halo_b = copy(self.halo_a)
+        self.halo_tri.set_cosmology(cosmo_dict)
+        return None
     
     def get_covariance(self):
         out_covar = numpy.zeros((len(self.annular_bins),
