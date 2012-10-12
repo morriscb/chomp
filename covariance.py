@@ -20,17 +20,17 @@ strad_to_deg2 = rad_to_deg*rad_to_deg
 
 class Covariance(object):
     """
-    Class to compute the covariance matrix between theta_a and thata_b
+    Class to compute the covariance matrix between theta_a and theta_b
     given input kernel and halo trispectrum objects. This class can be used to
     estimate the covariance between different estimators as a function.
 
     Attributes:
         theta_min: minimum angular extent in radians
         theta_max: maximum angular extent in radians
-        input_kernel: KernelTrispectrum object from kernel.py
+        input_kernel: KernelCovariance object from kernel.py
         input_halo: HaloTrispectrum object from halo.py
         input_hod: HOD object from hod.py
-        
+
         theta_array: array of theta values for computed correlation function
         wcovar_array: array of computed covariance values at theta_array values
     """
@@ -39,10 +39,11 @@ class Covariance(object):
                  bins_per_decade=5,
                  survey_area_deg2=4*numpy.pi*strad_to_deg2,
                  n_pairs=1e6*1e6, variance=1.0,
+                 nongaussian_cov=True,
                  input_kernel_covariance=None,
                  input_halo=None,
                  input_halo_trispectrum=None, **kws):
-        
+
         self.annular_bins = []
         unit_double = numpy.floor(numpy.log10(theta_min_deg))*bins_per_decade
         theta = numpy.power(10.0, unit_double/bins_per_decade)
@@ -53,13 +54,14 @@ class Covariance(object):
                                10.0, (unit_double+1.0)/bins_per_decade)))
                 unit_double += 1.0
                 theta = numpy.power(10.0, unit_double/bins_per_decade)
-                
+
         self.area = survey_area_deg2*deg2_to_strad
         self.n_pairs = n_pairs
-        self.variance = variace
+        self.variance = variance
+        self.nongaussian_cov = nongaussian_cov
 
         self.kernel = input_kernel_covariance
-        
+
         self._z_min_a = numpy.max([self.kernel.window_function_a1.z_min,
                                    self.kernel.window_function_a2.z_min])
         self._z_max_a = numpy.min([self.kernel.window_function_a1.z_max,
@@ -78,7 +80,7 @@ class Covariance(object):
         self._chi_max_b = self.kernel.cosmo.comoving_distance(self._z_max_b)
 
         self.D_z_NG = self.kernel.cosmo.growth_factor(self.kernel.z_bar_NG)
-        
+
         self.halo_a = input_halo
         self.halo_b = copy(input_halo)
         self.halo_tri = input_halo_trispectrum
@@ -142,8 +144,10 @@ class Covariance(object):
         theta_b = annular_bin_b.center*deg_to_rad
         if annular_bin_a == annular_bin_b:
             cov_P = self.covariance_P(annular_bin_a.delta)
-        return (cov_P + self.covariance_G(theta_a, theta_b) +
-                self.covariance_NG(theta_a, theta_b))
+        res = (cov_P + self.covariance_G(theta_a, theta_b))
+        if self.nongaussian_cov:
+            res += self.covariance_NG(theta_a, theta_b)
+        return res
     
     def covariance_P(self, delta):
         return self.area*self.variance/(
