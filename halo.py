@@ -308,7 +308,7 @@ class Halo(object):
             k_array = numpy.exp(self._ln_k_array[-7:-1])
             log_values = numpy.log(
                 self.linear_power(k_array)*
-                self._h_g(k_array)*self._h_g(k_array) + self._pp_gm(k_array))
+                self._h_g(k_array)*self._h_g(k_array) + self._pp_gg(k_array))
             self._log_slope_gg = numpy.mean(
                 (log_values[1:] - log_values[:-1])/
                 (self._ln_k_array[-6:-1] - self._ln_k_array[-7:-2]))
