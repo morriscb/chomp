@@ -228,7 +228,7 @@ class CorrelationFourier(Correlation):
             self.log_l_min = numpy.log10(l_min)
             self.log_l_max = numpy.log10(l_min)
             self.l_array = numpy.array([l_min])
-        self.power_array = numpy.zeros(self.l_array.size)
+        self.power_array = numpy.zeros(self.l_array.size, dtype='float64')
 
         self.kernel = input_kernel
 
@@ -273,9 +273,11 @@ class CorrelationFourier(Correlation):
         return power
 
     def _correlation_integrand(self, chi, l):
+        D_z = self.kernel.cosmo.growth_factor(self.kernel.cosmo.redshift(chi))
         return (4*numpy.pi*numpy.pi*self.power_spec(l/chi)/(self.D_z*self.D_z)*
                 self.kernel.window_function_a.window_function(chi)*
-                self.kernel.window_function_b.window_function(chi))
+                self.kernel.window_function_b.window_function(chi)*
+                D_z*D_z)
 
     def write(self, output_file_name):
         """
@@ -288,219 +290,4 @@ class CorrelationFourier(Correlation):
         f.write("#ttype1 = l [deg]\n#ttype2 = power\n")
         for theta, power in zip(self.l_array, self.power_array):
             f.write("%1.10f %1.10f\n" % (l, power))
-        f.close()
-        
-### This class will be moving into covariance.py and should not be used
-### in it's current state. 
-class CovarianceFourier(object):
-    
-    def __init__(self, l_min, l_max, input_kernel_covariance=None,
-                 input_halo=None, input_halo_trispectrum=None, **kws):
-        
-        self._ln_l_min = numpy.log(l_min)
-        self._ln_l_max = numpy.log(l_max)
-        self._ln_l_array = numpy.linspace(
-            self._ln_l_min, self._ln_l_max,
-            defaults.default_precision["corr_npoints"])
-        
-        self.kernel = input_kernel_covariance
-        
-        self._z_min_a1a2 = numpy.max([self.kernel.window_function_a1.z_min,
-                                      self.kernel.window_function_a2.z_min])
-        self._z_min_b1b2 = numpy.max([self.kernel.window_function_b1.z_min,
-                                      self.kernel.window_function_b2.z_min])
-        self._z_min_a1b2 = numpy.max([self.kernel.window_function_a1.z_min,
-                                      self.kernel.window_function_b2.z_min])
-        self._z_min_b1a2 = numpy.max([self.kernel.window_function_b1.z_min,
-                                      self.kernel.window_function_a2.z_min])
-        
-        self._z_max_a1a2 = numpy.min([self.kernel.window_function_a1.z_max,
-                                      self.kernel.window_function_a2.z_max])
-        self._z_max_b1b2 = numpy.min([self.kernel.window_function_b1.z_max,
-                                      self.kernel.window_function_b2.z_max])
-        self._z_max_a1b2 = numpy.min([self.kernel.window_function_a1.z_max,
-                                      self.kernel.window_function_b2.z_max])
-        self._z_max_b1a2 = numpy.min([self.kernel.window_function_b1.z_max,
-                                      self.kernel.window_function_a2.z_max])
-        
-        self._z_array = numpy.linspace(
-            numpy.min([self._z_min_a1a2, self._z_min_b1b2,
-                       self._z_min_a1b2, self._z_min_b1a2]),
-            numpy.max([self._z_max_a1a2, self._z_max_b1b2,
-                       self._z_max_a1b2, self._z_max_b1a2]),
-            defaults.default_precision['kernel_npoints'])
-        
-        self.window_a1 = self.kernel.window_function_a1.window_function
-        self.window_a2 = self.kernel.window_function_a2.window_function
-        self.window_b1 = self.kernel.window_function_b1.window_function
-        self.window_b2 = self.kernel.window_function_b2.window_function
-        
-        self.halo_a1a2 = input_halo
-        self.halo_b1b2 = copy(input_halo)
-        self.halo_a1b2 = copy(input_halo)
-        self.halo_b1a2 = copy(input_halo)
-        self.halo_tri = input_halo_trispectrum
-        
-        self._initialized_pl = False
-        
-    def covariance(self, l_a, l_b):
-        pass
-        
-    def covariance_G(self, l):
-        if not self._initialized_pl:
-            self._initialize_pl()
-        return 1.0/(2.0*l + 1.0)*(self._pl_a1a2(l)*self._pl_b1b2(l)+
-                self._pl_a1b2(l)*self._pl_b1a2(l))
-                
-    def _pl_a1a2(self, l):
-        ln_l = numpy.log(l)
-        return numpy.where(
-            numpy.logical_and(ln_l >= self._ln_l_min, ln_l <= self._ln_l_max),
-            numpy.exp(self._a1a2_spline(ln_l))/self._norm_G_a1a2, 0.0)
-   
-    def _pl_b1b2(self, l):
-        ln_l = numpy.log(l)
-        return numpy.where(
-            numpy.logical_and(ln_l >= self._ln_l_min, ln_l <= self._ln_l_max),
-            numpy.exp(self._b1b2_spline(ln_l))/self._norm_G_b1b2, 0.0)
-            
-    def _pl_a1b2(self, l):
-        ln_l = numpy.log(l)
-        return numpy.where(
-            numpy.logical_and(ln_l >= self._ln_l_min, ln_l <= self._ln_l_max),
-            numpy.exp(self._a1b2_spline(ln_l))/self._norm_G_a1b2, 0.0)
-            
-    def _pl_b1a2(self, l):
-        ln_l = numpy.log(l)
-        return numpy.where(
-            numpy.logical_and(ln_l >= self._ln_l_min, ln_l <= self._ln_l_max),
-            numpy.exp(self._b1a2_spline(ln_l))/self._norm_G_b1a2, 0.0)
-            
-    def _initialize_pl(self):
-        self._z_bar_G_a1a2 = self._calculate_zbar(self.window_a1,
-                                                  self.window_a2)
-        self._z_bar_G_b1b2 = self._calculate_zbar(self.window_b1,
-                                                  self.window_b2)
-        self._z_bar_G_a1b2 = self._calculate_zbar(self.window_a1,
-                                                  self.window_b2)
-        self._z_bar_G_b1a2 = self._calculate_zbar(self.window_b1,
-                                                  self.window_a2)
-        
-        self.halo_a1a2.set_redshift(self._z_bar_G_a1a2)
-        self.halo_b1b2.set_redshift(self._z_bar_G_b1b2)
-        self.halo_a1b2.set_redshift(self._z_bar_G_a1b2)
-        self.halo_b1a2.set_redshift(self._z_bar_G_b1a2)
-        chi_a1a2 = self.kernel.cosmo.comoving_distance(self._z_bar_G_a1a2)
-        chi_b1b2 = self.kernel.cosmo.comoving_distance(self._z_bar_G_b1b2)
-        chi_a1b2 = self.kernel.cosmo.comoving_distance(self._z_bar_G_a1b2)
-        chi_b1a2 = self.kernel.cosmo.comoving_distance(self._z_bar_G_b1a2)
-            
-        chi_a1a2_min = self.kernel.cosmo.comoving_distance(self._z_min_a1a2)
-        chi_b1b2_min = self.kernel.cosmo.comoving_distance(self._z_min_b1b2)
-        chi_a1b2_min = self.kernel.cosmo.comoving_distance(self._z_min_a1b2)
-        chi_b1a2_min = self.kernel.cosmo.comoving_distance(self._z_min_b1a2)
-        
-        chi_a1a2_max = self.kernel.cosmo.comoving_distance(self._z_max_a1a2)
-        chi_b1b2_max = self.kernel.cosmo.comoving_distance(self._z_max_b1b2)
-        chi_a1b2_max = self.kernel.cosmo.comoving_distance(self._z_max_a1b2)
-        chi_b1a2_max = self.kernel.cosmo.comoving_distance(self._z_max_b1a2)
-            
-        self._norm_G_a1a2= 1.0/self._pl_integrand(chi_a1a2,
-                                                  numpy.log(chi_a1a2),
-                                                  self.halo_a1a2,
-                                                  self.window_a1,
-                                                  self.window_a2, 1.0)
-        self._norm_G_b1b2= 1.0/self._pl_integrand(chi_b1b2,
-                                                  numpy.log(chi_b1b2),
-                                                  self.halo_b1b2,
-                                                  self.window_a1,
-                                                  self.window_a2, 1.0)
-        self._norm_G_a1b2= 1.0/self._pl_integrand(chi_a1b2,
-                                                  numpy.log(chi_a1b2),
-                                                  self.halo_a1a2,
-                                                  self.window_a1,
-                                                  self.window_a2, 1.0)
-        self._norm_G_b1a2= 1.0/self._pl_integrand(chi_b1a2,
-                                                  numpy.log(chi_b1a2),
-                                                  self.halo_b1a2,
-                                                  self.window_a1,
-                                                  self.window_a2, 1.0)
-        
-        _pl_a1a2 = numpy.empty(self._ln_l_array.shape)
-        _pl_b1b2 = numpy.empty(self._ln_l_array.shape)
-        _pl_a1b2 = numpy.empty(self._ln_l_array.shape)
-        _pl_b1a2 = numpy.empty(self._ln_l_array.shape)
-        for idx, ln_l in enumerate(self._ln_l_array):
-            _pl_a1a2[idx] = integrate.romberg(
-                self._pl_integrand, chi_a1a2_min, chi_a1a2_max,
-                args=(ln_l, self.halo_a1a2, self.window_a1, self.window_a2,
-                      self._norm_G_a1a2),
-                vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["corr_precision"],
-                divmax=defaults.default_precision["divmax"])
-            _pl_b1b2[idx] = integrate.romberg(
-                self._pl_integrand, chi_b1b2_min, chi_b1b2_max,
-                args=(ln_l, self.halo_b1b2, self.window_b1, self.window_b2,
-                      self._norm_G_b1b2),
-                vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["corr_precision"],
-                divmax=defaults.default_precision["divmax"])
-            _pl_a1b2[idx] = integrate.romberg(
-                self._pl_integrand, chi_a1b2_min, chi_a1b2_max,
-                args=(ln_l, self.halo_a1b2, self.window_a1, self.window_b2,
-                      self._norm_G_a1b2),
-                vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["corr_precision"],
-                divmax=defaults.default_precision["divmax"])
-            _pl_b1a2[idx] = integrate.romberg(
-                self._pl_integrand, chi_b1a2_min, chi_b1a2_max,
-                args=(ln_l, self.halo_b1a2, self.window_b1, self.window_a2,
-                      self._norm_G_b1a2),
-                vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["corr_precision"],
-                divmax=defaults.default_precision["divmax"])
-            
-        print _pl_a1a2
-                      
-        self._a1a2_spline = InterpolatedUnivariateSpline(
-            self._ln_l_array,
-            numpy.log(_pl_a1a2/
-                      self.kernel.cosmo.growth_factor(self._z_bar_G_a1a2)**2))
-        self._b1b2_spline = InterpolatedUnivariateSpline(
-            self._ln_l_array,
-            numpy.log(_pl_b1b2/
-                      self.kernel.cosmo.growth_factor(self._z_bar_G_b1b2)**2))
-        self._a1b2_spline = InterpolatedUnivariateSpline(
-            self._ln_l_array,
-            numpy.log(_pl_a1b2/
-                      self.kernel.cosmo.growth_factor(self._z_bar_G_a1b2)**2))
-        self._b1a2_spline = InterpolatedUnivariateSpline(
-            self._ln_l_array,
-            numpy.log(_pl_b1a2/
-                      self.kernel.cosmo.growth_factor(self._z_bar_G_b1a2)**2))
-        
-        self._initialized_pl = True      
-        
-    def _calculate_zbar(self, window1, window2):
-        func = lambda chi: (window1(chi)*window2(chi)/(chi*chi)*
-                            self.kernel.cosmo.growth_factor(
-                                self.kernel.cosmo.redshift(chi))*
-                            self.kernel.cosmo.growth_factor(
-                                self.kernel.cosmo.redshift(chi)))
-        print func(self.kernel.cosmo.comoving_distance(self._z_array))
-        return self._z_array[numpy.argmax(
-            func(self.kernel.cosmo.comoving_distance(self._z_array)))]
-        
-    def _pl_integrand(self, chi, ln_l, halo, window1, window2, norm):
-        l = numpy.exp(ln_l)
-        k = l/chi
-        D_z = self.kernel.cosmo.growth_factor(
-            self.kernel.cosmo.redshift(chi))
-        return (norm*window1(chi)*window2(chi)*D_z*D_z/(chi*chi)*
-                halo.power_mm(k))
-        
-    
+        f.close() 
