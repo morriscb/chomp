@@ -193,6 +193,103 @@ class Correlation(object):
         f.close()
         
         
+class CorrelationFourier(Correlation):
+    
+    """
+    Inherited class for computing the correlation power spectrum in l space.
+
+    Given a maximum and minimum extent l space, two window functions
+    from kernel.py, dictionaries defining the cosmology and halo properties,
+    an input HOD from hod.py, and a requested power spectrum type, 
+    returns the predicted correlation function.
+
+
+    Attributes:
+        l_min: minimum in l space
+        l_max: maximum in l space
+        input_kernel: Kernel object from kernel.py
+        input_halo: Halo object from halo.py
+        input_hod: HOD object from hod.py
+        powSpec: string defining a power spectrum
+        
+        l_array: array of l values for computed correlation power spectrum
+        power_array: array of computed correlation values at l_array values
+    """
+
+    def __init__(self, l_min, l_max, input_kernel, 
+                 input_halo=None, powSpec=None, **kws):
+
+        self.log_l_min = numpy.log10(l_min)
+        self.log_l_max = numpy.log10(l_max)
+        self.l_array = numpy.logspace(
+            self.log_l_min, self.log_l_max,
+            defaults.default_precision["corr_npoints"])
+        if l_min==l_max:
+            self.log_l_min = numpy.log10(l_min)
+            self.log_l_max = numpy.log10(l_min)
+            self.l_array = numpy.array([l_min])
+        self.power_array = numpy.zeros(self.l_array.size)
+
+        self.kernel = input_kernel
+
+        self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
+                      
+        if input_halo is None:
+            input_halo = halo.Halo(self.kernel.z_bar)
+        self.halo = input_halo
+        self.halo.set_redshift(self.kernel.z_bar)
+
+        if powSpec==None:
+            powSpec = 'linear_power'
+        try:
+            self.power_spec = self.halo.__getattribute__(powSpec)
+        except AttributeError or TypeError:
+            print "WARNING: Invalid input for power spectra variable,"
+            print "\t setting to linear_power"
+            self.power_spec = self.halo.__getattribute__('linear_power')
+
+    def compute_correlation(self):
+        """
+        Compute the value of the correlation over the range
+        theta_min - theta_max
+        """
+        for idx,l in enumerate(self.l_array):
+            self.power_array[idx] = self.correlation(l)
+
+    def correlation(self, l):
+        """
+        Compute the value of the correlation at array values theta
+
+        Args:
+            theta: float array of angular values in radians to compute the
+                correlation
+        """
+        power = integrate.romberg(
+            self._correlation_integrand, 
+            self.kernel.chi_min, self.kernel.chi_max, args=(l,), vec_func=True,
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["corr_precision"],
+            divmax=defaults.default_precision["divmax"])
+        return power
+
+    def _correlation_integrand(self, chi, l):
+        return (4*numpy.pi*numpy.pi*self.power_spec(l/chi)/(self.D_z*self.D_z)*
+                self.kernel.window_function_a.window_function(chi)*
+                self.kernel.window_function_b.window_function(chi))
+
+    def write(self, output_file_name):
+        """
+        Write out current values of the correlation object.
+
+        Args:
+            output_file_name: string name of file to output
+        """
+        f = open(output_file_name, "w")
+        f.write("#ttype1 = l [deg]\n#ttype2 = power\n")
+        for theta, power in zip(self.l_array, self.power_array):
+            f.write("%1.10f %1.10f\n" % (l, power))
+        f.close()
+        
 ### This class will be moving into covariance.py and should not be used
 ### in it's current state. 
 class CovarianceFourier(object):

@@ -682,8 +682,11 @@ class Kernel(object):
             self._ln_ktheta_array, self._kernel_array):
             f.write("%1.10f %1.10f\n" % (numpy.exp(ln_ktheta), kernel))
         f.close()
+        
+        
 
-
+    
+        
 class GalaxyGalaxyLensingKernel(Kernel):
     """Derived class for Galaxy-Galaxy lensing. The galaxy-galaxy lensing kernel
     differes slightly from the standard kernel in that the Bessel function is
@@ -739,7 +742,7 @@ class GalaxyGalaxyLensingKernel(Kernel):
 
         return (self.window_function_a.window_function(chi)*
                 self.window_function_b.window_function(chi)*
-                D_z*D_z*special.jn(2, ktheta*chi))
+                D_z*D_z*special.jn(2, ktheta*chi))     
         
         
 class KernelCovariance(Kernel):
