@@ -529,7 +529,7 @@ class Kernel(object):
         self.window_function_a.set_cosmology_object(self.cosmo)
         self.window_function_b.set_cosmology_object(self.cosmo)
 
-        self.chi_min = numpy.max(1e-8, self.cosmo.comoving_distance(self.z_min))
+        self.chi_min = numpy.max((1e-8, self.cosmo.comoving_distance(self.z_min)))
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
 
         self._window_norm = integrate.romberg(
