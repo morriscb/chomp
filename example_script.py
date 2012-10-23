@@ -122,8 +122,8 @@ con_kernel.write('test_kernel.ascii')
 ### convenient allows for the setting of both the kernel and halo model
 ### cosmologies through the set_cosmology method. Note that like the kernel
 ### module, cosmology takes an input as radians.
-corr = correlation.Correlation(theta_min=0.001*degToRad,
-                               theta_max=1.0*degToRad,
+corr = correlation.Correlation(theta_min_deg=0.001,
+                               theta_max_deg=1.0,
                                input_kernel=con_kernel,
                                input_halo=halo_model,
                                powSpec='power_gm')

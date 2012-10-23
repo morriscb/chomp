@@ -257,7 +257,7 @@ class Halo(object):
                 self._h_g(k_array)*self._h_m(k_array) + self._pp_gm(k_array))
             self._log_slope_gm = numpy.mean(
                 (log_values[1:] - log_values[:-1])/
-                (self._ln_k_array[-5:] - self._ln_k_array[-6:-1]))
+                (self._ln_k_array[-6:-1] - self._ln_k_array[-7:-2]))
             self._initialized_gm_extrapolation = True
             
         ### Where statements so that we are able to input and return numpy
@@ -308,10 +308,10 @@ class Halo(object):
             k_array = numpy.exp(self._ln_k_array[-7:-1])
             log_values = numpy.log(
                 self.linear_power(k_array)*
-                self._h_g(k_array)*self._h_g(k_array) + self._pp_gm(k_array))
+                self._h_g(k_array)*self._h_g(k_array) + self._pp_gg(k_array))
             self._log_slope_gg = numpy.mean(
                 (log_values[1:] - log_values[:-1])/
-                (self._ln_k_array[-5:] - self._ln_k_array[-6:-1]))
+                (self._ln_k_array[-6:-1] - self._ln_k_array[-7:-2]))
             self._initialized_gg_extrapolation = True
         
         ### Where statements so that we are able to input and return numpy
@@ -481,21 +481,30 @@ class Halo(object):
             self.local_hod.first_moment_zero >
             numpy.exp(self.mass.ln_mass_min)):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
-        
+            
+        norm = 1.0
+        if nu_min < 1.0:
+            norm = 1.0/self._nbar_integrand(0.0)
+        elif self.mass.nu_max > nu_min*2.0:
+            norm = 1.0/self._nbar_integrand(numpy.log(nu_min)*2.0)
+        else:
+            norm = 1.0/self._nbar_integrand(numpy.log(self.mass.nu_max))
         self.n_bar_over_rho_bar = integrate.romberg(
             self._nbar_integrand, numpy.log(nu_min),
-            numpy.log(self.mass.nu_max), vec_func=True,
+            numpy.log(self.mass.nu_max), 
+            args=(norm,), vec_func=True,
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["halo_precision"],
-            divmax=defaults.default_precision["divmax"])
+            divmax=defaults.default_precision["divmax"])/norm
 
         self.n_bar = self.n_bar_over_rho_bar*self.rho_bar
 
-    def _nbar_integrand(self, ln_nu):
+    def _nbar_integrand(self, ln_nu, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)/mass
+        return (norm*nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)/
+                mass)
 
     def calculate_bias(self):
         """
@@ -505,21 +514,36 @@ class Halo(object):
         Returns:
             float bias
         """
+        nu_min = self.mass.nu_min
+        if (self.local_hod.first_moment_zero > -1 and 
+            self.local_hod.first_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
+            
+        norm = 1.0
+        if nu_min < 1.0:
+            norm = 1.0/self._bias_integrand(0.0)
+        elif self.mass.nu_max > nu_min*2.0:
+            norm = 1.0/self._bias_integrand(numpy.log(nu_min)*2.0)
+        else:
+            norm = 1.0/self._bias_integrand(numpy.log(self.mass.nu_max))
+            
         self.bias = integrate.romberg(
-            self._bias_integrand, numpy.log(self.mass.nu_min), 
-            numpy.log(self.mass.nu_max), vec_func=True,
+            self._bias_integrand, numpy.log(nu_min), 
+            numpy.log(self.mass.nu_max), 
+            args=(norm,), vec_func=True,
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        self.bias = self.bias/self.n_bar_over_rho_bar
+        self.bias = self.bias/(norm*self.n_bar_over_rho_bar)
         return self.bias
 
-    def _bias_integrand(self, ln_nu):
+    def _bias_integrand(self, ln_nu, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)*
+        return (norm*nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)*
                 self.mass.bias_nu(nu)/mass)
 
     def calculate_m_eff(self):
@@ -530,22 +554,37 @@ class Halo(object):
         Returns:
             float m_eff
         """
+        nu_min = self.mass.nu_min
+        if (self.local_hod.first_moment_zero > -1 and 
+            self.local_hod.first_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
+            
+        norm = 1.0
+        if nu_min < 1.0:
+            norm = 1.0/self._nbar_integrand(0.0)
+        elif self.mass.nu_max > nu_min*2.0:
+            norm = 1.0/self._meff_integrand(numpy.log(nu_min)*2.0)
+        else:
+            norm = 1.0/self._meff_integrand(numpy.log(self.mass.nu_max))
+
         self.m_eff = integrate.romberg(
-            self._m_eff_integrand, numpy.log(self.mass.nu_min), 
-            numpy.log(self.mass.nu_max), vec_func=True,
+            self._m_eff_integrand, numpy.log(nu_min), 
+            numpy.log(self.mass.nu_max), 
+            args=(norm,), vec_func=True,
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        self.m_eff = self.m_eff/self.n_bar_over_rho_bar
+        self.m_eff = self.m_eff/(norm*self.n_bar_over_rho_bar)
 
         return self.m_eff
 
-    def _m_eff_integrand(self, ln_nu):
+    def _m_eff_integrand(self, ln_nu, norm):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)
+        return (norm*nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu))
 
     def calculate_f_sat(self):
         """
@@ -557,22 +596,37 @@ class Halo(object):
         Returns:
             float f_sat
         """
+        nu_min = self.mass.nu_min
+        if (self.local_hod.first_moment_zero > -1 and 
+            self.local_hod.first_moment_zero >
+            numpy.exp(self.mass.ln_mass_min)):
+            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
+            
+        norm = 1.0
+        if nu_min < 1.0:
+            norm = 1.0/self._fsat_integrand(0.0)
+        elif self.mass.nu_max > nu_min*2.0:
+            norm = 1.0/self._fsat_integrand(numpy.log(nu_min)*2.0)
+        else:
+            norm = 1.0/self._fsat_integrand(numpy.log(self.mass.nu_max))
+            
         self.f_sat= integrate.romberg(
-            self._f_sat_integrand, numpy.log(self.mass.nu_min), 
-            numpy.log(self.mass.nu_max), vec_func=True,
+            self._f_sat_integrand, numpy.log(nu_min), 
+            numpy.log(self.mass.nu_max),
+            args=(norm,), vec_func=True,
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        self.f_sat = self.f_sat/self.n_bar_over_rho_bar
+        self.f_sat = self.f_sat/(norm*self.n_bar_over_rho_bar)
 
         return self.f_sat
 
-    def _f_sat_integrand(self, ln_nu):
+    def _f_sat_integrand(self, ln_nu, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (nu*self.local_hod.satellite_first_moment(mass)*
+        return (norm*nu*self.local_hod.satellite_first_moment(mass)*
                 self.mass.f_nu(nu)/mass)
 
     def _initialize_halo_splines(self):
@@ -643,25 +697,27 @@ class Halo(object):
     def _initialize_h_m(self):
         h_m_array = numpy.zeros_like(self._ln_k_array)
 
-        for idx in xrange(self._ln_k_array.size):
+        for idx, ln_k in enumerate(self._ln_k_array):
+            norm = 1.0/self._h_m_integrand(0.0, ln_k, 1.0)
             h_m = integrate.romberg(
                 self._h_m_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"],
-                args=(self._ln_k_array[idx],))
-            h_m_array[idx] = h_m
+                args=(ln_k, norm))
+            h_m_array[idx] = h_m/norm
 
         self._h_m_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, h_m_array)
         self._initialized_h_m = True
 
-    def _h_m_integrand(self, ln_nu, ln_k):
+    def _h_m_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*self.y(ln_k, mass)
+        return (norm*nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*
+                self.y(ln_k, mass))
 
     def _initialize_h_g(self):
         h_g_array = numpy.zeros_like(self._ln_k_array)
@@ -674,59 +730,60 @@ class Halo(object):
             self.local_hod.first_moment_zero >
             numpy.exp(self.mass.ln_mass_min)):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
-        for idx in xrange(self._ln_k_array.size):
+            
+        for idx, ln_k in enumerate(self._ln_k_array):
+            norm = 1.0
+            if nu_min < 1.0:
+                norm = 1.0/self._h_g_integrand(0.0, ln_k)
+            elif self.mass.nu_max > nu_min*2.0:
+                norm = 1.0/self._h_g_integrand(numpy.log(nu_min)*2.0, ln_k)
+            else:
+                norm = 1.0/self._h_g_integrand(numpy.log(self.mass.nu_max),
+                                               ln_k)
             h_g = integrate.romberg(
-                self._h_g_integrand, numpy.log(self.mass.nu_min),
+                self._h_g_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"],
-                args=(self._ln_k_array[idx],))
-            # h_g = integrate.quad(
-            #     self._h_g_integrand, numpy.log(nu_min),
-            #     numpy.log(self.mass.nu_max),
-            #     args=(self._ln_k_array[idx],),
-            #     limit=defaults.default_precision["halo_limit"])[0]
+                args=(ln_k, norm))/norm
             
-            ### We move the mass density normalization into the integrand here
-            ### to prevent romberg having to integrate very small values.
-            h_g_array[idx] = h_g
-
-        self._h_g_spline = InterpolatedUnivariateSpline(
-            self._ln_k_array, h_g_array)
+            h_g_array[idx] = h_g/self.n_bar_over_rho_bar
+        self._h_g_spline = InterpolatedUnivariateSpline(self._ln_k_array,
+                                                        h_g_array)
         self._initialized_h_g = True
 
-    def _h_g_integrand(self, ln_nu, ln_k):
+    def _h_g_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*
-                self.y(ln_k, mass)*self.local_hod.first_moment(mass)/(
-                mass*self.n_bar_over_rho_bar))
+        return (norm*nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*
+                self.y(ln_k, mass)*self.local_hod.first_moment(mass)/mass)
 
     def _initialize_pp_mm(self):
         pp_mm_array = numpy.zeros_like(self._ln_k_array)
 
-        for idx in xrange(self._ln_k_array.size):
+        for idx, ln_k in enumerate(self._ln_k_array):
+            norm = 1.0/self._pp_mm_integrand(0.0, ln_k, 1.0)
             pp_mm = integrate.romberg(
                 self._pp_mm_integrand, numpy.log(self.mass.nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"],
-                args=(self._ln_k_array[idx],))
-            pp_mm_array[idx] = pp_mm/self.rho_bar
+                args=(ln_k, norm))
+            pp_mm_array[idx] = pp_mm/(norm*self.rho_bar)
 
         self._pp_mm_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, pp_mm_array)
         self._initialized_pp_mm = True
 
-    def _pp_mm_integrand(self, ln_nu, ln_k):
+    def _pp_mm_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y = self.y(ln_k, mass)
 
-        return nu*self.mass.f_nu(nu)*mass*y*y
+        return norm*nu*self.mass.f_nu(nu)*mass*y*y
 
     def _initialize_pp_gg(self):
         pp_gg_array = numpy.zeros_like(self._ln_k_array)
@@ -740,29 +797,30 @@ class Halo(object):
             numpy.exp(self.mass.ln_mass_min)):
             nu_min = self.mass.nu(self.local_hod.second_moment_zero)
         ### Some Numerical Differnce between romberg and quad here.
-        for idx in xrange(self._ln_k_array.size):
+        for idx, ln_k in enumerate(self._ln_k_array):
+            norm = 1.0
+            if nu_min < 1.0:
+                norm = 1.0/self._pp_gg_integrand(0.0, ln_k)
+            elif self.mass.nu_max > nu_min*2.0:
+                norm = 1.0/self._pp_gg_integrand(numpy.log(nu_min)*2.0, ln_k)
+            else:
+                norm = 1.0/self._pp_gg_integrand(numpy.log(self.mass.nu_max),
+                                                 ln_k)
             pp_gg = integrate.romberg(
                 self._pp_gg_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
-                args=(self._ln_k_array[idx],),
+                args=(ln_k, norm),
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["halo_precision"],
                 divmax=defaults.default_precision["divmax"])
-            # pp_gg = integrate.quad(
-            #     self._pp_gg_integrand, numpy.log(self.mass.nu_min),
-            #     numpy.log(self.mass.nu_max),
-            #     args=(self._ln_k_array[idx],),
-            #     limit=defaults.default_precision["halo_limit"])[0]
             
-            ### We move the mass density normalization into the integrand here
-            ### to prevent romberg having to integrate very small values.
-            pp_gg_array[idx] = pp_gg*self.rho_bar
+            pp_gg_array[idx] = pp_gg*self.rho_bar/(norm*self.n_bar*self.n_bar)
 
         self._pp_gg_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, pp_gg_array)
         self._initialized_pp_gg = True
 
-    def _pp_gg_integrand(self, ln_nu, ln_k):
+    def _pp_gg_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y = self.y(ln_k, mass)
@@ -770,8 +828,8 @@ class Halo(object):
 
         return numpy.where(
             n_pair < 1,
-            nu*self.mass.f_nu(nu)*n_pair*y/(mass*self.n_bar*self.n_bar),
-            nu*self.mass.f_nu(nu)*n_pair*y*y/(mass*self.n_bar*self.n_bar))
+            norm*nu*self.mass.f_nu(nu)*n_pair*y/mass,
+            norm*nu*self.mass.f_nu(nu)*n_pair*y*y/mass)
 
     def _initialize_pp_gm(self):
         pp_gm_array = numpy.zeros_like(self._ln_k_array)
@@ -785,42 +843,38 @@ class Halo(object):
             numpy.exp(self.mass.ln_mass_min)):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
         ### Some Numerical Differences between romberg and Quad here.
-        for idx in xrange(self._ln_k_array.size):
+        for idx, ln_k in enumerate(self._ln_k_array):
+            norm = 1.0
+            if nu_min < 1.0:
+                norm = 1.0/self._pp_gm_integrand(0.0, ln_k)
+            elif self.mass.nu_max > nu_min*2.0:
+                norm = 1.0/self._pp_gm_integrand(numpy.log(nu_min)*2.0, ln_k)
+            else:
+                norm = 1.0/self._pp_gm_integrand(numpy.log(self.mass.nu_max),
+                                               ln_k)
             pp_gm = integrate.romberg(
                 self._pp_gm_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx],),
+                args=(ln_k, norm),
                 divmax=defaults.default_precision["divmax"])
-            # pp_gm, pp_gm_err = integrate.quad(
-            #     self._pp_gm_integrand, numpy.log(nu_min),
-            #     numpy.log(self.mass.nu_max),
-            #     limit=defaults.default_precision["halo_limit"],
-            #     args=(self._ln_k_array[idx],))
-            pp_gm_array[idx] = pp_gm/self.n_bar
+            pp_gm_array[idx] = pp_gm/(norm*self.n_bar)
 
         self._pp_gm_spline = InterpolatedUnivariateSpline(
             self._ln_k_array, pp_gm_array)
         self._initialized_pp_gm = True
 
-    def _pp_gm_integrand(self, ln_nu, ln_k):
+    def _pp_gm_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y = self.y(ln_k, mass)
         n_exp = self.local_hod.first_moment(self.mass.mass(nu))
 
         return numpy.where(n_exp < 1,
-                           nu*self.mass.f_nu(nu)*n_exp*y,
-                           nu*self.mass.f_nu(nu)*n_exp*y*y)
-        
-    def _initialize_gm_extrapolation(self):
-        self._log_slope_gm = numpy.mean(
-            (numpy.log(numpy.power_mm(self._ln_k_array[-5:])) - 
-             numpy.log(numpy.power_mm(self._ln_k_array[-6:-1])))/
-           (self._ln_k_array[-5:] - self._ln_k_array[-6:-1]))
-            
-            
+                           norm*nu*self.mass.f_nu(nu)*n_exp*y,
+                           norm*nu*self.mass.f_nu(nu)*n_exp*y*y)
+    
 
 class HaloExclusion(Halo):
 
@@ -885,15 +939,15 @@ class HaloExclusion(Halo):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
         for idx in xrange(self._ln_k_array.size):
             k = numpy.exp(self._ln_k_array[idx])
-            
+            norm = 1.0/self._h_g_integrand(0.0, ln_k)
             h_g = integrate.romberg(
                 self._h_g_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx],),
+                args=(self._ln_k_array[idx], norm),
                 divmax=defaults.default_precision["divmax"])
-            h_g_array[idx] = h_g
+            h_g_array[idx] = h_g/(norm*self.n_bar_over_rho_bar)
 
         ### We move the mass density normalization into the integrand here
         ### to prevent romberg having to integrate very small values.
@@ -901,14 +955,13 @@ class HaloExclusion(Halo):
             self._ln_k_array, h_g_array)
         self._initialized_h_g = True
 
-    def _h_g_integrand(self, ln_nu, ln_k):
+    def _h_g_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
+        return (norm*nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
                 self.mass.bias_nu(nu)*self.y(ln_k, mass)*
-                self.local_hod.first_moment(mass)/(
-                mass*self.n_bar_over_rho_bar))
+                self.local_hod.first_moment(mass)/mass)
 
     def _mass_window(self, mass, ln_k):
         k = numpy.exp(ln_k)
