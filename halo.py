@@ -134,6 +134,12 @@ class Halo(object):
         self._initialized_gm_extrapolation = False
         self._initialized_gg_extrapolation = False
 
+    def get_cosmology(self):
+        """
+        Get a dictionary of the cosmological parameter values.
+        """
+        return self.cosmo_dict
+
     def set_hod(self, input_hod):
         """
         Reset the internal HOD object to input_hod and re-initialize splines.

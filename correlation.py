@@ -110,6 +110,12 @@ class Correlation(object):
         self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
         self.halo.set_cosmology(cosmo_dict, self.kernel.z_bar)
 
+    def get_cosmology(self):
+        """
+        Get a dictionary of the cosmological parameter values.
+        """
+        return self.halo.get_cosmology()
+
     def set_power_spectrum(self, powSpec):
         """
         Set power spectrum to type specified in powSpec. Of powSpec is not a
@@ -163,12 +169,22 @@ class Correlation(object):
         """
         ln_kmin = numpy.log(self.halo._k_min)
         ln_kmax = numpy.log(self.halo._k_max)
-        wtheta = integrate.romberg(
-            self._correlation_integrand, 
-            ln_kmin, ln_kmax, args=(theta_deg*deg_to_rad,), vec_func=True,
-            tol=defaults.default_precision["global_precision"],
-            rtol=defaults.default_precision["corr_precision"],
-            divmax=defaults.default_precision["divmax"])
+        try:
+            wtheta = numpy.empty(len(theta_deg))
+            for idx, value in enumerate(theta_deg):
+                wtheta[idx] = integrate.romberg(
+                    self._correlation_integrand, 
+                    ln_kmin, ln_kmax, args=(value*deg_to_rad,), vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])
+        except TypeError:
+            wtheta = integrate.romberg(
+                self._correlation_integrand, 
+                ln_kmin, ln_kmax, args=(theta_deg*deg_to_rad,), vec_func=True,
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["corr_precision"],
+                divmax=defaults.default_precision["divmax"])
         return wtheta
 
     def _correlation_integrand(self, ln_k, theta):
