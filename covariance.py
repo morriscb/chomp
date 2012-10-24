@@ -42,23 +42,25 @@ class Covariance(object):
     """
 
     def __init__(self, input_correlation_a, input_correlation_b,
-                 bins_per_decade=5, survey_area_deg2=4*numpy.pi*strad_to_deg2,
+                 bins_per_decade=5.0, survey_area_deg2=4*numpy.pi*strad_to_deg2,
                  n_pairs=1e6*1e6, variance=1.0, nongaussian_cov=True,
                  input_halo_trispectrum=None, **kws):
 
         self.annular_bins = []
         self.log_theta_min = input_correlation_a.log_theta_min
-        self.log_theta_max = input_correlation_b.log_theta_max
+        self.log_theta_max = input_correlation_a.log_theta_max
         unit_double = (numpy.floor(self.log_theta_min)*bins_per_decade)
-        theta = numpy.power(10.0, unit_double/bins_per_decade)
+        theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
+        
+        print theta
         while theta < numpy.power(10.0, self.log_theta_max):
             if (theta >= numpy.power(10.0, self.log_theta_min) and
-                theta < numpy.power(10.0, theta_max_deg)):
+                theta < numpy.power(10.0, self.log_theta_max)):
                 self.annular_bins.append(AnnulusBin(
                     theta, numpy.power(
-                        10.0, (unit_double+1.0)/bins_per_decade)))
-                unit_double += 1.0
-                theta = numpy.power(10.0, unit_double/bins_per_decade)
+                        10.0, (unit_double+1.0)/(1.0*bins_per_decade))))
+            unit_double += 1.0
+            theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
 
         self.area = survey_area_deg2*deg2_to_strad
         self.n_pairs = n_pairs
@@ -66,7 +68,10 @@ class Covariance(object):
         self.nongaussian_cov = nongaussian_cov
 
         self.kernel = kernel.KernelCovariance(
-            ktheta_min, ktheta_max,
+            numpy.power(10.0, self.log_theta_min)*
+            defaults.default_limits["k_min"],
+            numpy.power(10.0, self.log_theta_max)*
+            defaults.default_limits["k_max"],
             input_correlation_a.kernel.window_function_a,
             input_correlation_a.kernel.window_function_b,
             input_correlation_b.kernel.window_function_a,
