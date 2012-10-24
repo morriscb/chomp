@@ -42,8 +42,8 @@ class Covariance(object):
     """
 
     def __init__(self, input_correlation_a, input_correlation_b,
-                 bins_per_decade=5.0, survey_area_deg2=4*numpy.pi*strad_to_deg2,
-                 n_pairs=1e6*1e6, variance=1.0, nongaussian_cov=True,
+                 bins_per_decade=5.0, survey_area_deg2=20,
+                 n_pairs=1.0e4*1.0e4, variance=1.0, nongaussian_cov=True,
                  input_halo_trispectrum=None, **kws):
 
         self.annular_bins = []
@@ -52,7 +52,6 @@ class Covariance(object):
         unit_double = (numpy.floor(self.log_theta_min)*bins_per_decade)
         theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
         
-        print theta
         while theta < numpy.power(10.0, self.log_theta_max):
             if (theta >= numpy.power(10.0, self.log_theta_min) and
                 theta < numpy.power(10.0, self.log_theta_max)):
@@ -219,7 +218,9 @@ class Covariance(object):
     def _covariance_G_integrand(self, ln_K, theta_a, theta_b, norm=1.0):
         K = numpy.exp(ln_K)
         dK = K
-        return (dK*K*norm*self._projected_halo_a(K)*self._projected_halo_b(K)*
+        return (dK*K*norm*(self._projected_halo_a(K)*self._projected_halo_b(K) +
+                           self._projected_halo_a(K)/numpy.sqrt(self.n_pairs) +
+                           self._projected_halo_b(K)/numpy.sqrt(self.n_pairs))*
                 special.j0(K*theta_a)*special.j0(K*theta_b))
         
     def _initialize_halo_splines(self):
