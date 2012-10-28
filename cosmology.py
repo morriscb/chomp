@@ -86,9 +86,9 @@ class SingleEpoch(object):
         if self._w0 != -1.0 or self._wa != 0.0:
             a_array = numpy.logspace(-16, 0,
                 defaults.default_precision["cosmo_npoints"])
-            self._de_presure_array = self._de_presure(1/a_array - 1.0)
-            self._de_presure_spline = InterpolatedUnivariateSpline(
-                numpy.log(a_array), self._de_presure_array)
+            self._de_pressure_array = self._de_pressure(1/a_array - 1.0)
+            self._de_pressure_spline = InterpolatedUnivariateSpline(
+                numpy.log(a_array), self._de_pressure_array)
 
         self._chi = integrate.romberg(
             self.E, 0.0, self._redshift, vec_func=True,
@@ -169,7 +169,7 @@ class SingleEpoch(object):
                     self._omega_m0/(a*a*a) + self._omega_r0/(a*a))
         else:
             return (self._omega_l0*numpy.exp(
-                    self._de_presure_spline(numpy.log(a)))
+                    -self._de_pressure_spline(numpy.log(a)))
                     + self._omega_m0/(a*a*a) + self._omega_r0/(a*a))
  
     def w(self, redshift):
@@ -184,24 +184,24 @@ class SingleEpoch(object):
         a = 1.0/(1 + redshift)
         return self._w0 + self._wa*(1 - a)
 
-    def _de_presure(self, redshift):
-        dpresuredz = lambda z: (1 + self.w(z))/(1 + z)
+    def _de_pressure(self, redshift):
+        dpressuredz = lambda z: (1 + self.w(z))/(1 + z)
 
         try:
-            presure = numpy.empty(len(redshift))
+            pressure = numpy.empty(len(redshift))
             for idx, z in enumerate(redshift):
-                presure[idx] = 3.0*integrate.romberg(
-                    dpresuredz, 0, z, vec_func=True,
+                pressure[idx] = 3.0*integrate.romberg(
+                    dpressuredz, 0, z, vec_func=True,
                     tol=defaults.default_precision["global_precision"],
                     rtol=defaults.default_precision["cosmo_precision"],
                     divmax=defaults.default_precision["divmax"])
         except TypeError:
-            presure = 3.0*integrate.romberg(
-                dpresuredz, 0, redshift, vec_func=True,
+            pressure = 3.0*integrate.romberg(
+                dpressuredz, 0, redshift, vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["cosmo_precision"],
                 divmax=defaults.default_precision["divmax"])
-        return presure
+        return pressure
 
     def _growth_integrand(self, a):
         """
@@ -366,7 +366,7 @@ class SingleEpoch(object):
         Returns:
             float array Transfer function T(k).
         """
-        theta = 2.728/2.7
+        theta = self._cmb_temp/2.7
         Ob = self._omega_b0
         Om = self._omega_m0
         Oc = Om-Ob
@@ -657,7 +657,7 @@ class MultiEpoch(object):
         self._wa = self.epoch0._wa
 
         if self._w0 != -1:
-            self._de_presure_array = numpy.zeros_like(self._z_array)
+            self._de_pressure_array = numpy.zeros_like(self._z_array)
 
         self._flat = self.epoch0._flat
         self._open = self.epoch0._open
