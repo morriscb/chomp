@@ -84,7 +84,7 @@ class SingleEpoch(object):
 
     def _initialize_defaults(self):
         if self._w0 != -1.0 or self._wa != 0.0:
-            a_array = numpy.logspace(-16, 0,
+            a_array = numpy.logspace(-4, 0,
                 defaults.default_precision["cosmo_npoints"])
             self._de_pressure_array = self._de_pressure(1/a_array - 1.0)
             self._de_pressure_spline = InterpolatedUnivariateSpline(
@@ -169,7 +169,7 @@ class SingleEpoch(object):
                     self._omega_m0/(a*a*a) + self._omega_r0/(a*a))
         else:
             return (self._omega_l0*numpy.exp(
-                    -self._de_pressure_spline(numpy.log(a)))
+                    self._de_pressure_spline(numpy.log(a)))
                     + self._omega_m0/(a*a*a) + self._omega_r0/(a*a))
  
     def w(self, redshift):
@@ -185,7 +185,7 @@ class SingleEpoch(object):
         return self._w0 + self._wa*(1 - a)
 
     def _de_pressure(self, redshift):
-        dpressuredz = lambda z: (1 + self.w(z))/(1 + z)
+        dpressuredz = lambda z: (1. + self.w(z))/(1. + z)
 
         try:
             pressure = numpy.empty(len(redshift))
@@ -214,6 +214,51 @@ class SingleEpoch(object):
         """
         redshift = 1.0/a - 1.0
         return ((1.0 + redshift)/numpy.sqrt(self.E0(redshift)))**3
+
+    @staticmethod
+    def _growth_integrand_dynde(G, a, cosmo):
+        """
+        Derivatives of normalized linear growth function G := D/a and dG/da.
+        For dynamical dark energy models, there is no closed integral
+        expression for the growth function and the defining differential
+        equation must be solved numerically.
+
+        This function is intended as input to scipy.integrate.odeint.
+        
+        Args:
+            G: vector of the state variables (G,G')
+            a: scale factor
+            cosmo: Instance of cosmology.SingleEpoch
+
+        References:
+            Linder E. V., Jenkins A., 2003, MNRAS, 346, 573. (eq. 11)
+        """
+        z = 1. / a - 1.
+        g1, g2 = G
+        X = numpy.exp(-cosmo._de_pressure(numpy.log(a)))
+        X *= cosmo._omega_m0 / cosmo._omega_l0
+        w = cosmo.w(z)
+        # create f = (x1', x2')
+        f = [(-(3.5 - 1.5 * w / (1. + X)) * g1/a -
+              1.5 * ((1. - w) / (1. + X)) * g2 / a ** 2),
+             g1]
+        return f
+
+    def D1_odesol(self, z):
+        """
+        Linear growth function obtained by solving the ODE
+        (see Linder & Jenkins 2003, eq. 11)
+        """
+        # ----- Initial conditions
+        G0 = [0., 1.] # (dG/da(a<<1), G(a<<1))
+        # ----- ODE solver parameters
+        abserr = 1.0e-8
+        relerr = 1.0e-6
+        a = (1. / (1. + z))[::-1]
+        gsol = integrate.odeint(self._growth_integrand_dynde, G0, a,
+                                args=(self,),
+                                atol=abserr, rtol=relerr)
+        return gsol[:,1] / (1.+z)    
 
     def comoving_distance(self):
         """
