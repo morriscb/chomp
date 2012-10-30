@@ -38,7 +38,7 @@ class Halo(object):
              defaults.py for details)
     """
     def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
-                 mass_func=None, halo_dict=None, **kws):
+                 mass_func=None, halo_dict=None, extrapolate=False, **kws):
         # Hard coded, but we shouldn't expect halos outside of this range.
         self._k_min = defaults.default_limits['k_min']
         self._k_max = defaults.default_limits['k_max']
@@ -83,6 +83,7 @@ class Halo(object):
         if input_hod is None:
             input_hod = hod.HODZheng()
         self.local_hod = input_hod
+        self._extrapolate = extrapolate
     
         self._calculate_n_bar()
         self._initialize_halo_splines()
@@ -224,16 +225,24 @@ class Halo(object):
         
         ### Where statements so that we are able to input and return numpy
         ### as well as extrapolate where requested.
-        return numpy.where(
-            k < self._k_min, self.linear_power(k)*(
-                self._h_m(self._k_min)*self._h_m(self._k_min) + 
-                self._pp_mm(self._k_min)/self.linear_power(self._k_min)),
-            numpy.where(
-                k < self._k_max, (self.linear_power(k)*
-                                  self._h_m(k)*self._h_m(k) + self._pp_mm(k)),
-                self.linear_power(k)*(
-                    self._h_m(self._k_max)*self._h_m(self._k_max) +
-                    self._pp_mm(self._k_max)/self.linear_power(self._k_max))))
+        if self._extrapolate:
+            return numpy.where(
+                k < self._k_min, self.linear_power(k)*(
+                    self._h_m(self._k_min)*self._h_m(self._k_min) + 
+                    self._pp_mm(self._k_min)/self.linear_power(self._k_min)),
+                numpy.where(
+                    k < self._k_max, 
+                    (self.linear_power(k)*
+                    self._h_m(k)*self._h_m(k) + self._pp_mm(k)),
+                    self.linear_power(k)*(
+                        self._h_m(self._k_max)*self._h_m(self._k_max) +
+                        self._pp_mm(self._k_max)/
+                        self.linear_power(self._k_max))))
+        else:
+            return numpy.where(
+                numpy.logical_and(k >= self._k_min, k <= self._k_max),
+                self.linear_power(k)*self._h_m(k)*self._h_m(k) +
+                self._pp_mm(k), 0.0)
 
     def power_gm(self, k):
         """
@@ -256,7 +265,7 @@ class Halo(object):
             self._initialize_pp_gm()
         ### Given the last 5 points of the spline, we extrapolate using the
         ### average splopes between these points.
-        if not self._initialized_gm_extrapolation:
+        if not self._initialized_gm_extrapolation and self._extrapolate:
             k_array = numpy.exp(self._ln_k_array[-7:-1])
             log_values = numpy.log(
                 self.linear_power(k_array)*
@@ -268,17 +277,24 @@ class Halo(object):
             
         ### Where statements so that we are able to input and return numpy
         ### as well as extrapolate where requested.
-        return numpy.where(
-            k < self._k_min, self.linear_power(k)*(
-                self._h_g(self._k_min)*self._h_m(self._k_min) + 
-                self._pp_gm(self._k_min)/self.linear_power(self._k_min)),
-            numpy.where(
-                k < self._k_max, (self.linear_power(k)*
-                                  self._h_g(k)*self._h_m(k) + self._pp_gm(k)),
-                numpy.power(k/self._k_max, self._log_slope_gm)*(
-                    self.linear_power(self._k_max)*
-                    self._h_g(self._k_max)*self._h_m(self._k_max) +
-                    self._pp_gm(self._k_max))))
+        if self._extrapolate:
+            return numpy.where(
+                k < self._k_min, self.linear_power(k)*(
+                    self._h_g(self._k_min)*self._h_m(self._k_min) + 
+                    self._pp_gm(self._k_min)/self.linear_power(self._k_min)),
+                numpy.where(
+                    k < self._k_max, (
+                    self.linear_power(k)*
+                    self._h_g(k)*self._h_m(k) + self._pp_gm(k)),
+                    numpy.power(k/self._k_max, self._log_slope_gm)*(
+                        self.linear_power(self._k_max)*
+                        self._h_g(self._k_max)*self._h_m(self._k_max) +
+                        self._pp_gm(self._k_max))))
+        else:
+            return numpy.where(
+                numpy.logical_and(k >= self._k_min, k <= self._k_max),
+                self.linear_power(k)*self._h_g(k)*self._h_m(k) +
+                self._pp_gm(k), 0.0)
 
     def power_mg(self, k):
         """
@@ -310,7 +326,7 @@ class Halo(object):
             self._initialize_pp_gg()
         ### Given the last 5 points of the spline, we extrapolate using the
         ### average splopes between these points.
-        if not self._initialized_gg_extrapolation:
+        if not self._initialized_gg_extrapolation and self._extrapolate:
             k_array = numpy.exp(self._ln_k_array[-7:-1])
             log_values = numpy.log(
                 self.linear_power(k_array)*
@@ -322,17 +338,24 @@ class Halo(object):
         
         ### Where statements so that we are able to input and return numpy
         ### as well as extrapolate where requested.
-        return numpy.where(
-            k < self._k_min, self.linear_power(k)*(
-                self._h_g(self._k_min)*self._h_g(self._k_min) + 
-                self._pp_gg(self._k_min)/self.linear_power(self._k_min)),
-            numpy.where(
-                k < self._k_max, (self.linear_power(k)*
-                                  self._h_g(k)*self._h_g(k) + self._pp_gg(k)),
-                numpy.power(k/self._k_max, self._log_slope_gg)*(
-                    self.linear_power(self._k_max)*
-                    self._h_g(self._k_max)*self._h_g(self._k_max) +
-                    self._pp_gg(self._k_max))))
+        if self._extrapolate:
+            return numpy.where(
+                k < self._k_min, self.linear_power(k)*(
+                    self._h_g(self._k_min)*self._h_g(self._k_min) + 
+                    self._pp_gg(self._k_min)/self.linear_power(self._k_min)),
+                numpy.where(
+                    k < self._k_max, (
+                    self.linear_power(k)*
+                    self._h_g(k)*self._h_g(k) + self._pp_gg(k)),
+                    numpy.power(k/self._k_max, self._log_slope_gg)*(
+                        self.linear_power(self._k_max)*
+                        self._h_g(self._k_max)*self._h_g(self._k_max) +
+                        self._pp_gg(self._k_max))))
+        else:
+            return numpy.where(
+                numpy.logical_and(k >= self._k_min, k <= self._k_max),
+                self.linear_power(k)*self._h_g(k)*self._h_g(k) +
+                self._pp_gg(k), 0.0)
 
     def virial_radius(self, mass):
         """

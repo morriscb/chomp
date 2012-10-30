@@ -51,6 +51,8 @@ class Covariance(object):
         self.log_theta_max = input_correlation_a.log_theta_max
         unit_double = (numpy.floor(self.log_theta_min)*bins_per_decade)
         theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
+        self.corr_a = input_correlation_a
+        self.corr_b = input_correlation_b
         
         while theta < numpy.power(10.0, self.log_theta_max):
             if (theta >= numpy.power(10.0, self.log_theta_min) and
@@ -129,12 +131,12 @@ class Covariance(object):
     def _projected_halo_a(self, K):
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
-        return numpy.exp(self._halo_a_spline(numpy.log(K)))
+        return self._halo_a_spline(numpy.log(K))
     
     def _projected_halo_b(self, K):
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
-        return numpy.exp(self._halo_b_spline(numpy.log(K)))
+        return self._halo_b_spline(numpy.log(K))
 
     def set_cosmology(self, cosmo_dict):
         """
@@ -162,21 +164,21 @@ class Covariance(object):
         return None
     
     def get_covariance(self):
-        out_covar = numpy.zeros((len(self.annular_bins),
-                                 len(self.annular_bins)), 'float128')
-        for idx1 in xrange(out_covar.shape[0]):
-            for idx2 in xrange(idx1, out_covar.shape[1]):
+        self.covar = numpy.empty((len(self.annular_bins),
+                                  len(self.annular_bins)), 'float128')
+        for idx1 in xrange(self.covar.shape[0]):
+            for idx2 in xrange(idx1, self.covar.shape[1]):
                 cov = self.covariance(self.annular_bins[idx1],
                                       self.annular_bins[idx2])
                 if idx1 == idx2:
-                    out_covar[idx1, idx2] = cov
+                    self.covar[idx1, idx2] = cov
                 else:
-                    out_covar[idx1, idx2] = cov
-                    out_covar[idx2, idx1] = cov
+                    self.covar[idx1, idx2] = cov
+                    self.covar[idx2, idx1] = cov
                 print (str(self.annular_bins[idx1].center)+' '+
                        str(self.annular_bins[idx2].center)+' '+
                        str(cov))
-        return out_covar
+        return self.covar
         
     def covariance(self, annular_bin_a, annular_bin_b):
         cov_P = 0.0
@@ -224,18 +226,10 @@ class Covariance(object):
                 special.j0(K*theta_a)*special.j0(K*theta_b))
         
     def _initialize_halo_splines(self):
-        z_array_a = numpy.linspace(self._z_min_a, self._z_max_a,
-                                   defaults.default_precision['kernel_npoints'],
-                                   'float128')
-        z_array_b = numpy.linspace(self._z_min_b, self._z_max_b,
-                                   defaults.default_precision['kernel_npoints'],
-                                   'float128')
-        self._z_bar_G_a = z_array_a[numpy.argmax(
-            self.kernel._kernel_G_a_integrand(
-                self.kernel.cosmo.comoving_distance(z_array_a)))]
-        self._z_bar_G_b = z_array_a[numpy.argmax(
-            self.kernel._kernel_G_b_integrand(
-                self.kernel.cosmo.comoving_distance(z_array_a)))]
+        self._z_bar_G_a = self.corr_a.kernel.z_bar
+        self._z_bar_G_b = self.corr_b.kernel.z_bar
+        
+        print "Mean Redshifts:", self._z_bar_G_a, self._z_bar_G_b
         
         self.halo_a.set_redshift(self._z_bar_G_a)
         self.halo_b.set_redshift(self._z_bar_G_b)
@@ -249,36 +243,50 @@ class Covariance(object):
         _halo_b_array = numpy.empty(self._ln_K_array.shape)
         
         for idx, ln_K in enumerate(self._ln_K_array):
+            chi_min = numpy.exp(ln_K)/defaults.default_limits['k_max']
+            if chi_min < self._chi_min_a:
+                chi_min = self._chi_min_a
+            chi_max = numpy.exp(ln_K)/defaults.default_limits['k_min']
+            if chi_max > self._chi_max_a:
+                chi_max = self._chi_max_a
+            
             norm = 1.0/self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0)
             _halo_a_array[idx] = integrate.romberg(
-                self._halo_a_integrand, self._chi_min_a, self._chi_max_a,
+                self._halo_a_integrand, chi_min, chi_max,
                 args=(ln_K, norm), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])/norm
+            chi_min = numpy.exp(ln_K)/defaults.default_limits['k_max']
+            if chi_min < self._chi_min_b:
+                chi_min = self._chi_min_b  
+            chi_max = numpy.exp(ln_K)/defaults.default_limits['k_min']
+            if chi_max > self._chi_max_b:
+                chi_max = self._chi_max_b  
+            
             norm = 1.0/self._halo_a_integrand(chi_peak_b, ln_K, norm=1.0)
             _halo_b_array[idx] = integrate.romberg(
-                self._halo_b_integrand, self._chi_min_b, self._chi_max_b,
+                self._halo_b_integrand, chi_min, chi_max,
                 args=(ln_K, norm), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])/norm
             
         self._halo_a_spline = InterpolatedUnivariateSpline(
-            self._ln_K_array, numpy.log(_halo_a_array))
+            self._ln_K_array, _halo_a_array)
         self._halo_b_spline = InterpolatedUnivariateSpline(
-            self._ln_K_array, numpy.log(_halo_b_array))
+            self._ln_K_array, _halo_b_array)
         
         self._initialized_halo_splines = True
     
     def _halo_a_integrand(self, chi, ln_K, norm=1.0):
         K = numpy.exp(ln_K)
-        return (norm*self.halo_a.power_mm(K/chi)*
+        return (norm*self.halo_a.linear_power(K/chi)*
                 self.kernel._kernel_G_a_integrand(chi))
     
     def _halo_b_integrand(self, chi, ln_K, norm=1.0):
         K = numpy.exp(ln_K)
-        return (norm*self.halo_a.power_mm(K/chi)*
+        return (norm*self.halo_a.linear_power(K/chi)*
                 self.kernel._kernel_G_b_integrand(chi))
         
     def covariance_NG(self, theta_a_rad, theta_b_rad):
@@ -359,6 +367,17 @@ class Covariance(object):
         return (dkb*kb*norm*self.halo_tri.trispectrum_parallelogram(ka, kb)*
             self.kernel.kernel(numpy.log(ka*theta_a),
                                numpy.log(kb*theta_b))[0])
+    
+    def write(self, file_name):
+        f = open(file_name, 'w')
+        f.write("#ttype1 = theta_a [deg]\n#ttype2 = theta_b [deg]\n" + 
+                "#ttype3 = covariance\n")
+        for idx_a, bin_a in enumerate(self.annular_bins):
+            for idx_b, bin_b in enumerate(self.annular_bins):
+                f.writelines('%1.16f %1.16f %1.16f\n' % (
+                             bin_a.center*rad_to_deg, bin_b.center*rad_to_deg,
+                             self.covar[idx_a, idx_b]))
+        f.close()
         
         
 class CovarianceMulti(Covariance):
@@ -393,7 +412,7 @@ class CovarianceMulti(Covariance):
                 self.wcovar[self.theta_bins(idx1+idx2):self.theta_bins*idx1,
                             self.theta_bins(idx1+idx2):self.theta_bins*idx1:]
                 
-    
+                
 class CovarianceFourier(object):
     
     def __init__(self, l_min, l_max, input_kernel_covariance=None,
