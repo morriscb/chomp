@@ -80,9 +80,13 @@ class SingleEpoch(object):
 
         self._with_bao = with_bao
 
+        self.a_growthIC = 0.01
+
         self._initialize_defaults()
 
     def _initialize_defaults(self):
+        self._initialized_growth_spline = False
+
         if self._w0 != -1.0 or self._wa != 0.0:
             a_array = numpy.logspace(-4, 0,
                 defaults.default_precision["cosmo_npoints"])
@@ -96,21 +100,23 @@ class SingleEpoch(object):
             rtol=defaults.default_precision["cosmo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        self.growth_norm = integrate.romberg(
-            self._growth_integrand, 1e-16, 1.0, vec_func=True,
-            tol=defaults.default_precision["global_precision"],
-            rtol=defaults.default_precision["cosmo_precision"],
-            divmax=defaults.default_precision["divmax"])
-        self.growth_norm *= 2.5*self._omega_m0*numpy.sqrt(self.E0(0.0))
+        # self.growth_norm = integrate.romberg(
+        #     self._growth_integrand, 1e-16, 1.0, vec_func=True,
+        #     tol=defaults.default_precision["global_precision"],
+        #     rtol=defaults.default_precision["cosmo_precision"],
+        #     divmax=defaults.default_precision["divmax"])
+        # self.growth_norm *= 2.5*self._omega_m0*numpy.sqrt(self.E0(0.0))
+        self.growth_norm = self.growth_factor_eval(1.0)
 
-        a = 1.0/(1.0 + self._redshift)
-        growth = integrate.romberg(
-            self._growth_integrand, 1e-16, a, vec_func=True,
-            tol=defaults.default_precision["global_precision"],
-            rtol=defaults.default_precision["cosmo_precision"],
-            divmax=defaults.default_precision["divmax"])
-        growth *= 2.5*self._omega_m0*numpy.sqrt(self.E0(self._redshift))
-        self._growth = growth/self.growth_norm
+        a = 1.0 / (1.0 + self._redshift)
+        # growth = integrate.romberg(
+        #     self._growth_integrand, 1e-16, a, vec_func=True,
+        #     tol=defaults.default_precision["global_precision"],
+        #     rtol=defaults.default_precision["cosmo_precision"],
+        #     divmax=defaults.default_precision["divmax"])
+        # growth *= 2.5*self._omega_m0*numpy.sqrt(self.E0(self._redshift))
+        growth = self.growth_factor_eval(a)
+        self._growth = growth / self.growth_norm
 
         self._sigma_norm = 1.0
         self._sigma_norm = self._sigma_8*self._growth/self.sigma_r(8.0)
@@ -191,10 +197,7 @@ class SingleEpoch(object):
             pressure = numpy.empty(len(redshift))
             for idx, z in enumerate(redshift):
                 pressure[idx] = 3.0*integrate.romberg(
-                    dpressuredz, 0, z, vec_func=True,
-                    tol=defaults.default_precision["global_precision"],
-                    rtol=defaults.default_precision["cosmo_precision"],
-                    divmax=defaults.default_precision["divmax"])
+                    dpressuredz, 0, z, vec_func=True)
         except TypeError:
             pressure = 3.0*integrate.romberg(
                 dpressuredz, 0, redshift, vec_func=True,
@@ -202,6 +205,16 @@ class SingleEpoch(object):
                 rtol=defaults.default_precision["cosmo_precision"],
                 divmax=defaults.default_precision["divmax"])
         return pressure
+
+    def _growth_approx(self, a):
+        om = self._omega_m0 / a ** 3
+        denom = self._omega_l0 + om
+        Omega_m = om / denom
+        Omega_L = self._omega_l0 / denom
+        coeff = 5. * Omega_m / (2. / a)
+        term1 = Omega_m * (4. / 7.)
+        term3 = (1. + 0.5 * Omega_m) * (1. + Omega_L / 70.)
+        return coeff / (term1 - Omega_L + term3)
 
     def _growth_integrand(self, a):
         """
@@ -214,6 +227,16 @@ class SingleEpoch(object):
         """
         redshift = 1.0/a - 1.0
         return ((1.0 + redshift)/numpy.sqrt(self.E0(redshift)))**3
+
+    def _growth_factor_integral(self, a):
+        redshift = 1. / a - 1.
+        growth = integrate.romberg(
+            self._growth_integrand, 1e-4, a, vec_func=True,
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["cosmo_precision"],
+            divmax=defaults.default_precision["divmax"])
+        growth *= 2.5*self._omega_m0*numpy.sqrt(self.E0(redshift))
+        return growth
 
     @staticmethod
     def _growth_integrand_dynde(G, a, cosmo):
@@ -235,16 +258,20 @@ class SingleEpoch(object):
         """
         z = 1. / a - 1.
         g1, g2 = G
-        X = numpy.exp(-cosmo._de_pressure(numpy.log(a)))
-        X *= cosmo._omega_m0 / cosmo._omega_l0
+        Xde = lambda x: cosmo.w(1. / x - 1.) / x
+        X = numpy.exp(-3. * integrate.romberg(Xde, a, 1., vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["cosmo_precision"],
+                    divmax=defaults.default_precision["divmax"]))
+        X *= cosmo._omega_m0 / (1.0 - cosmo._omega_m0)
         w = cosmo.w(z)
         # create f = (x1', x2')
-        f = [(-(3.5 - 1.5 * w / (1. + X)) * g1/a -
+        f = [(-(3.5 - 1.5 * w / (1. + X)) * g1 / a -
               1.5 * ((1. - w) / (1. + X)) * g2 / a ** 2),
              g1]
         return f
 
-    def D1_odesol(self, z):
+    def _growth_factor_odesol(self, a):
         """
         Linear growth function obtained by solving the ODE
         (see Linder & Jenkins 2003, eq. 11)
@@ -252,13 +279,34 @@ class SingleEpoch(object):
         # ----- Initial conditions
         G0 = [0., 1.] # (dG/da(a<<1), G(a<<1))
         # ----- ODE solver parameters
-        abserr = 1.0e-8
-        relerr = 1.0e-6
-        a = (1. / (1. + z))[::-1]
         gsol = integrate.odeint(self._growth_integrand_dynde, G0, a,
                                 args=(self,),
-                                atol=abserr, rtol=relerr)
-        return gsol[:,1] / (1.+z)    
+                                # atol=defaults.default_precision["global_precision"],
+                                rtol=defaults.default_precision["cosmo_precision"])
+        return gsol[:,  1] * a
+
+    def growth_factor_eval(self, a):
+        """
+        Evaluate the linear growth factor for vector argument redshift.
+        """
+        # a = 1. / (1. + redshift)
+        if self._w0 == -1.0 and self._wa == 0.0:
+            try:
+                growth = numpy.zeros(len(a), dtype='float64')
+                for idx in xrange(a.size):
+                    growth[idx] = self._growth_factor_integral(a[idx])
+            except TypeError:
+                growth = self._growth_factor_integral(a)
+        else:
+            if not self._initialized_growth_spline:
+                a_array = numpy.logspace(numpy.log10(self.a_growthIC), 0, 100)                
+                growth = self._growth_factor_odesol(a_array)
+                self._growth_spline = InterpolatedUnivariateSpline(
+                    numpy.log(a_array), growth)
+                self._initialized_growth_spline = True
+            growth = self._growth_spline(numpy.log(a))
+
+        return growth
 
     def comoving_distance(self):
         """
@@ -276,7 +324,7 @@ class SingleEpoch(object):
         Returns:
             Float Luminosity Distance
         """
-        return (1.0 + self._redshift)*self._chi
+        return (1.0 + self._redshift) * self._chi
 
     def angular_diameter_distance(self):
         """
@@ -730,16 +778,19 @@ class MultiEpoch(object):
 
         self.growth_norm = self.epoch0.growth_norm
 
-        for idx in xrange(self._z_array.size):
-            a = 1.0/(1.0 + self._z_array[idx])
-            growth = integrate.romberg(
-                self.epoch0._growth_integrand, 1e-16, a, vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["cosmo_precision"],
-                divmax=defaults.default_precision["divmax"])
-            growth *= 2.5*self._omega_m0*numpy.sqrt(
-                self.epoch0.E0(self._z_array[idx]))
-            self._growth_array[idx] = growth/self.growth_norm
+        # for idx in xrange(self._z_array.size):
+        #     a = 1.0/(1.0 + self._z_array[idx])
+        #     growth = integrate.romberg(
+        #         self.epoch0._growth_integrand, 1e-16, a, vec_func=True,
+        #         tol=defaults.default_precision["global_precision"],
+        #         rtol=defaults.default_precision["cosmo_precision"],
+        #         divmax=defaults.default_precision["divmax"])
+        #     growth *= 2.5*self._omega_m0*numpy.sqrt(
+        #         self.epoch0.E0(self._z_array[idx]))
+        #     self._growth_array[idx] = growth/self.growth_norm
+
+        a = 1. / (1. + self._z_array)
+        self._growth_array = self.epoch0.growth_factor_eval(a) / self.growth_norm
 
         self._growth_spline = InterpolatedUnivariateSpline(
             self._z_array, self._growth_array)
