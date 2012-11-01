@@ -72,7 +72,7 @@ sdss_hod = hod.HODZheng(M_min=10**12.14, sigma=0.15, M_0=10**12.14,
 ### Initialize the halo object with the mass function and single epoch 
 ### cosmology implementation is from Seljak2000.
 halo_model = halo.Halo(redshift=0.0, input_hod=sdss_hod,
-                       cosmo_single_epoch=cosmo_single)
+                       cosmo_single_epoch=cosmo_single, extrapolate=True)
 
 
 ### From this point we have fully defined our cosmology and halo model.
@@ -84,8 +84,8 @@ halo_model = halo.Halo(redshift=0.0, input_hod=sdss_hod,
 ### the functional form of a magnitude limited sample for the lens and for the
 ### sources we use a Gaussian with mean z=1.0. Other options could be used here,
 ### see kernel.py for other implemented distributions.
-lens_dist = kernel.dNdzMagLim(0.0, 2.0, 2.0, 0.3, 2.0)
-source_dist = kernel.dNdzGaussian(0.0, 2.0, 1.0, 0.2)
+lens_dist = kernel.dNdzMagLim(0.001, 5.0, 2.0, 0.3, 2.0)
+source_dist = kernel.dNdzGaussian(0.001, 2.0, 1.0, 0.2)
 
 ### Now we need to create the appropriate window functions that will allow us 
 ### to project the power spectrum from halo. Currently these come in two
@@ -127,7 +127,7 @@ corr = correlation.Correlation(theta_min_deg=0.001,
                                theta_max_deg=1.0,
                                input_kernel=con_kernel,
                                input_halo=halo_model,
-                               powSpec='power_gm')
+                               power_spec='power_gm')
 corr.compute_correlation()
 corr.write('test_corr.ascii')
 
@@ -140,7 +140,7 @@ corr.write('test_corr.ascii')
 cov = covariance.Covariance(corr, corr, bins_per_decade=5.0,
                             survey_area_deg2=20,
                             n_pairs=1.0e6*1.0e6, variance=1.0,
-                            nongaussian_cov=False)
+                            nongaussian_cov=False, power_spec='power_gm')
 ### Now we compute the covariance parameters for the gaussian covariance and
 ### write the results.
 cov.get_covariance()

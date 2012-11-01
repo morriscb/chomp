@@ -44,7 +44,7 @@ class Covariance(object):
     def __init__(self, input_correlation_a, input_correlation_b,
                  bins_per_decade=5.0, survey_area_deg2=20,
                  n_pairs=1.0e4*1.0e4, variance=1.0, nongaussian_cov=True,
-                 input_halo_trispectrum=None, **kws):
+                 input_halo_trispectrum=None, power_spec='power_mm', **kws):
 
         self.annular_bins = []
         self.log_theta_min = input_correlation_a.log_theta_min
@@ -127,6 +127,16 @@ class Covariance(object):
         
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
+            
+        if power_spec==None:
+            power_spec = 'linear_power'
+        try:
+            tmp = self.halo_a.__getattribute__(power_spec)
+            self.power_spec = power_spec
+        except AttributeError or TypeError:
+            print "WARNING: Invalid input for power spectra variable,"
+            print "\t setting to linear_power"
+            self.power_spec = 'linear_power'
                
     def _projected_halo_a(self, K):
         if not self._initialized_halo_splines:
@@ -281,12 +291,12 @@ class Covariance(object):
     
     def _halo_a_integrand(self, chi, ln_K, norm=1.0):
         K = numpy.exp(ln_K)
-        return (norm*self.halo_a.linear_power(K/chi)*
+        return (norm*self.halo_a.__getattribute__(self.power_spec)(K/chi)*
                 self.kernel._kernel_G_a_integrand(chi))
     
     def _halo_b_integrand(self, chi, ln_K, norm=1.0):
         K = numpy.exp(ln_K)
-        return (norm*self.halo_a.linear_power(K/chi)*
+        return (norm*self.halo_b.__getattribute__(self.power_spec)(K/chi)*
                 self.kernel._kernel_G_b_integrand(chi))
         
     def covariance_NG(self, theta_a_rad, theta_b_rad):

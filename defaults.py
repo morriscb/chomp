@@ -75,5 +75,5 @@ default_precision = {
                                   ### absolute tolerances, instead using 
                                   ### relative tolerances to define convergence
                                   ### of our integrands
-    "divmax":30
+    "divmax":20
     }

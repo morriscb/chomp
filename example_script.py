@@ -126,7 +126,7 @@ corr = correlation.Correlation(theta_min_deg=0.001,
                                theta_max_deg=1.0,
                                input_kernel=con_kernel,
                                input_halo=halo_model,
-                               powSpec='power_gm')
+                               power_spec='power_gm')
 corr.compute_correlation()
 corr.write('test_corr.ascii')
 

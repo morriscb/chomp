@@ -54,7 +54,7 @@ class Correlation(object):
     """
 
     def __init__(self, theta_min_deg, theta_max_deg, input_kernel,
-                 input_halo=None, powSpec=None, **kws):
+                 input_halo=None, power_spec=None, **kws):
 
         self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
         self.log_theta_max = numpy.log10(theta_max_deg*deg_to_rad)
@@ -78,10 +78,10 @@ class Correlation(object):
         self.halo = input_halo
         self.halo.set_redshift(self.kernel.z_bar)
 
-        if powSpec==None:
-            powSpec = 'linear_power'
+        if power_spec==None:
+            power_spec = 'linear_power'
         try:
-            self.power_spec = self.halo.__getattribute__(powSpec)
+            self.power_spec = self.halo.__getattribute__(power_spec)
         except AttributeError or TypeError:
             print "WARNING: Invalid input for power spectra variable,"
             print "\t setting to linear_power"
@@ -174,14 +174,14 @@ class Correlation(object):
             for idx, value in enumerate(theta_deg):
                 wtheta[idx] = integrate.romberg(
                     self._correlation_integrand, 
-                    ln_kmin, ln_kmax, args=(value*deg_to_rad,), vec_func=True,
+                    ln_kmin, ln_kmax, args=(value,), vec_func=True,
                     tol=defaults.default_precision["global_precision"],
                     rtol=defaults.default_precision["corr_precision"],
                     divmax=defaults.default_precision["divmax"])
         except TypeError:
             wtheta = integrate.romberg(
                 self._correlation_integrand, 
-                ln_kmin, ln_kmax, args=(theta_deg*deg_to_rad,), vec_func=True,
+                ln_kmin, ln_kmax, args=(theta_deg,), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])
