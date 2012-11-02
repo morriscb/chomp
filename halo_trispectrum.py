@@ -135,7 +135,7 @@ class HaloTrispectrumOneHalo(halo.Halo):
         y4 = self.y(numpy.log(k4), mass)
         n = self._expected_moment(mass)
 
-        return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass
+        return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass*n
     
     def _expected_moment(self, mass):
         if self.power_spec == 'power_gmmm':
