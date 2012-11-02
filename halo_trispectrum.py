@@ -17,10 +17,16 @@ class HaloTrispectrumOneHalo(halo.Halo):
     calculating a simple covaraince model.
     """
     def __init__(self, redshift=0.0, single_epoch_cosmo=None,
-                 mass_func_second=None, perturbation=None, halo_dict=None):
+                 mass_func_second=None, perturbation=None, halo_dict=None,
+                 input_hod=None, power_spec='power_mmmm'):
         self.pert = perturbation
         halo.Halo.__init__(self, redshift, None, single_epoch_cosmo,
                       mass_func_second, halo_dict)
+        self.power_spec = power_spec
+        if input_hod is None:
+            input_hod = hod.HODZheng()
+        self.local_hod = input_hod
+        
         self._initialized_i_0_4 = False
         
     def set_cosmology(self, cosmo_dict, redshift=None):
@@ -59,6 +65,28 @@ class HaloTrispectrumOneHalo(halo.Halo):
         Returns:
             float Integral over all halo masses for 4 points in a halo
         """
+        nu_min = self.mass.nu_min
+        if self.power_spec == 'power_gmmm':
+            if (self.local_hod.first_moment_zero > -1 and
+                self.local_hod.first_moment_zero >
+                numpy.exp(self.mass.ln_mass_min)):
+                nu_min = self.mass.nu(self.local_hod.first_moment_zero)
+        elif (self.power_spec == 'power_ggmm' or self.power_spec == 'power_gggm'
+              or self.power_spec == 'power_gggg'):
+            if (self.local_hod.second_moment_zero > -1 and
+                self.local_hod.second_moment_zero >
+                numpy.exp(self.mass.ln_mass_min)):
+                nu_min = self.mass.nu(self.local_hod.second_moment_zero)
+        norm = 1.0
+        if nu_min < 1.0:
+            norm = 1.0/self._i_0_4_integrand(0.0, k1, k2, k3, k4, 1.0)
+        elif self.mass.nu_max > nu_min*2.0:
+            norm = 1.0/self._i_0_4_integrand(numpy.log(nu_min*2.0), 
+                                             k1, k2, k3, k4, 1.0)
+        else:
+            norm = 1.0/self._i_0_4_integrand(numpy.log(self.mass.nu_max),
+                                             k1, k2, k3, k4, 1.0)
+        
         norm = 1.0/self._i_0_4_integrand(0.0, k1, k2, k3, k4, 1.0)
         return integrate.romberg(
             self._i_0_4_integrand, numpy.log(self.mass.nu_min),
@@ -105,8 +133,20 @@ class HaloTrispectrumOneHalo(halo.Halo):
         y2 = self.y(numpy.log(k2), mass)
         y3 = self.y(numpy.log(k3), mass)
         y4 = self.y(numpy.log(k4), mass)
+        n = self._expected_moment(mass)
 
         return nu*self.mass.f_nu(nu)*y1*y2*y3*y4*mass*mass*mass
+    
+    def _expected_moment(self, mass):
+        if self.power_spec == 'power_gmmm':
+            return self.local_hod.first_moment(mass)
+        elif self.power_spec == 'power_ggmm':
+            return self.local_hod.second_moment(mass)
+        elif self.power_spec == 'power_gggm':
+            return self.local_hod.nth_moment(mass, n=3)
+        elif self.power_spec == 'power_gggg':
+            return self.local_hod.nth_moment(mass, n=4)
+        return numpy.ones(mass.shape)
 
 class HaloTrispectrum(halo.Halo):
     """

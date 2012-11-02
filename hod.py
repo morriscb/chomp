@@ -59,10 +59,10 @@ class HOD(object):
         """
         return 1.0
 
-    def nth_moment(self, mass, z=None, n=3):
+    def nth_moment(self, mass, n=3, z=None):
         """
-        Expected number galaxy moment, <N(N-1)...(N-n+1)> as a function of mass
-        and redshift.
+        Expected number galaxy moment, <N(N-1)...(N-n+1)> as a function of
+        mass and redshift.
         
         Args:
             mass: float array Halo mass in M_Solar/h^2
@@ -79,7 +79,7 @@ class HOD(object):
             first_mom = self.first_moment(mass, z)
             exp_nth = first_mom**n
             alpha_m2 = numpy.where(
-                 first_mom > 0.0,
+                 first_mom != 0.0,
                 self.second_moment(mass, z)/first_mom**2, 0.0)
             for j in xrange(n):
                 exp_nth *= (j*alpha_m2 - j + 1)

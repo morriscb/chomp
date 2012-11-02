@@ -515,7 +515,7 @@ class Halo(object):
         if nu_min < 1.0:
             norm = 1.0/self._nbar_integrand(0.0)
         elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._nbar_integrand(numpy.log(nu_min)*2.0)
+            norm = 1.0/self._nbar_integrand(numpy.log(nu_min*2.0))
         else:
             norm = 1.0/self._nbar_integrand(numpy.log(self.mass.nu_max))
         self.n_bar_over_rho_bar = integrate.romberg(
@@ -553,7 +553,7 @@ class Halo(object):
         if nu_min < 1.0:
             norm = 1.0/self._bias_integrand(0.0)
         elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._bias_integrand(numpy.log(nu_min)*2.0)
+            norm = 1.0/self._bias_integrand(numpy.log(nu_min*2.0))
         else:
             norm = 1.0/self._bias_integrand(numpy.log(self.mass.nu_max))
             
@@ -593,7 +593,7 @@ class Halo(object):
         if nu_min < 1.0:
             norm = 1.0/self._nbar_integrand(0.0)
         elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._meff_integrand(numpy.log(nu_min)*2.0)
+            norm = 1.0/self._meff_integrand(numpy.log(nu_min*2.0))
         else:
             norm = 1.0/self._meff_integrand(numpy.log(self.mass.nu_max))
 
@@ -635,7 +635,7 @@ class Halo(object):
         if nu_min < 1.0:
             norm = 1.0/self._fsat_integrand(0.0)
         elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._fsat_integrand(numpy.log(nu_min)*2.0)
+            norm = 1.0/self._fsat_integrand(numpy.log(nu_min*2.0))
         else:
             norm = 1.0/self._fsat_integrand(numpy.log(self.mass.nu_max))
             
@@ -765,7 +765,7 @@ class Halo(object):
             if nu_min < 1.0:
                 norm = 1.0/self._h_g_integrand(0.0, ln_k)
             elif self.mass.nu_max > nu_min*2.0:
-                norm = 1.0/self._h_g_integrand(numpy.log(nu_min)*2.0, ln_k)
+                norm = 1.0/self._h_g_integrand(numpy.log(nu_min*2.0), ln_k)
             else:
                 norm = 1.0/self._h_g_integrand(numpy.log(self.mass.nu_max),
                                                ln_k)
@@ -831,7 +831,7 @@ class Halo(object):
             if nu_min < 1.0:
                 norm = 1.0/self._pp_gg_integrand(0.0, ln_k)
             elif self.mass.nu_max > nu_min*2.0:
-                norm = 1.0/self._pp_gg_integrand(numpy.log(nu_min)*2.0, ln_k)
+                norm = 1.0/self._pp_gg_integrand(numpy.log(nu_min*2.0), ln_k)
             else:
                 norm = 1.0/self._pp_gg_integrand(numpy.log(self.mass.nu_max),
                                                  ln_k)
@@ -877,7 +877,7 @@ class Halo(object):
             if nu_min < 1.0:
                 norm = 1.0/self._pp_gm_integrand(0.0, ln_k)
             elif self.mass.nu_max > nu_min*2.0:
-                norm = 1.0/self._pp_gm_integrand(numpy.log(nu_min)*2.0, ln_k)
+                norm = 1.0/self._pp_gm_integrand(numpy.log(nu_min*2.0), ln_k)
             else:
                 norm = 1.0/self._pp_gm_integrand(numpy.log(self.mass.nu_max),
                                                ln_k)
