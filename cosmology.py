@@ -80,7 +80,7 @@ class SingleEpoch(object):
 
         self._with_bao = with_bao
 
-        self.a_growthIC = 0.01
+        self.a_growthIC = 0.001
 
         self._initialize_defaults()
 
