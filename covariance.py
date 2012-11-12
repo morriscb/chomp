@@ -20,7 +20,7 @@ strad_to_deg2 = rad_to_deg*rad_to_deg
 
 class Covariance(object):
     """
-    Class to compute the covariance matrix between at range of theta values,
+    Class to compute the covariance matrix between a range of theta values,
     given two imput correlation objects, survey definition, and a halo 
     trispectrum. It is assumed that the ranges for both correlations are the
     same, if they are not the covariance will default to the binning, cosmology,
@@ -175,6 +175,7 @@ class Covariance(object):
         self.halo_b = self.corr_b.halo
         self.halo_tri.set_cosmology(cosmo_dict, self.kernel.z_bar_NG)
         self._initialized_halo_splines = False
+        self._initialized_halo_splines = False
         return None
     
     def get_covariance(self):
@@ -189,9 +190,9 @@ class Covariance(object):
                 else:
                     self.covar[idx1, idx2] = cov
                     self.covar[idx2, idx1] = cov
-                print (str(self.annular_bins[idx1].center)+' '+
-                       str(self.annular_bins[idx2].center)+' '+
-                       str(cov))
+                # print (str(self.annular_bins[idx1].center)+' '+
+                #        str(self.annular_bins[idx2].center)+' '+
+                #        str(cov))
         return self.covar
         
     def covariance(self, annular_bin_a, annular_bin_b):
