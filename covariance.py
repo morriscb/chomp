@@ -99,7 +99,7 @@ class Covariance(object):
         self.D_z_NG = self.kernel.cosmo.growth_factor(self.kernel.z_bar_NG)
 
         self.halo_a = input_correlation_a.halo
-        self.halo_b = input_correlatoin_b.halo
+        self.halo_b = input_correlation_b.halo
         self.halo_tri = input_halo_trispectrum
         # self.halo.set_redshift(self.kernel.z_bar_G)
         # self.halo_tri.set_redshift(self.kernel.z_bar_NG)
