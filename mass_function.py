@@ -57,6 +57,12 @@ class MassFunction(object):
         self._set_mass_limits()
         self._initialize_splines()
         self._normalize()
+        
+    def get_redshift(self):
+        """
+        Return the internal redshift valriable.
+        """
+        return self._redshift
 
     def set_redshift(self, redshift):
         """
@@ -77,6 +83,12 @@ class MassFunction(object):
         self._set_mass_limits()
         self._initialize_splines()
         self._normalize()
+        
+    def get_cosmology(self):
+        """
+        Return the internal cosmology dictionary.
+        """
+        return self.cosmo.get_cosmology()
 
     def set_cosmology(self, cosmo_dict, redshift = None):
         """
@@ -109,6 +121,12 @@ class MassFunction(object):
         self._set_mass_limits()
         self._initialize_splines()
         self._normalize()
+        
+    def get_halo(self):
+        """
+        Return the internal dictionary defining a halo.
+        """
+        return self.halo_dict
 
     def set_halo(self, halo_dict):
         """

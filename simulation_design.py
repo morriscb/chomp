@@ -99,18 +99,42 @@ class SimulationDesign(object):
     
     def _init_design_points(self):
         """
-        Internal function to for setting up the Latin Hypercube Sampling and
+        Internal function for setting up the Latin Hypercube Sampling
         in the paramerter space specified.
         """
-        points = random_lhs(self.n_design, self.params.shape[1])
+        self.params.append(pandas.DataFrame((self.params.xs('max') -
+                                             self.params.xs('min')),
+                                            columns=["diff"]).transpose())
+        points = pandas.DataFrame(random_lhs(self.n_design,
+                                             self.params.shape[1]),
+                                  columns=self.params.columns)
         self.lhs = points
-        for ndx, val in enumerate(self.params):
-            points[:, ndx] *= (self.params[val]['max'] - 
-                               self.params[val]['min'])
-            points[:, ndx] += self.params[val]['min']
-        self.points = pandas.DataFrame(points)
-        self.points.columns = self.params.columns
+        self.points = points * self.params.xs('diff') + self.params.xs('min')
         self._initialized_design = True
+
+    def _run_des_point(self, point):
+        """
+        Compute the simulation prediction for a point in the input parameter space.
+
+        Args:
+            point: a pandas Series object declaring input parameters for a CHOMP model.
+
+        Returns:
+            The output of the CHOMP model, flattened to a 1-d array.
+        """
+        if self._vary_cosmology:
+            self.set_cosmology(point)
+        if self._vary_halo:
+            self.set_halo(point)
+        if self._vary_hod:
+            self.set_hod(self._default_param_dict['hod_dict'], point)
+        values = 0
+        if self._ind_var is None:
+            values = self._input_object.__getattribute__(self._method)
+        else:
+            values = self._input_object.__getattribute__(self._method)(
+                              self._ind_var)
+        return values.flatten()
     
     def run_design(self):
         """
@@ -124,34 +148,8 @@ class SimulationDesign(object):
         """
         if not self._initialized_design:
             self._init_design_points()
-        col_list = [name for name in self.params.keys()]
-        col_list.append(self._method)
-        self.values_frame = pandas.DataFrame(columns=col_list)
-        
-        hold_values = []
-        for idx, point in self.points.iterrows():
-            par_dict = dict.fromkeys(col_list)
-            for key in point.keys():
-                par_dict[key] = point[key]
-            print point
-
-            if self._vary_cosmology:
-                self.set_cosmology(point)
-            if self._vary_halo:
-                self.set_halo(point)
-            if self._vary_hod:
-                self.set_hod(self._default_param_dict['hod_dict'], point)
-            
-            values = 0
-            if self._ind_var is None:
-                values = self._input_object.__getattribute__(self._method)
-            else:
-                values = self._input_object.__getattribute__(self._method)(
-                                  self._ind_var)
-            par_dict[self._method] = values
-            hold_values.append(par_dict)
-        self.values_frame = self.values_frame.append(hold_values)
-        return self.values_frame
+        self.design_values = self.points.transpose().apply(self._run_des_point)
+        return self.design_values
     
     def set_cosmology(self, values):
         """

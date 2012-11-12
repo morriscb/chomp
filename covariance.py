@@ -18,6 +18,8 @@ rad_to_deg = 180.0/numpy.pi
 deg2_to_strad = deg_to_rad*deg_to_rad
 strad_to_deg2 = rad_to_deg*rad_to_deg
 
+__author__ = ("Chris Morrison")
+
 class Covariance(object):
     """
     Class to compute the covariance matrix between a range of theta values,
@@ -190,9 +192,6 @@ class Covariance(object):
                 else:
                     self.covar[idx1, idx2] = cov
                     self.covar[idx2, idx1] = cov
-                # print (str(self.annular_bins[idx1].center)+' '+
-                #        str(self.annular_bins[idx2].center)+' '+
-                #        str(cov))
         return self.covar
         
     def covariance(self, annular_bin_a, annular_bin_b):

@@ -137,6 +137,12 @@ class SingleEpoch(object):
         if redshift != self._redshift:
             self._redshift = redshift
             self._initialize_defaults()
+            
+    def get_cosmology(self):
+        """
+        Return the internal dictionary defining the cosmology.
+        """
+        return self.cosmo_dict
 
     def set_cosmology(self, cosmo_dict, redshift=None):
         """
@@ -818,6 +824,12 @@ class MultiEpoch(object):
         self._growth_array = numpy.zeros_like(self._z_array)
 
         self._initialize_splines()
+        
+    def get_cosmology(self):
+        """
+        Return the dictionary defining a cosmology
+        """
+        return self.epoch0.get_cosmology()
 
     def set_cosmology(self, cosmo_dict, z_min=None, z_max=None):
         """

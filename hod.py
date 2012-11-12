@@ -86,7 +86,19 @@ class HOD(object):
                 exp_nth *= (j*alpha_m2 - j + 1)
         return exp_nth
     
+    def get_hod(self):
+        """
+        Return the interanl dictionary defining an HOD.
+        """
+        return self.hod_dict
+    
     def set_hod(self, hod_dict):
+        """
+        Set the internal valeus of the hod.
+        
+        Args:
+            hod_dict: a dictionary defining an HOD.
+        """
         self.__init__(hod_dict)
 
     def set_halo(self, halo_dict):

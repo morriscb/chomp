@@ -86,6 +86,12 @@ class Correlation(object):
             print "WARNING: Invalid input for power spectra variable,"
             print "\t setting to linear_power"
             self.power_spec = self.halo.__getattribute__('linear_power')
+            
+    def get_redshift(self):
+        """
+        Return the peak redshift at which the correlation is computed.
+        """
+        return self.kernel.z_bar
 
     def set_redshift(self, redshift):
         """
@@ -97,6 +103,12 @@ class Correlation(object):
         self.kernel.z_bar = redshift
         self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
         self.halo.set_redshift(self.kernel.z_bar)
+        
+    def get_cosmology(self):
+        """
+        Return the internal dictionary defining the cosmology
+        """
+        return self.kernel.get_cosmology()
             
     def set_cosmology(self, cosmo_dict):
         """
@@ -109,12 +121,12 @@ class Correlation(object):
         self.kernel.set_cosmology(cosmo_dict)
         self.D_z = self.kernel.cosmo.growth_factor(self.kernel.z_bar)
         self.halo.set_cosmology(cosmo_dict, self.kernel.z_bar)
-
-    def get_cosmology(self):
+        
+    def get_power_spectrum(self):
         """
-        Get a dictionary of the cosmological parameter values.
+        Return a string defining which power spectrum is being used.
         """
-        return self.halo.get_cosmology()
+        return str(self.power_spec)
 
     def set_power_spectrum(self, powSpec):
         """
@@ -130,6 +142,12 @@ class Correlation(object):
             print "WARNING: Invalid input for power spectra variable,"
             print "\t setting to 'linear_power'"
             self.power_spec = self.halo.__getattribute__('linear_power')
+            
+    def get_halo(self):
+        """
+        Return the internal dictionary defining halo parameters
+        """
+        return self.halo.get_halo()
 
     def set_halo(self, halo_dict):
         """
@@ -140,16 +158,12 @@ class Correlation(object):
                 for details)
         """
         self.halo.set_halo(halo_dict)
-
-    def set_hod_object(self, input_hod):
+        
+    def get_hod(self, return_object=False):
         """
-        Reset hod object to input_hod
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
-        Args:
-            input_hod: an HOD object from hod.py
+        Return the internal object or dictionary defining the HOD.
         """
-        self.halo.set_hod_object(input_hod)
+        return self.halo.get_hod(return_object)
         
     def set_hod(self, hod_dict):
         """
@@ -163,6 +177,16 @@ class Correlation(object):
         """
         self.halo.set_hod_object(hod_dict)
 
+    def set_hod_object(self, input_hod):
+        """
+        Reset hod object to input_hod
+        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
+            for details)
+        Args:
+            input_hod: an HOD object from hod.py
+        """
+        self.halo.set_hod_object(input_hod)
+        
     def compute_correlation(self):
         """
         Compute the value of the correlation over the range

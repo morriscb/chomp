@@ -97,6 +97,12 @@ class Halo(object):
         
         self._initialized_gm_extrapolation = False
         self._initialized_gg_extrapolation = False
+        
+    def get_cosmology(self):
+        """
+        Return the internal cosmology dictionary.
+        """
+        return self.cosmo.get_cosmology()
 
     def set_cosmology(self, cosmo_dict, redshift=None):
         """
@@ -134,12 +140,25 @@ class Halo(object):
         
         self._initialized_gm_extrapolation = False
         self._initialized_gg_extrapolation = False
+        
+    def get_hod(self, return_object=False):
+        if return_object:
+            return self.local_hod
+        return self.local_hod.get_hod()
+    
+    def set_hod(self, hod_dict):
+        self.local_hod.set_hod(hod_dict)
 
-    def get_cosmology(self):
-        """
-        Get a dictionary of the cosmological parameter values.
-        """
-        return self.cosmo_dict
+        self._calculate_n_bar()
+
+        self._initialized_h_g = False
+
+        self._initialized_pp_mm = False
+        self._initialized_pp_gm = False
+        self._initialized_pp_gg = False
+        
+        self._initialized_gm_extrapolation = False
+        self._initialized_gg_extrapolation = False
 
     def set_hod_object(self, input_hod):
         """
@@ -162,19 +181,11 @@ class Halo(object):
         self._initialized_gm_extrapolation = False
         self._initialized_gg_extrapolation = False
         
-    def set_hod(self, hod_dict):
-        self.local_hod.set_hod(hod_dict)
-
-        self._calculate_n_bar()
-
-        self._initialized_h_g = False
-
-        self._initialized_pp_mm = False
-        self._initialized_pp_gm = False
-        self._initialized_pp_gg = False
-        
-        self._initialized_gm_extrapolation = False
-        self._initialized_gg_extrapolation = False
+    def get_halo(self):
+        """
+        Return the internal halo parameters.
+        """
+        return self.halo_dict
 
     def set_halo(self, halo_dict=None):
         """

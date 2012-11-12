@@ -212,6 +212,12 @@ class WindowFunction(object):
             self.chi_min, self.chi_max,
             defaults.default_precision["window_npoints"])
         self._wf_array = numpy.zeros_like(self._chi_array)
+        
+    def get_cosmology(self):
+        """
+        Return the internal dictionary defining a cosmology
+        """
+        return self.cosmo.get_cosmology()
 
     def set_cosmology(self, cosmo_dict, z_min=None, z_max=None):
         """
@@ -570,6 +576,12 @@ class Kernel(object):
             self._ln_ktheta_array, self._kernel_array)
 
         self.initialized_spline = True
+        
+    def get_cosmology(self):
+        """
+        Return the internal dictionary defining a cosmology
+        """
+        self.cosmo.get_cosmology()
 
     def set_cosmology(self, cosmo_dict):
         """
@@ -686,10 +698,7 @@ class Kernel(object):
             self._ln_ktheta_array, self._kernel_array):
             f.write("%1.10f %1.10f\n" % (numpy.exp(ln_ktheta), kernel))
         f.close()
-        
-        
 
-    
         
 class GalaxyGalaxyLensingKernel(Kernel):
     """Derived class for Galaxy-Galaxy lensing. The galaxy-galaxy lensing kernel
