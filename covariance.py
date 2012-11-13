@@ -141,11 +141,17 @@ class Covariance(object):
             self.power_spec = 'linear_power'
                
     def _projected_halo_a(self, K):
+        """
+        Wrapper class for the 2-D projected power spectrum of correlation a
+        """
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
         return self._halo_a_spline(numpy.log(K))
     
     def _projected_halo_b(self, K):
+        """
+        Wrapper class for the 2-D projected power spectrum of correlation b
+        """
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
         return self._halo_b_spline(numpy.log(K))
@@ -181,6 +187,13 @@ class Covariance(object):
         return None
     
     def get_covariance(self):
+        """
+        Compute all covariance compoments and bins and return a square ndarry
+        of dimensions (nbins, nbins) containing the ouput values.
+        
+        Returns:
+            a float array
+        """
         self.covar = numpy.empty((len(self.annular_bins),
                                   len(self.annular_bins)), 'float128')
         for idx1 in xrange(self.covar.shape[0]):
@@ -195,6 +208,15 @@ class Covariance(object):
         return self.covar
         
     def covariance(self, annular_bin_a, annular_bin_b):
+        """
+        Compute the covariance for a given pair of angular bins.
+        
+        Args:
+            annular_bin_a: an annular bin class object
+            annular_bin_b: an annular bin class object
+        Returns:
+            float value of the covariance
+        """
         cov_P = 0.0
         theta_a = annular_bin_a.center*deg_to_rad
         theta_b = annular_bin_b.center*deg_to_rad
@@ -206,10 +228,29 @@ class Covariance(object):
         return res
     
     def covariance_P(self, delta):
+        """
+        Poisson covariance term. Computes the pure poisson term using the input
+        survey parameters.
+        
+        Args:
+            delta: outer - inner radius of the annular bin
+        Returns:
+            float poisson covariance
+        """
         return self.area*self.variance/(
             self.n_pairs*2.0*numpy.pi*delta*deg_to_rad)
         
     def covariance_G(self, theta_a, theta_b):
+        """
+        Gaussian error term of the covariance given input theta bins
+        
+        Args:
+            theta_a: center of bin at which to compute the covariance
+            theta_a: center of bin at which to compute the covariance
+        Returns:
+            float gaussian covariance
+        """
+        
         ### We normalize the integral so that romberg will have an easier time
         ### integrating it.
         if not self._initialized_halo_splines:
@@ -232,6 +273,9 @@ class Covariance(object):
                 numpy.pi*self.area)
     
     def _covariance_G_integrand(self, ln_K, theta_a, theta_b, norm=1.0):
+        """
+        Internal function defining the integrand for the gaussian covariance.
+        """
         K = numpy.exp(ln_K)
         dK = K
         return (dK*K*norm*(self._projected_halo_a(K)*self._projected_halo_b(K) +
@@ -240,6 +284,10 @@ class Covariance(object):
                 special.j0(K*theta_a)*special.j0(K*theta_b))
         
     def _initialize_halo_splines(self):
+        """
+        Internal method for initializing and projecting the input power spectra.
+        Initializes the splines used in _projected_halo methods.
+        """
         self._z_bar_G_a = self.corr_a.kernel.z_bar
         self._z_bar_G_b = self.corr_b.kernel.z_bar
         
@@ -294,16 +342,33 @@ class Covariance(object):
         self._initialized_halo_splines = True
     
     def _halo_a_integrand(self, chi, ln_K, norm=1.0):
+        """
+        Integrand for the halo from input_correlation_a using it's window
+        functions as the projection in redshift.
+        """
         K = numpy.exp(ln_K)
         return (norm*self.halo_a.__getattribute__(self.power_spec)(K/chi)*
                 self.kernel._kernel_G_a_integrand(chi))
     
     def _halo_b_integrand(self, chi, ln_K, norm=1.0):
+        """
+        Integrand for the halo from input_correlation_b using it's window
+        functions as the projection in redshift.
+        """
         K = numpy.exp(ln_K)
         return (norm*self.halo_b.__getattribute__(self.power_spec)(K/chi)*
                 self.kernel._kernel_G_b_integrand(chi))
         
     def covariance_NG(self, theta_a_rad, theta_b_rad):
+        """
+        Compute the non-gaussian covariance from the halo model trispectrum.
+        
+        Args:
+            theta_a_rad: Input annular bin center in radians
+            theta_b_rad: Input annular bin center in radians
+        Returns:
+            float value of non-gaussian covariance
+        """
         self._initialize_kb_spline(theta_a_rad, theta_b_rad)
         
         norm = 1.0/self._ka_integrand(0.0, 1.0)
@@ -317,6 +382,9 @@ class Covariance(object):
                 4.0*numpy.pi*numpy.pi*norm*self.area)
         
     def _ka_integrand(self, ln_ka, norm=1.0):
+        """
+        Internal function defining the integrand over one of the k compoments.
+        """
         dln_ka = 1.0
         ka = numpy.exp(ln_ka)
         dka = ka*dln_ka
@@ -324,6 +392,9 @@ class Covariance(object):
             numpy.exp(self._kb_spline(ln_ka)) + self._kb_min - 1e-16)*norm
     
     def _initialize_kb_spline(self, theta_a, theta_b):
+        """
+        Internal function initializing the spline in ka by integrating over kb.
+        """
         if (self._current_theta_a == theta_a and
             self._current_theta_b == theta_b):
             return None
@@ -338,6 +409,10 @@ class Covariance(object):
             self._ln_k_array, numpy.log(_kb_int_array - self._kb_min + 1e-16))
     
     def _kb_integral(self, ln_k, theta_a, theta_b):
+        """
+        Internal function defining the integral over kb for different vector and
+        non-vector input cases.
+        """
         if type(ln_k) == numpy.ndarray:
             kb_int = numpy.empty(ln_k.shape)
             
@@ -374,6 +449,9 @@ class Covariance(object):
                norm*self.D_z_NG*self.D_z_NG*self.D_z_NG*self.D_z_NG)
     
     def _kb_integrand(self, ln_kb, ln_ka, theta_a, theta_b, norm=1.0):
+        """
+        Internal function defining the integrand over kb
+        """
         dln_kb = 1.0
         ka = numpy.exp(ln_ka)
         kb = numpy.exp(ln_kb)
@@ -383,6 +461,12 @@ class Covariance(object):
                                numpy.log(kb*theta_b))[0])
     
     def write(self, file_name):
+        """
+        Write the computed covariance to a file.
+        
+        Args:
+            file_name: string name of file to output to.
+        """
         f = open(file_name, 'w')
         f.write("#ttype1 = theta_a [deg]\n#ttype2 = theta_b [deg]\n" + 
                 "#ttype3 = covariance\n")
@@ -395,6 +479,28 @@ class Covariance(object):
         
         
 class CovarianceMulti(Covariance):
+    """
+    Wrapper class for Covariance allowing for computation of both
+    auto-covaraince and the cross covariance between different correlatoins.
+    Takes as input a list of correlation objects and returns creates an output
+    covariance respresenting all the auto and cross terms.
+    
+    Attributes:
+        correlation_object_list: a list of correlation objects from
+            correlation.py
+        bins_per_decade: int log spacing of the theta bins
+        survey_area_deg2: float value of the survey area it square degrees
+        n_pairs: float number of pairs to compute the poisson term
+        variance: float variance per pair
+        nongaussian_cov: bool, toggles nonguassian covariance
+        input_halo_trispectrum: HaloTrispectrum object from halo_trispectrum.py
+        
+        covariance_list: list of covariance objects using all non-repeating
+            pairs of correlation_objects and the input survey parameters.
+        theta_bins: number of annular bins
+        wcovar: ouput numpy array. has dimensions
+            (theta_bins*len(correlation_list), theta_bins*len(correlation_list))
+    """
     
     def __init__(self, correlation_object_list, bins_per_decade=5,
                  survey_area_deg2=4*numpy.pi*strad_to_deg2,
@@ -418,6 +524,9 @@ class CovarianceMulti(Covariance):
                                        theta_bins*n_covars))
         
     def get_covariance(self):
+        """
+        Wrapper class for looping over each of the different covariance blocks.
+        """
         for idx1, row in self.covariance_list:
             for idx2, covar in row:
                 covar.get_covariance()
@@ -639,10 +748,21 @@ class CovarianceFourier(object):
                 halo.power_mm(k))
         
 class AnnulusBin(object):
+    """
+    Container class for storing information on the inner and outer radii of an
+    annular bin as well as the center value of the bin. The class also stores
+    the delta r value from the inner to outer radii.
+    
+    Attributes:
+        inner: inner radius of the annulus
+        outer: outer radius of the annulus
+        center: derived log mean distance
+        diff: outer - inner difference
+    """
     
     def __init__(self, inner, outer):
         self.inner = inner
         self.outer = outer
-        self.center = numpy.power(10.0,0.5*(numpy.log10(inner)+
-                                            numpy.log10(outer)))
+        self.center = numpy.power(10.0, 0.5*(numpy.log10(inner)+
+                                             numpy.log10(outer)))
         self.delta = outer - inner
