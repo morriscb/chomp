@@ -223,7 +223,7 @@ class HODZheng(HOD):
         ### integrate over the whole mass range.
         self.first_moment_zero = numpy.power(10, self.log_M_min - 
                                              6*self.sigma)
-        self.second_moment_zero = self.log_M_0
+        self.second_moment_zero = 10**self.log_M_0
         
     def first_moment(self, mass, z=None):
         return (self.central_first_moment(mass) +

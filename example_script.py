@@ -18,7 +18,7 @@ import kernel
 import mass_function
 import numpy
 
-degToRad = numpy.pi/180.0 # define conversion from degrees to radians
+deg_to_rad = numpy.pi/180.0 # define conversion from degrees to radians
 
 ### Specify a dictionary defining the properties of a cosmology. Details on
 ### on each variable can be found in defaults.py
@@ -65,10 +65,10 @@ mass = mass_function.MassFunction(redshift=0.0, cosmo_single_epoch=cosmo_single,
 ### Initialize the hod object defining how galaxies populate halos. Values used
 ### in this HOD are from Zehavi et al. 2011 with parameter assumptions from 
 ### Wake et al. 2011.
-hod_dict = {"M_min":10**12.14,
+hod_dict = {"log_M_min":12.14,
             "sigma":     0.15,
-            "M_0":  10**12.14,
-            "M_1p": 10**13.43,
+            "log_M_0":  12.14,
+            "log_M_1p": 13.43,
             "alpha":      1.0}
 sdss_hod = hod.HODZheng(hod_dict)
 
@@ -112,8 +112,8 @@ source_window.write('test_source_window.ascii')
 ### are going to integrate over in our correlation. The safe bet is setting
 ### the limits to k_min*theta_min - k_max*theta_max where k_min and k_max are
 ### set in the code as 0.001 and 100.0 respectively.
-con_kernel = kernel.Kernel(ktheta_min=0.001*0.001*degToRad,
-                           ktheta_max=100.0*1.0*degToRad,
+con_kernel = kernel.Kernel(ktheta_min=0.001*0.001*deg_to_rad,
+                           ktheta_max=100.0*1.0*deg_to_rad,
                            window_function_a=lens_window,
                            window_function_b=source_window,
                            cosmo_multi_epoch=cosmo_multi)

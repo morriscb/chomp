@@ -10,6 +10,8 @@ import perturbation_spectra
 import numpy
 import unittest
 
+deg_to_rad = numpy.pi/180.0
+
 ### In order for the unittests to work correctly, these are the assumed
 ### precision values of the code.
 defaults.default_precision = {
@@ -96,6 +98,23 @@ h_dict_2 = {
     "beta": -0.2,
     "alpha": -1 ### Halo mass profile slope. [NFW = -1]
     }
+
+hod_dict = {
+    "log_M_min":12.14,
+    "sigma":     0.15,
+    "log_M_0":  12.14,
+    "log_M_1p": 13.43,
+    "alpha":      1.0
+    }
+
+hod_dict_2 = {
+    "log_M_min":14.06,
+    "sigma":     0.71,
+    "log_M_0":  14.06,
+    "log_M_1p": 14.80,
+    "alpha":      1.0
+    }
+
 
 degToRad = numpy.pi/180.0
 
@@ -297,11 +316,11 @@ class MassFunctionTest(unittest.TestCase):
 class HODTest(unittest.TestCase):
     
     def setUp(self):
-        self.zheng = hod.HODZheng(10**12, 0.15, 10**12, 10**13, 1.0)
+        self.zheng = hod.HODZheng(hod_dict)
         self.mass_array = numpy.logspace(9, 16, 4)
-        self.first_moment_list = [0.0, 0.0, 5.54158883, 1000.9]
-        self.second_moment_list = [0.0, 0.0, 29.70920680, 1001799.80999999]
-        self.nth_moment_list = [0.0, 0.0, 153.91393832, 1002699428.0309982]
+        self.first_moment_list = [0.0, 0.0, 2.6732276, 372.48394295]
+        self.second_moment_list = [0.0, 0.0, 6.14614597, 138743.2877621]
+        self.nth_moment_list = [0.0, 0.0, 11.83175124, 51678901.92217977]
         
     def test_hod(self):
         for idx, mass in enumerate(self.mass_array):
@@ -317,17 +336,17 @@ class HaloTest(unittest.TestCase):
     
     def setUp(self):
         cosmo = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
-        zheng = hod.HODZheng(10**13.0, 0.15, 10**13.0, 10**14.0, 1.0)
+        zheng = hod.HODZheng(hod_dict)
         self.h = halo.Halo(input_hod=zheng, cosmo_single_epoch=cosmo)
         self.k_array = numpy.logspace(-3, 2, 4)
         
     def test_halo(self):
         power_mm_list = [8.3444,  9.5378,
                          5.1025, -3.7438]
-        power_gm_list = [8.6166,  9.8134,
-                         5.6778, -0.8521]
-        power_gg_list = [8.8525,  10.0782,
-                         5.6522, -0.3077]
+        power_gm_list = [8.2315,  9.4692,
+                         4.8082, -1.3301]
+        power_gg_list = [8.1378,  9.4067,
+                         4.2445, -1.1213]
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
                                    power_mm_list[idx], p_dict["halo"])
@@ -341,10 +360,10 @@ class HaloTest(unittest.TestCase):
                              1.34332833, -8.73288266]
         power_mm_list = [7.2508,  8.5229,
                          3.5269, -5.3679]
-        power_gm_list = [7.6848,  8.9551,
-                         4.1791, -2.6148]
-        power_gg_list = [8.1065,  9.3837,
-                         4.4264, -1.8212]
+        power_gm_list = [7.3391,  8.6247,
+                         3.3035, -3.0814]
+        power_gg_list = [7.4330,  8.7277,
+                         2.9537, -2.7368]
         self.h.set_redshift(1.0)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
@@ -361,10 +380,10 @@ class HaloTest(unittest.TestCase):
                              3.69335247, -5.84391743]
         power_mm_list = [6.6167,  8.2733,
                          5.2013, -4.0939]
-        power_gm_list = [6.3380,  8.1487,
-                         5.1066, -1.5243]
-        power_gg_list = [5.9692,  8.0168,
-                         4.7071, -1.2701]
+        power_gm_list = [5.8928,  7.8907,
+                         4.5382, -2.0628]
+        power_gg_list = [5.2241,  7.5329,
+                         3.8448, -1.9286]
         self.h.set_cosmology(c_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
@@ -379,10 +398,10 @@ class HaloTest(unittest.TestCase):
     def test_set_halo(self):
         power_mm_list = [8.4195,  9.5610,
                          5.2012, -3.7898]
-        power_gm_list = [8.6339,  9.7827,
-                         5.7485, -0.9169]
-        power_gg_list = [8.8147,  9.9940,
-                         5.7736, -0.3018]
+        power_gm_list = [8.2584,  9.4594,
+                         4.9173, -1.3487]
+        power_gg_list = [8.1227,  9.3665,
+                         4.4052, -1.0691]
         self.h.set_halo(h_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
@@ -393,12 +412,11 @@ class HaloTest(unittest.TestCase):
                                    power_gg_list[idx], p_dict["halo"])
 
     def test_set_hod(self):
-        power_gm_list = [8.3259,  9.5420,
-                         5.0076, -1.7085]
-        power_gg_list = [8.3107,  9.5474,
-                         4.8076, -1.1656]
-        zheng = hod.HODZheng(10**12.0, 0.15, 10**12.0, 10**13.0, 1.0)
-        self.h.set_hod(zheng)
+        power_gm_list = [8.8787, 10.0323,
+                         6.3401,  0.5022]
+        power_gg_list = [9.2610, 10.4801,
+                         5.7695, -0.8602]
+        self.h.set_hod(hod_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
                                    power_gm_list[idx], p_dict["halo"])
@@ -461,7 +479,7 @@ class WindowFunctionTest(unittest.TestCase):
     
     def test_window_function(self):
         lens_window_list = [0.0, -14.00096, -13.30840, -12.903527]
-        source_window_list = [0.0, -17.217075, -16.52400, -16.118615]
+        source_window_list = [0.0, -17.217075, -16.524005, -16.118615]
         for idx, z in enumerate(self.z_array):
             self.assertAlmostEqual(
                 numpy.where(self.lens_window.window_function(z) > 1e-16,
@@ -474,7 +492,7 @@ class WindowFunctionTest(unittest.TestCase):
 
     def test_set_cosmology(self):
         lens_window_list = [0.0, -13.99938, -13.30648, -12.901265]
-        source_window_list = [0.0, -16.01303, -15.320053, -14.91476]
+        source_window_list = [0.0, -16.013036, -15.320053, -14.91476]
         
         cosmo = cosmology.MultiEpoch(0.0, 5.0, c_dict_2)
         self.lens_window.set_cosmology_object(cosmo)
@@ -540,52 +558,52 @@ class CorrelationTest(unittest.TestCase):
             lens_dist, cosmo_multi_epoch=cosmo_multi)
         source_window = kernel.WindowFunctionConvergence(
             source_dist, cosmo_multi_epoch=cosmo_multi)
-        kern = kernel.Kernel(0.001*0.001*degToRad, 1.0*100.0*degToRad,
+        kern = kernel.Kernel(0.001*0.001*deg_to_rad, 1.0*100.0*deg_to_rad,
                              window_function_a=lens_window,
                              window_function_b=source_window,
                              cosmo_multi_epoch=cosmo_multi)
         
-        zheng = hod.HODZheng(10**13.0, 0.15, 10**13.0, 10**14.0, 1.0)
+        zheng = hod.HODZheng(hod_dict)
         cosmo_single = cosmology.SingleEpoch(0.0, cosmo_dict=c_dict)
         h = halo.Halo(input_hod=zheng, cosmo_single_epoch=cosmo_single)
         self.corr = correlation.Correlation(0.001, 1.0,
                                             input_kernel=kern,
                                             input_halo=h,
-                                            powSpec='power_mm')
-        self.theta_array = numpy.logspace(-3, 0, 4)
+                                            power_spec='power_mm')
+        self.theta_array = numpy.logspace(-3, 0, 4)*deg_to_rad
         
     def test_correlation(self):
         corr_list = [-4.733175, -5.187615, -6.840129, -8.89917]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
-                numpy.log(self.corr.correlation(theta)), corr_list[idx],
-                p_dict["corr"])
+                numpy.log(self.corr.correlation(theta)),
+                corr_list[idx], p_dict["corr"])
 
     def test_set_redshift(self):
         self.corr.set_redshift(0.5)
         corr_list = [-4.824394, -5.276586, -6.916602, -8.899675]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
-                numpy.log(self.corr.correlation(theta)), corr_list[idx],
-                p_dict["corr"])
+                numpy.log(self.corr.correlation(theta)),
+                corr_list[idx], p_dict["corr"])
 
     def test_set_cosmology(self):
         self.corr.set_cosmology(c_dict_2)
         corr_list = [-3.528807, -3.955774, -5.74402, -9.39054]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
-                numpy.log(self.corr.correlation(theta)), corr_list[idx],
-                p_dict["corr"])
+                numpy.log(self.corr.correlation(theta)),
+                corr_list[idx], p_dict["corr"])
 
     def test_set_hod(self):
-        zheng = hod.HODZheng(10**12.0, 0.15, 10**12.0, 10**13.0, 1.0)
+        zheng = hod.HODZheng(hod_dict_2)
         self.corr.set_hod(zheng)
         self.corr.set_power_spectrum('power_gm')
-        corr_list = [-4.321294, -5.156783, -6.880059, -8.853026]
+        corr_list = [-2.413401, -3.837382, -6.285915, -8.407228]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
-                numpy.log(self.corr.correlation(theta)), corr_list[idx],
-                p_dict["corr"])
+                numpy.log(self.corr.correlation(theta)),
+                corr_list[idx], p_dict["corr"])
 
 
 if __name__ == "__main__":

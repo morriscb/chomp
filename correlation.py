@@ -195,7 +195,7 @@ class Correlation(object):
         for idx,theta in enumerate(self.theta_array):
             self.wtheta_array[idx] = self.correlation(theta)
 
-    def correlation(self, theta_deg):
+    def correlation(self, theta_rad):
         """
         Compute the value of the correlation at array values theta
 
@@ -206,8 +206,8 @@ class Correlation(object):
         ln_kmin = numpy.log(self.halo._k_min)
         ln_kmax = numpy.log(self.halo._k_max)
         try:
-            wtheta = numpy.empty(len(theta_deg))
-            for idx, value in enumerate(theta_deg):
+            wtheta = numpy.empty(len(theta_rad))
+            for idx, value in enumerate(theta_rad):
                 wtheta[idx] = integrate.romberg(
                     self._correlation_integrand, 
                     ln_kmin, ln_kmax, args=(value,), vec_func=True,
@@ -217,7 +217,7 @@ class Correlation(object):
         except TypeError:
             wtheta = integrate.romberg(
                 self._correlation_integrand, 
-                ln_kmin, ln_kmax, args=(theta_deg,), vec_func=True,
+                ln_kmin, ln_kmax, args=(theta_rad,), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])

@@ -229,8 +229,8 @@ class WindowFunction(object):
         """
         self.cosmo.set_cosmology(cosmo_dict, z_min, z_max)
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
-        if self.chi_min < 1e-4:
-            self.chi_min = 1e-4
+        if self.chi_min < defaults.default_precision["window_precision"]:
+            self.chi_min = defaults.default_precision["window_precision"]
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
 
         self.initialized_spline = False
@@ -252,8 +252,8 @@ class WindowFunction(object):
                     
         self.cosmo = cosmo_multi_epoch
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
-        if self.chi_min < 1e-4:
-            self.chi_min = 1e-4
+        if self.chi_min < defaults.default_precision["window_precision"]:
+            self.chi_min = defaults.default_precision["window_precision"]
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
         
         self.initialized_spline = False
@@ -362,15 +362,15 @@ class WindowFunctionConvergence(WindowFunction):
         self._redshift_dist = redshift_dist
         self._redshift_dist.normalize()
 
-        self._g_chi_min = 1e-4
+        self._g_chi_min = defaults.default_precision["window_precision"]
         # Even though the input distribution may only extend between some bounds
         # in redshift, the lensing kernel will extend across z = [0, z_max)
         WindowFunction.__init__(self, 0.0, redshift_dist.z_max,
                                 cosmo_multi_epoch, **kws)
         self._g_chi_min = (
             self.cosmo.comoving_distance(self._redshift_dist.z_min))
-        if self._g_chi_min < 1e-4:
-            self._g_chi_min = 1e-4
+        if self._g_chi_min < defaults.default_precision["window_precision"]:
+            self._g_chi_min = defaults.default_precision["window_precision"]
 
     def raw_window_function(self, chi):
         a = 1.0/(1.0 + self.cosmo.redshift(chi))
@@ -381,7 +381,7 @@ class WindowFunctionConvergence(WindowFunction):
                 chi_bound = value
                 if chi_bound < self._g_chi_min: chi_bound = self._g_chi_min
 
-                if chi_bound <= 1e-4:
+                if chi_bound <= defaults.default_precision["window_precision"]:
                     g_chi[idx] = 0.0;
                 else:
                     g_chi[idx] = integrate.romberg(
@@ -394,7 +394,7 @@ class WindowFunctionConvergence(WindowFunction):
             chi_bound = chi
             if chi_bound < self._g_chi_min: chi_bound = self._g_chi_min
 
-            if chi_bound <= 1e-4:
+            if chi_bound <= defaults.default_precision["window_precision"]:
                 g_chi = 0.0;
             else:
                 g_chi = integrate.romberg(
@@ -537,7 +537,7 @@ class Kernel(object):
         self.window_function_a.set_cosmology_object(self.cosmo)
         self.window_function_b.set_cosmology_object(self.cosmo)
 
-        self.chi_min = numpy.max([1e-4,
+        self.chi_min = numpy.max([defaults.default_precision["window_precision"],
                                   self.cosmo.comoving_distance(self.z_min)])
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
 
@@ -820,7 +820,7 @@ class KernelCovariance(Kernel):
         self.window_function_b1.set_cosmology_object(self.cosmo)
         self.window_function_b2.set_cosmology_object(self.cosmo)
 
-        self.chi_min = numpy.max([1e-4,
+        self.chi_min = numpy.max([defaults.default_precision["window_precision"],
                                   self.cosmo.comoving_distance(self.z_min)])
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
         
@@ -851,7 +851,11 @@ class KernelCovariance(Kernel):
                                  defaults.default_precision["kernel_npoints"])
         chi_array = self.cosmo.comoving_distance(z_array)
         self.z_bar_NG = z_array[numpy.argmax(self._kernel_NG_integrand(
-            numpy.where(chi_array > 1e-4, chi_array, 1e-4), 0.0, 0.0))]
+            numpy.where(chi_array > 
+                        defaults.default_precision["window_precision"], 
+                        chi_array,
+                        defaults.default_precision["window_precision"]),
+                        0.0, 0.0))]
 
     def set_cosmology(self, cosmo_dict):
         """

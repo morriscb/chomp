@@ -153,7 +153,6 @@ class Halo(object):
 
         self._initialized_h_g = False
 
-        self._initialized_pp_mm = False
         self._initialized_pp_gm = False
         self._initialized_pp_gg = False
         
@@ -174,7 +173,6 @@ class Halo(object):
 
         self._initialized_h_g = False
 
-        self._initialized_pp_mm = False
         self._initialized_pp_gm = False
         self._initialized_pp_gg = False
         
