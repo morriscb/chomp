@@ -19,7 +19,7 @@ defaults.default_precision = {
     "corr_precision":1.48e-6,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
-    "dNdz_precision": 1.48e-8,
+    "dNdz_precision": 1.48e-6,
     "halo_npoints": 50,
     "halo_precision": 1.48e-4, ### This value is mostly due to integrations over
                                ### the HOD. If you are intrested in dark matter
@@ -342,11 +342,11 @@ class HaloTest(unittest.TestCase):
         
     def test_halo(self):
         power_mm_list = [8.3444,  9.5378,
-                         5.1025, -3.7438]
+                         5.5983, -2.8050]
         power_gm_list = [8.2315,  9.4692,
-                         4.8082, -1.3301]
+                         5.1809, -0.7376]
         power_gg_list = [8.1378,  9.4067,
-                         4.2445, -1.1213]
+                         4.5788, -0.5103]
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
                                    power_mm_list[idx], p_dict["halo"])
@@ -359,11 +359,11 @@ class HaloTest(unittest.TestCase):
         linear_power_list = [7.20478501, 8.51067786,
                              1.34332833, -8.73288266]
         power_mm_list = [7.2508,  8.5229,
-                         3.5269, -5.3679]
+                         3.8270, -4.4139]
         power_gm_list = [7.3391,  8.6247,
-                         3.3035, -3.0814]
+                         3.5360, -2.4749]
         power_gg_list = [7.4330,  8.7277,
-                         2.9537, -2.7368]
+                         3.1523, -2.0987]
         self.h.set_redshift(1.0)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
@@ -379,11 +379,11 @@ class HaloTest(unittest.TestCase):
         linear_power_list = [5.16650870,  8.11613036,
                              3.69335247, -5.84391743]
         power_mm_list = [6.6167,  8.2733,
-                         5.2013, -4.0939]
+                         5.6788, -3.0368]
         power_gm_list = [5.8928,  7.8907,
-                         4.5382, -2.0628]
+                         4.9346, -1.4935]
         power_gg_list = [5.2241,  7.5329,
-                         3.8448, -1.9286]
+                         4.1784, -1.3744]
         self.h.set_cosmology(c_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
@@ -397,11 +397,11 @@ class HaloTest(unittest.TestCase):
 
     def test_set_halo(self):
         power_mm_list = [8.4195,  9.5610,
-                         5.2012, -3.7898]
+                         5.7676, -2.8643]
         power_gm_list = [8.2584,  9.4594,
-                         4.9173, -1.3487]
+                         5.3600, -0.7565]
         power_gg_list = [8.1227,  9.3665,
-                         4.4052, -1.0691]
+                         4.8072, -0.4581]
         self.h.set_halo(h_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
@@ -413,9 +413,9 @@ class HaloTest(unittest.TestCase):
 
     def test_set_hod(self):
         power_gm_list = [8.8787, 10.0323,
-                         6.3401,  0.5022]
+                         6.6599,  1.1908]
         power_gg_list = [9.2610, 10.4801,
-                         5.7695, -0.8602]
+                         6.2555, -0.1523]
         self.h.set_hod(hod_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
@@ -573,7 +573,7 @@ class CorrelationTest(unittest.TestCase):
         self.theta_array = numpy.logspace(-3, 0, 4)*deg_to_rad
         
     def test_correlation(self):
-        corr_list = [-4.733175, -5.187615, -6.840129, -8.89917]
+        corr_list = [-4.111348, -4.724446, -6.882630, -8.900066]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
@@ -581,7 +581,7 @@ class CorrelationTest(unittest.TestCase):
 
     def test_set_redshift(self):
         self.corr.set_redshift(0.5)
-        corr_list = [-4.824394, -5.276586, -6.916602, -8.899675]
+        corr_list = [-4.208979, -4.826124, -6.963666, -8.900316]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
@@ -589,7 +589,7 @@ class CorrelationTest(unittest.TestCase):
 
     def test_set_cosmology(self):
         self.corr.set_cosmology(c_dict_2)
-        corr_list = [-3.528807, -3.955774, -5.74402, -9.39054]
+        corr_list = [-2.908135, -3.49623, -5.804543, -9.395520]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
@@ -599,7 +599,7 @@ class CorrelationTest(unittest.TestCase):
         zheng = hod.HODZheng(hod_dict_2)
         self.corr.set_hod(zheng)
         self.corr.set_power_spectrum('power_gm')
-        corr_list = [-2.413401, -3.837382, -6.285915, -8.407228]
+        corr_list = [-1.867016, -3.489033, -6.349981,  -8.408213]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
@@ -612,8 +612,5 @@ if __name__ == "__main__":
     print "*      CHOMP Unit Test        *"
     print "*                             *"
     print "*******************************"
-
-    print "WARNING::If you have changed any of the default precision values in"
-    print "\tdefaults.default_precision, one or more of these tests may fail."
     unittest.main()
     

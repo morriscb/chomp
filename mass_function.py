@@ -182,8 +182,8 @@ class MassFunction(object):
 
         #print "Mass Limits:",mass_min*(0.95),"-",mass_max*(1.05)
 
-        self.ln_mass_max = numpy.log(mass_max)
         self.ln_mass_min = numpy.log(mass_min)
+        self.ln_mass_max = numpy.log(mass_max)
 
         self._ln_mass_array = numpy.linspace(
             self.ln_mass_min, self.ln_mass_max,
