@@ -54,13 +54,25 @@ class Correlation(object):
     """
 
     def __init__(self, theta_min_deg, theta_max_deg, input_kernel,
-                 input_halo=None, power_spec=None, **kws):
+                 bins_per_decade=5.0, input_halo=None, power_spec=None, **kws):
 
         self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
         self.log_theta_max = numpy.log10(theta_max_deg*deg_to_rad)
-        self.theta_array = numpy.logspace(
-            self.log_theta_min, self.log_theta_max,
-            defaults.default_precision["corr_npoints"])
+        self.theta_array = []
+        
+        unit_double = (numpy.floor(self.log_theta_min)*bins_per_decade)
+        theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
+        while theta < numpy.power(10.0, self.log_theta_max):
+            if (theta >= numpy.power(10.0, self.log_theta_min) and
+                theta < numpy.power(10.0, self.log_theta_max)):
+                self.theta_array.append(10**(
+                    0.5*(numpy.log10(theta) + 
+                    (unit_double+1.0)/(1.0*bins_per_decade))))
+            unit_double += 1.0
+            theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
+            
+        self.theta_array = numpy.array(self.theta_array)
+        
         if theta_min_deg==theta_max_deg:
             self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
             self.log_theta_max = numpy.log10(theta_min_deg*deg_to_rad)
@@ -175,7 +187,7 @@ class Correlation(object):
             Parameters used must match the hod used or the code will throw a
             KeyError.
         """
-        self.halo.set_hod_object(hod_dict)
+        self.halo.set_hod(hod_dict)
 
     def set_hod_object(self, input_hod):
         """
@@ -244,6 +256,11 @@ class Correlation(object):
             f.write("%1.10f %1.10f\n" % (theta/deg_to_rad, wtheta))
         f.close()
         
+class CorrelationProjectedComoving(Correlation):
+        
+    def __init__(self, r_min_Mpc, r_max_Mpc, input_kernel,
+                 bins_per_decade=5.0, input_halo=None, power_spec=None, **kws):
+        pass
         
 class CorrelationFourier(Correlation):
     

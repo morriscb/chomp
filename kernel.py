@@ -72,6 +72,14 @@ class dNdz(object):
         return numpy.where(numpy.logical_and(redshift <= self.z_max, 
                                              redshift >= self.z_min),
                            self.norm*self.raw_dndz(redshift), 0.0)
+    
+    def set_limits(self, z_min=None, z_max=None, calc_norm=False):
+        if z_min is not None:
+            self.z_min = z_min
+        if z_max is not None:
+            self.z_max = z_max
+        if calc_norm:
+            self.normalize()
 
 
 class dNdzGaussian(dNdz):
@@ -208,9 +216,6 @@ class WindowFunction(object):
             cosmo_multi_epoch = cosmology.MultiEpoch(z_min, z_max)
         self.set_cosmology_object(cosmo_multi_epoch)
 
-        self._chi_array = numpy.linspace(
-            self.chi_min, self.chi_max,
-            defaults.default_precision["window_npoints"])
         self._wf_array = numpy.zeros_like(self._chi_array)
         
     def get_cosmology(self):
@@ -227,34 +232,37 @@ class WindowFunction(object):
             cosmo_dict: dictionary of floats defining a cosmology. (see 
                 defaults.py for details)
         """
+        if z_min is not None:
+            self.z_min = z_min
+        if z_max is not None:
+            self.z_max = z_max
         self.cosmo.set_cosmology(cosmo_dict, z_min, z_max)
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
         if self.chi_min < defaults.default_precision["window_precision"]:
             self.chi_min = defaults.default_precision["window_precision"]
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
+        self._chi_array = numpy.linspace(
+            self.chi_min, self.chi_max,
+            defaults.default_precision["window_npoints"])
 
         self.initialized_spline = False
 
-    def set_cosmology_object(self, cosmo_multi_epoch):
+    def set_cosmology_object(self, cosmo_multi_epoch, z_min=None, z_max=None):
         """
         Reset cosmology to values in cosmo_dict
 
         Args:
             cosmo_multi_epoch: a MultiEpoch cosmology object from cosmology.py
         """
-        #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict)
-        if cosmo_multi_epoch.z_min > self.z_min:
-            print ("window_function - WARNING::Input cosmology min redshift "
-                   "greater than internal z_min. Expect computations to fail.")
-        if cosmo_multi_epoch.z_max < self.z_max:
-            print ("window_function - WARNING::Input cosmology max redshift "
-                   "less than internal z_max. Expect computations to fail.")
-                    
+        #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict             
         self.cosmo = cosmo_multi_epoch
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
         if self.chi_min < defaults.default_precision["window_precision"]:
             self.chi_min = defaults.default_precision["window_precision"]
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
+        self._chi_array = numpy.linspace(
+            self.chi_min, self.chi_max,
+            defaults.default_precision["window_npoints"])
         
         self.initialized_spline = False
 
@@ -534,8 +542,8 @@ class Kernel(object):
                 self.z_min, self.z_max)
         self.cosmo = cosmo_multi_epoch
 
-        self.window_function_a.set_cosmology_object(self.cosmo)
-        self.window_function_b.set_cosmology_object(self.cosmo)
+        self.window_function_a.set_cosmology_object(self.cosmo, self.z_min)
+        self.window_function_b.set_cosmology_object(self.cosmo, self.z_max)
 
         self.chi_min = numpy.max([defaults.default_precision["window_precision"],
                                   self.cosmo.comoving_distance(self.z_min)])

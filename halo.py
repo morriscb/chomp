@@ -418,6 +418,16 @@ class Halo(object):
         return numpy.exp(self._ln_halo_norm_spline(numpy.log(mass)))
     
     def y(self, ln_k, mass):
+        """
+        Wrapper function to return the fourier transform of the halo profile, y,
+        in both the general case and the specific case of alpha=-1.
+        
+        Args:
+            ln_k: float value at which to compute the transform
+            mass: halo mass in M_solar/h at which to compute the transform
+        Returns:
+            a float value(array) of the halo fourier transform
+        """
         if self.alpha == -1.0:
             return self.y_nfw(ln_k, mass)
         return self.y_general(ln_k, mass)
@@ -432,6 +442,9 @@ class Halo(object):
                            self._y_spline(ln_mass), 0.0)
         
     def _initialize_y_spline(self, ln_k):
+        """
+        Internal function to initialize the spline of y(M) for a given k value.
+        """
         
         self._y_array = numpy.empty_like(self.mass._ln_mass_array)
         
@@ -460,6 +473,9 @@ class Halo(object):
         self._hold_ln_k = ln_k
                 
     def _y_integrand(self, x, mass, ln_k, norm):
+        """
+        Internal function for defingin
+        """
         k = numpy.exp(ln_k)
         r_vir = self.virial_radius(mass)
         c = self.concentration(mass)
@@ -471,7 +487,18 @@ class Halo(object):
     def _halo_profile(self, x, mass=None):
         """
         Halo profile as a function of dimentionless units x where x=r/r_s and
-        is zero for x > c = r_virial/r_s. 
+        is zero for x > c = r_virial/r_s. If other profiles are desired (e.g 
+        such as accounting for baryonic gas mass) this profile, the function
+        _halo_normalization, the normalaization factors in _initialize_y_spline
+        should be modified.
+        
+        Args:
+            x: unitless distance from center of halo. True distance is
+                x*r_vir/c where r_vir is the virial radius and c is the halo
+                concentration.
+            mass: mass of the halo in units M_solor/h
+        Returns:
+            float array of unormalized halo profile
         """
         return x**self.alpha/(1.0 + x)**(3.0 + self.alpha)
         
@@ -677,9 +704,9 @@ class Halo(object):
         if nu_min < 1.0:
             norm = 1.0/self._nbar_integrand(0.0)
         elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._meff_integrand(numpy.log(nu_min*2.0))
+            norm = 1.0/self._m_eff_integrand(numpy.log(nu_min*2.0))
         else:
-            norm = 1.0/self._meff_integrand(numpy.log(self.mass.nu_max))
+            norm = 1.0/self._m_eff_integrand(numpy.log(self.mass.nu_max))
 
         self.m_eff = integrate.romberg(
             self._m_eff_integrand, numpy.log(nu_min), 
@@ -693,7 +720,7 @@ class Halo(object):
 
         return self.m_eff
 
-    def _m_eff_integrand(self, ln_nu, norm):
+    def _m_eff_integrand(self, ln_nu, norm=1.0):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
@@ -717,11 +744,11 @@ class Halo(object):
             
         norm = 1.0
         if nu_min < 1.0:
-            norm = 1.0/self._fsat_integrand(0.0)
+            norm = 1.0/self._f_sat_integrand(0.0)
         elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._fsat_integrand(numpy.log(nu_min*2.0))
+            norm = 1.0/self._f_sat_integrand(numpy.log(nu_min*2.0))
         else:
-            norm = 1.0/self._fsat_integrand(numpy.log(self.mass.nu_max))
+            norm = 1.0/self._f_sat_integrand(numpy.log(self.mass.nu_max))
             
         self.f_sat= integrate.romberg(
             self._f_sat_integrand, numpy.log(nu_min), 
@@ -996,77 +1023,12 @@ class HaloExclusion(Halo):
         Halo.__init__(self, redshift, input_hod, cosmo_single_epoch,
                       mass_func, halo_dict, **kws)
 
-    def power_gm(self, k):
-        """
-        Non-Linear galaxy power spectrum derived from the halo
-        model and input halo occupation distribution.
+    def _h_m_integrand(self, ln_nu, ln_k, norm=1.0):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
 
-        Args:
-            k [h/Mpc]: float array wave number
-        Returns:
-            float array non-linear galaxy power spectrum [Mpc/h]**3
-        """
-        if not self._initialized_h_g:
-            self._initialize_h_g()
-        if not self._initialized_pp_gg:
-            self._initialize_pp_gm()
-
-        return self.power_mm(k)*self._h_g(k)*self._h_m(k) + self._pp_gm(k)
-
-    def power_mg(self, k):
-        """
-        Non-Linear galaxy power spectrum derived from the halo
-        model and input halo occupation distribution.
-
-        Args:
-            k [h/Mpc]: float array wave number
-        Returns:
-            float array non-linear galaxy power spectrum [Mpc/h]**3
-        """
-        return self.power_gm(k)
-
-    def power_gg(self, k):
-        """
-        Non-Linear galaxy power spectrum derived from the halo
-        model and input halo occupation distribution.
-
-        Args:
-            k [h/Mpc]: float array wave number
-        Returns:
-            float array non-linear galaxy power spectrum [Mpc/h]**3
-        """
-        if not self._initialized_h_g:
-            self._initialize_h_g()
-        if not self._initialized_pp_gg:
-            self._initialize_pp_gg()
-
-        return self.power_mm(k)*self._h_g(k)*self._h_g(k) + self._pp_gg(k)
-
-    def _initialize_h_g(self):
-        h_g_array = numpy.zeros_like(self._ln_k_array)
-
-        nu_min = self.mass.nu_min
-        if (self.local_hod.first_moment_zero > -1 and
-            self.local_hod.first_moment_zero >
-            numpy.exp(self.mass.ln_mass_min)):
-            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
-        for idx in xrange(self._ln_k_array.size):
-            k = numpy.exp(self._ln_k_array[idx])
-            norm = 1.0/self._h_g_integrand(0.0, ln_k)
-            h_g = integrate.romberg(
-                self._h_g_integrand, numpy.log(nu_min),
-                numpy.log(self.mass.nu_max), vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["halo_precision"],
-                args=(self._ln_k_array[idx], norm),
-                divmax=defaults.default_precision["divmax"])
-            h_g_array[idx] = h_g/(norm*self.n_bar_over_rho_bar)
-
-        ### We move the mass density normalization into the integrand here
-        ### to prevent romberg having to integrate very small values.
-        self._h_g_spline = InterpolatedUnivariateSpline(
-            self._ln_k_array, h_g_array)
-        self._initialized_h_g = True
+        return (norm*nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
+                self.mass.bias_nu(nu)*self.y(ln_k, mass))
 
     def _h_g_integrand(self, ln_nu, ln_k, norm=1.0):
         nu = numpy.exp(ln_nu)
@@ -1077,6 +1039,11 @@ class HaloExclusion(Halo):
                 self.local_hod.first_moment(mass)/mass)
 
     def _mass_window(self, mass, ln_k):
+        """
+        Internal function defining the fourier transform of the window function
+        for excluding halos. The function cuts of halos of mass M that would be
+        within two virial radii of their respective halo centers.
+        """
         k = numpy.exp(ln_k)
         R = 2*self.virial_radius(mass)
         kR = k*R
