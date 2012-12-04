@@ -7,6 +7,7 @@ import kernel
 import numpy
 from scipy import special
 from scipy import integrate
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 """
 Classes describing different correlation functions.
@@ -359,4 +360,95 @@ class CorrelationFourier(Correlation):
         f.write("#ttype1 = l [deg]\n#ttype2 = power\n")
         for theta, power in zip(self.l_array, self.power_array):
             f.write("%1.10f %1.10f\n" % (l, power))
-        f.close() 
+        f.close()
+
+
+class Correlation3d(Correlation):
+    """
+    3D correlation function derived from the halo model power spectrum.
+    """
+
+    def __init__(self, r_min, r_max, redshift=0.0,
+                 input_halo=None, powSpec=None):
+        """
+        Do not call parent __init__ because we don't need the
+        kernel object here.
+        """
+        self.log_r_min = numpy.log10(r_min)
+        self.log_r_max = numpy.log10(r_max)
+        self.r_array = numpy.logspace(
+            self.log_r_min, self.log_r_max,
+            defaults.default_precision["corr_npoints"])
+        if r_min == r_max:
+            self.log_r_min = numpy.log10(r_min)
+            self.log_r_max = numpy.log10(r_min)
+            self.r_array = numpy.array([r_min])
+        self.xi_array = numpy.zeros(self.r_array.size)
+
+        if input_halo is None:
+            input_halo = halo.Halo(redshift)
+        self.halo = input_halo
+        self.halo.set_redshift(redshift)
+
+        if powSpec == None:
+            powSpec = 'linear_power'
+        try:
+            self.power_spec = self.halo.__getattribute__(powSpec)
+        except AttributeError or TypeError:
+            print "WARNING: Invalid input for power spectra variable,"
+            print "\t setting to linear_power"
+            self.power_spec = self.halo.__getattribute__('linear_power')
+        self.initialized_spline = False
+        return None
+
+    def compute_correlation(self):
+        """
+        Compute the value of the correlation over the range
+        r_min - r_max
+        """
+        for idx, r in enumerate(self.r_array):
+            self.xi_array[idx] = self.raw_correlation(r)
+        self._xi_spline = InterpolatedUnivariateSpline(self.r_array,
+                                                       self.xi_array)
+        self.initialized_spline = True
+        return None
+
+    def raw_correlation(self, r):
+        """
+        Compute the value of the correlation at array values r
+
+        Args:
+            r: float array of position values in Mpc/h
+        """
+        ln_kmin = numpy.log(self.halo._k_min)
+        ln_kmax = numpy.log(self.halo._k_max)
+        try:
+            xi_out = numpy.empty(len(r))
+            for idx, value in enumerate(r):
+                xi_out[idx] = integrate.romberg(
+                    self._correlation_integrand,
+                    ln_kmin, ln_kmax, args=(value,), vec_func=True,
+                    tol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])
+        except TypeError:
+            xi_out = integrate.romberg(
+                    self._correlation_integrand,
+                    ln_kmin, ln_kmax, args=(r,), vec_func=True,
+                    tol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])
+        return xi_out
+
+    def _correlation_integrand(self, ln_k, r):
+        dln_k = 1.0
+        k = numpy.exp(ln_k)
+        dk = k * dln_k
+        return(dk * k / (2.0 * numpy.pi) * self.power_spec(k) * special.j0(k * r))
+
+    def correlation(self, r):
+        if not self.initialized_spline:
+            self.compute_correlation()
+        r_min = 10. ** self.log_r_min
+        r_max = 10. ** self.log_r_max
+        return numpy.where(numpy.logical_and(r <= r_max,
+                                             r > r_min),
+                           self._xi_spline(r), 0.0)
