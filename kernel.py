@@ -216,7 +216,7 @@ class WindowFunction(object):
             cosmo_multi_epoch = cosmology.MultiEpoch(z_min, z_max)
         self.set_cosmology_object(cosmo_multi_epoch)
 
-        self._wf_array = numpy.zeros_like(self._chi_array)
+        self._wf_array = numpy.zeros_like(self._chi_array, dtype='float128')
         
     def get_cosmology(self):
         """
@@ -254,7 +254,11 @@ class WindowFunction(object):
         Args:
             cosmo_multi_epoch: a MultiEpoch cosmology object from cosmology.py
         """
-        #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict             
+        #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict 
+        if z_min is not None:
+            self.z_min = z_min
+        if z_max is not None:
+            self.z_max = z_max            
         self.cosmo = cosmo_multi_epoch
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
         if self.chi_min < defaults.default_precision["window_precision"]:
@@ -542,8 +546,10 @@ class Kernel(object):
                 self.z_min, self.z_max)
         self.cosmo = cosmo_multi_epoch
 
-        self.window_function_a.set_cosmology_object(self.cosmo, self.z_min)
-        self.window_function_b.set_cosmology_object(self.cosmo, self.z_max)
+        self.window_function_a.set_cosmology_object(self.cosmo, 
+                                                    self.z_min, self.z_max)
+        self.window_function_b.set_cosmology_object(self.cosmo, 
+                                                    self.z_min, self.z_max)
 
         self.chi_min = numpy.max([defaults.default_precision["window_precision"],
                                   self.cosmo.comoving_distance(self.z_min)])
@@ -560,7 +566,8 @@ class Kernel(object):
         self._ln_ktheta_array = numpy.linspace(
             self.ln_ktheta_min, self.ln_ktheta_max,
             defaults.default_precision["kernel_npoints"])
-        self._kernel_array = numpy.zeros_like(self._ln_ktheta_array)
+        self._kernel_array = numpy.zeros_like(self._ln_ktheta_array,
+                                              dtype='float128')
 
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
@@ -660,10 +667,11 @@ class Kernel(object):
         if not self.initialized_spline:
             self._initialize_spline()
 
-        return numpy.where(numpy.logical_and(ln_ktheta <= self.ln_ktheta_max,
-                                             ln_ktheta >= self.ln_ktheta_min),
-                           self._kernel_spline(ln_ktheta), 0.0)
-
+        return numpy.where(ln_ktheta < self.ln_ktheta_min,
+                           self._kernel_spline(self.ln_ktheta_min),
+                           numpy.where(ln_ktheta <= self.ln_ktheta_max,
+                                       self._kernel_spline(ln_ktheta), 0.0))
+                                
     def kernel_weighted_mean(self, function):
         """
         Given an input function of redshift, compute the mean value of the 
@@ -706,7 +714,7 @@ class Kernel(object):
             self._ln_ktheta_array, self._kernel_array):
             f.write("%1.10f %1.10f\n" % (numpy.exp(ln_ktheta), kernel))
         f.close()
-
+        
         
 class GalaxyGalaxyLensingKernel(Kernel):
     """Derived class for Galaxy-Galaxy lensing. The galaxy-galaxy lensing kernel

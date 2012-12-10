@@ -265,9 +265,12 @@ class Halo(object):
                         self.linear_power(self._k_max))))
         else:
             return numpy.where(
-                numpy.logical_and(k >= self._k_min, k <= self._k_max),
-                self.linear_power(k)*self._h_m(k)*self._h_m(k) +
-                self._pp_mm(k), 0.0)
+                k < self._k_min, self.linear_power(k)*(
+                self._h_m(self._k_min)*self._h_m(self._k_min) + 
+                self._pp_mm(self._k_min)/self.linear_power(self._k_min)),
+                numpy.where(k <= self._k_max, 
+                    self.linear_power(k)*self._h_m(k)*self._h_m(k) + 
+                    self._pp_mm(k), 0.0))
 
     def power_gm(self, k):
         """
@@ -317,9 +320,12 @@ class Halo(object):
                         self._pp_gm(self._k_max))))
         else:
             return numpy.where(
-                numpy.logical_and(k >= self._k_min, k <= self._k_max),
-                self.linear_power(k)*self._h_g(k)*self._h_m(k) +
-                self._pp_gm(k), 0.0)
+                k < self._k_min, self.linear_power(k)*(
+                self._h_g(self._k_min)*self._h_m(self._k_min) + 
+                self._pp_gm(self._k_min)/self.linear_power(self._k_min)),
+                numpy.where(k <= self._k_max, 
+                    self.linear_power(k)*self._h_g(k)*self._h_m(k) + 
+                    self._pp_gm(k), 0.0))
 
     def power_mg(self, k):
         """
@@ -378,9 +384,12 @@ class Halo(object):
                         self._pp_gg(self._k_max))))
         else:
             return numpy.where(
-                numpy.logical_and(k >= self._k_min, k <= self._k_max),
-                self.linear_power(k)*self._h_g(k)*self._h_g(k) +
-                self._pp_gg(k), 0.0)
+                k < self._k_min, self.linear_power(k)*(
+                self._h_g(self._k_min)*self._h_g(self._k_min) + 
+                self._pp_gg(self._k_min)/self.linear_power(self._k_min)),
+                numpy.where(k <= self._k_max, 
+                    self.linear_power(k)*self._h_g(k)*self._h_g(k) + 
+                    self._pp_gg(k), 0.0))
 
     def virial_radius(self, mass):
         """

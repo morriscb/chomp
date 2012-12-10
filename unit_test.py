@@ -491,8 +491,8 @@ class WindowFunctionTest(unittest.TestCase):
                             0.0), source_window_list[idx], p_dict["window"])
 
     def test_set_cosmology(self):
-        lens_window_list = [0.0, -13.99938, -13.30648, -12.901265]
-        source_window_list = [0.0, -16.013036, -15.320053, -14.91476]
+        lens_window_list = [0.0, -13.99937, -13.306473, -12.901255]
+        source_window_list = [0.0, -16.013004, -15.320023, -14.914725]
         
         cosmo = cosmology.MultiEpoch(0.0, 5.0, c_dict_2)
         self.lens_window.set_cosmology_object(cosmo)
@@ -538,7 +538,7 @@ class KenrelTest(unittest.TestCase):
     def test_set_cosmology(self):
         self.kern.set_cosmology(c_dict_2)
         k_list = [ -9.946510,  -9.946688,
-                  -12.957127, -27.731420]
+                  -12.957102, -27.694108]
         for idx, ln_ktheta in enumerate(self.ln_ktheta_array):
             kern = numpy.abs(self.kern.kernel(ln_ktheta))
             self.assertAlmostEqual(
@@ -589,15 +589,14 @@ class CorrelationTest(unittest.TestCase):
 
     def test_set_cosmology(self):
         self.corr.set_cosmology(c_dict_2)
-        corr_list = [-2.908135, -3.49623, -5.804543, -9.395520]
+        corr_list = [-2.908135, -3.49623, -5.804543, -9.395502]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
                 corr_list[idx], p_dict["corr"])
 
     def test_set_hod(self):
-        zheng = hod.HODZheng(hod_dict_2)
-        self.corr.set_hod(zheng)
+        self.corr.set_hod(hod_dict_2)
         self.corr.set_power_spectrum('power_gm')
         corr_list = [-1.867016, -3.489033, -6.349981,  -8.408213]
         for idx, theta in enumerate(self.theta_array):

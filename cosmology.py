@@ -104,9 +104,21 @@ class SingleEpoch(object):
             rtol=defaults.default_precision["cosmo_precision"],
             divmax=defaults.default_precision["divmax"])
 
+        # self.growth_norm = integrate.romberg(
+        #     self._growth_integrand, 1e-16, 1.0, vec_func=True,
+        #     tol=defaults.default_precision["global_precision"],
+        #     rtol=defaults.default_precision["cosmo_precision"],
+        #     divmax=defaults.default_precision["divmax"])
+        # self.growth_norm *= 2.5*self._omega_m0*numpy.sqrt(self.E0(0.0))
         self.growth_norm = self.growth_factor_eval(1.0)
 
         a = 1.0 / (1.0 + self._redshift)
+        # growth = integrate.romberg(
+        #     self._growth_integrand, 1e-16, a, vec_func=True,
+        #     tol=defaults.default_precision["global_precision"],
+        #     rtol=defaults.default_precision["cosmo_precision"],
+        #     divmax=defaults.default_precision["divmax"])
+        # growth *= 2.5*self._omega_m0*numpy.sqrt(self.E0(self._redshift))
         growth = self.growth_factor_eval(a)
         self._growth = growth / self.growth_norm
 
@@ -285,7 +297,7 @@ class SingleEpoch(object):
 
     def growth_factor_eval(self, a):
         """
-        Evaluate the linear growth factor for vector argument scale factor.
+        Evaluate the linear growth factor for vector argument redshift.
         """
         # a = 1. / (1. + redshift)
         if self._w0 == -1.0 and self._wa == 0.0:
@@ -776,6 +788,17 @@ class MultiEpoch(object):
 
         self.growth_norm = self.epoch0.growth_norm
 
+        # for idx in xrange(self._z_array.size):
+        #     a = 1.0/(1.0 + self._z_array[idx])
+        #     growth = integrate.romberg(
+        #         self.epoch0._growth_integrand, 1e-16, a, vec_func=True,
+        #         tol=defaults.default_precision["global_precision"],
+        #         rtol=defaults.default_precision["cosmo_precision"],
+        #         divmax=defaults.default_precision["divmax"])
+        #     growth *= 2.5*self._omega_m0*numpy.sqrt(
+        #         self.epoch0.E0(self._z_array[idx]))
+        #     self._growth_array[idx] = growth/self.growth_norm
+
         a = 1. / (1. + self._z_array)
         self._growth_array = self.epoch0.growth_factor_eval(a) / self.growth_norm
 
@@ -851,11 +874,11 @@ class MultiEpoch(object):
         distance = numpy.where(numpy.logical_and(redshift<=self.z_max,
                                                  redshift>=self.z_min),
                                self._chi_spline(redshift), 0.0)
-        if numpy.any(numpy.logical_or(redshift>self.z_max,
-                                      redshift<self.z_min)):
-            print ("In cosmology.MultiEpoch.comoving_distance:"
-                   "\n\tWarning: a requested redshift was outside of bounds!  "
-                   "\n\tReturning 1e-16 for this redshift.")
+        # if numpy.any(numpy.logical_or(redshift>self.z_max,
+        #                               redshift<self.z_min)):
+        #     print ("In cosmology.MultiEpoch.comoving_distance:"
+        #            "\n\tWarning: a requested redshift was outside of bounds!  "
+        #            "\n\tReturning 1e-16 for this redshift.")
 
         return distance
 

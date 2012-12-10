@@ -74,7 +74,7 @@ default_precision = {
     "kernel_limit": 100, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
                          ### integration
-    "kernel_bessel_limit": 32, ### Defines how many zeros before cutting off
+    "kernel_bessel_limit": 4, ### Defines how many zeros before cutting off
                               ### the Bessel function integration in kernel.py
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,
