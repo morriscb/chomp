@@ -632,12 +632,9 @@ class Halo(object):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
             
         norm = 1.0
-        if nu_min < 1.0:
-            norm = 1.0/self._nbar_integrand(0.0)
-        elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._nbar_integrand(numpy.log(nu_min*2.0))
-        else:
-            norm = 1.0/self._nbar_integrand(numpy.log(self.mass.nu_max))
+        if self.local_hod._safe_norm != -1:
+            ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
+            norm = 1.0/self._nbar_integrand(ln_nu)
         self.n_bar_over_rho_bar = integrate.romberg(
             self._nbar_integrand, numpy.log(nu_min),
             numpy.log(self.mass.nu_max), 
@@ -670,12 +667,9 @@ class Halo(object):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
             
         norm = 1.0
-        if nu_min < 1.0:
-            norm = 1.0/self._bias_integrand(0.0)
-        elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._bias_integrand(numpy.log(nu_min*2.0))
-        else:
-            norm = 1.0/self._bias_integrand(numpy.log(self.mass.nu_max))
+        if self.local_hod._safe_norm != -1:
+            ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
+            norm = 1.0/self._nbar_integrand(ln_nu)
             
         self.bias = integrate.romberg(
             self._bias_integrand, numpy.log(nu_min), 
@@ -710,12 +704,9 @@ class Halo(object):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
             
         norm = 1.0
-        if nu_min < 1.0:
-            norm = 1.0/self._nbar_integrand(0.0)
-        elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._m_eff_integrand(numpy.log(nu_min*2.0))
-        else:
-            norm = 1.0/self._m_eff_integrand(numpy.log(self.mass.nu_max))
+        if self.local_hod._safe_norm != -1:
+            ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
+            norm = 1.0/self._nbar_integrand(ln_nu)
 
         self.m_eff = integrate.romberg(
             self._m_eff_integrand, numpy.log(nu_min), 
@@ -752,12 +743,9 @@ class Halo(object):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
             
         norm = 1.0
-        if nu_min < 1.0:
-            norm = 1.0/self._f_sat_integrand(0.0)
-        elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._f_sat_integrand(numpy.log(nu_min*2.0))
-        else:
-            norm = 1.0/self._f_sat_integrand(numpy.log(self.mass.nu_max))
+        if self.local_hod._safe_norm != -1:
+            ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
+            norm = 1.0/self._nbar_integrand(ln_nu)
             
         self.f_sat= integrate.romberg(
             self._f_sat_integrand, numpy.log(nu_min), 
@@ -882,13 +870,10 @@ class Halo(object):
             
         for idx, ln_k in enumerate(self._ln_k_array):
             norm = 1.0
-            if nu_min < 1.0:
-                norm = 1.0/self._h_g_integrand(0.0, ln_k)
-            elif self.mass.nu_max > nu_min*2.0:
-                norm = 1.0/self._h_g_integrand(numpy.log(nu_min*2.0), ln_k)
-            else:
-                norm = 1.0/self._h_g_integrand(numpy.log(self.mass.nu_max),
-                                               ln_k)
+            if self.local_hod._safe_norm != -1:
+                ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
+                norm = 1.0/self._nbar_integrand(ln_nu)
+
             h_g = integrate.romberg(
                 self._h_g_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
@@ -948,13 +933,10 @@ class Halo(object):
         ### Some Numerical Differnce between romberg and quad here.
         for idx, ln_k in enumerate(self._ln_k_array):
             norm = 1.0
-            if nu_min < 1.0:
-                norm = 1.0/self._pp_gg_integrand(0.0, ln_k)
-            elif self.mass.nu_max > nu_min*2.0:
-                norm = 1.0/self._pp_gg_integrand(numpy.log(nu_min*2.0), ln_k)
-            else:
-                norm = 1.0/self._pp_gg_integrand(numpy.log(self.mass.nu_max),
-                                                 ln_k)
+            if self.local_hod._safe_norm != -1:
+                ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
+                norm = 1.0/self._nbar_integrand(ln_nu)
+        
             pp_gg = integrate.romberg(
                 self._pp_gg_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,
@@ -994,13 +976,10 @@ class Halo(object):
         ### Some Numerical Differences between romberg and Quad here.
         for idx, ln_k in enumerate(self._ln_k_array):
             norm = 1.0
-            if nu_min < 1.0:
-                norm = 1.0/self._pp_gm_integrand(0.0, ln_k)
-            elif self.mass.nu_max > nu_min*2.0:
-                norm = 1.0/self._pp_gm_integrand(numpy.log(nu_min*2.0), ln_k)
-            else:
-                norm = 1.0/self._pp_gm_integrand(numpy.log(self.mass.nu_max),
-                                               ln_k)
+            if self.local_hod._safe_norm != -1:
+                ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
+                norm = 1.0/self._nbar_integrand(ln_nu)
+
             pp_gm = integrate.romberg(
                 self._pp_gm_integrand, numpy.log(nu_min),
                 numpy.log(self.mass.nu_max), vec_func=True,

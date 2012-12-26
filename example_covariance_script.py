@@ -66,8 +66,12 @@ mass = mass_function.MassFunction(redshift=0.0, cosmo_single_epoch=cosmo_single,
 ### Initialize the hod object defining how galaxies populate halos. Values used
 ### in this HOD are from Zehavi et al. 2011 with parameter assumptions from 
 ### Wake et al. 2011.
-sdss_hod = hod.HODZheng(M_min=10**12.14, sigma=0.15, M_0=10**12.14,
-                        M_1p=10**13.43, alpha=1.0)
+hod_dict = {"log_M_min":12.14,
+            "sigma":     0.15,
+            "log_M_0":  12.14,
+            "log_M_1p": 13.43,
+            "alpha":      1.0}
+sdss_hod = hod.HODZheng(hod_dict)
 
 ### Initialize the halo object with the mass function and single epoch 
 ### cosmology implementation is from Seljak2000.

@@ -31,6 +31,10 @@ class HOD(object):
         ### integrate over the whole mass range.
         self.first_moment_zero = -1
         self.second_moment_zero = -1
+        
+        ### Optional value to declare at which mass value the hod is guaranteed
+        ### to evaluate to positive definite.
+        self._safe_norm = -1
 
     def first_moment(self, mass, redshift=None):
         """
@@ -224,6 +228,8 @@ class HODZheng(HOD):
         self.first_moment_zero = numpy.power(10, self.log_M_min - 
                                              6*self.sigma)
         self.second_moment_zero = 10**self.log_M_0
+        self._safe_norm = 10**(self.log_M_min + 1.0*self.sigma)
+        
         
     def first_moment(self, mass, z=None):
         return (self.central_first_moment(mass) +
@@ -243,8 +249,11 @@ class HODZheng(HOD):
             redshift: float redshift to evalute the first moment if redshift
                 dependent
         Returns:
-            float array of <N>
+            float array of <N_c>
         """
+        if self.sigma <= 0.0:
+            log_mass = numpy.log10(mass)
+            return numpy.where(log_mass > self.log_M_min, 1.0, 0.0)
         return 0.5*(1+special.erf((numpy.log10(mass) - 
                                    self.log_M_min)/self.sigma))
     
@@ -258,10 +267,10 @@ class HODZheng(HOD):
             redshift: float redshift to evalute the first moment if redshift
                 dependent
         Returns:
-            float array of <N>
+            float array of <N_s>
         """
         diff = mass - numpy.power(10, self.log_M_0)
-        return numpy.where(diff >= 0.0,
+        return numpy.where(diff > 0.0,
                            self.central_first_moment(mass)*
                            numpy.power(diff/(10**self.log_M_1p), self.alpha),
                            0.0)
