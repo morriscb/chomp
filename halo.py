@@ -750,10 +750,10 @@ class Halo(object):
             float f_sat
         """
         nu_min = self.mass.nu_min
-        if (self.local_hod.first_moment_zero > -1 and 
-            self.local_hod.first_moment_zero >
+        if (self.local_hod.second_moment_zero > -1 and 
+            self.local_hod.second_moment_zero >
             numpy.exp(self.mass.ln_mass_min)):
-            nu_min = self.mass.nu(self.local_hod.first_moment_zero)
+            nu_min = self.mass.nu(self.local_hod.second_moment_zero)
             
         norm = 1.0
         if self.local_hod._safe_norm != -1:
