@@ -207,7 +207,8 @@ class SingleEpoch(object):
             pressure = numpy.empty(len(redshift))
             for idx, z in enumerate(redshift):
                 pressure[idx] = 3.0*integrate.romberg(
-                    dpressuredz, 0, z, vec_func=True)
+                    dpressuredz, 0, z, vec_func=True,
+                    divmax=defaults.default_precision["divmax"])
         except TypeError:
             pressure = 3.0*integrate.romberg(
                 dpressuredz, 0, redshift, vec_func=True,

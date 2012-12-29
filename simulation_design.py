@@ -135,7 +135,7 @@ class SimulationDesign(object):
         else:
             values = self._input_object.__getattribute__(self._method)(
                               self._ind_var)
-        return values.flatten()
+        return pandas.Series(values.flatten())
     
     def run_design(self):
         """
@@ -149,7 +149,9 @@ class SimulationDesign(object):
         """
         if not self._initialized_design:
             self._init_design_points()
+        print self.points.transpose()
         self.design_values = self.points.transpose().apply(self._run_des_point)
+        print self.design_values
         return self.design_values
     
     def set_cosmology(self, cosmo_dict=None, values=None):
