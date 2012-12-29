@@ -34,21 +34,21 @@ class Correlation(object):
     """
     Bass class for correlation functions.
 
-    Given a maximum and minimum angular extent in radians, two window functions
+    Given a maximum and minimum angular extent in degrees, two window functions
     from kernel.py, dictionaries defining the cosmology and halo properties,
     an input HOD from hod.py, and a requested power spectrum type, 
     returns the predicted correlation function.
     
     Derived classes should return an array of the projected variable (in this
-    case theta in radians) and return the value of the correlation w.
+    case theta in degrees) and return the value of the correlation w.
 
     Attributes:
-        theta_min: minimum angular extent in radians
-        theta_max: maximum angular extent in radians
+        theta_min_deg: minimum angular extent in degrees
+        theta_max_deg: maximum angular extent in degrees
         input_kernel: Kernel object from kernel.py
         input_halo: Halo object from halo.py
         input_hod: HOD object from hod.py
-        powSpec: string defining a power spectrum
+        power_spec: string defining a power spectrum
         
         theta_array: array of theta values for computed correlation function
         wtheta_array: array of computed correlation values at theta_array values
@@ -79,8 +79,6 @@ class Correlation(object):
             self.log_theta_max = numpy.log10(theta_min_deg*deg_to_rad)
             self.theta_array = numpy.array([theta__deg_min*deg_to_rad])
         self.wtheta_array = numpy.zeros(self.theta_array.size)
-
-        # Hard coded, but we shouldn't expect halos outside of this range.
 
         self.kernel = input_kernel
 

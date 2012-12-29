@@ -102,9 +102,10 @@ class SimulationDesign(object):
         Internal function for setting up the Latin Hypercube Sampling
         in the paramerter space specified.
         """
-        self.params.append(pandas.DataFrame((self.params.xs('max') -
-                                             self.params.xs('min')),
-                                            columns=["diff"]).transpose())
+        self.params = self.params.append(pandas.DataFrame((self.params.xs('max') -
+                                                           self.params.xs('min')),
+                                                          columns=['diff']).transpose())
+        print self.params
         points = pandas.DataFrame(random_lhs(self.n_design,
                                              self.params.shape[1]),
                                   columns=self.params.columns)
@@ -123,14 +124,14 @@ class SimulationDesign(object):
             The output of the CHOMP model, flattened to a 1-d array.
         """
         if self._vary_cosmology:
-            self.set_cosmology(point)
+            self.set_cosmology(self._default_param_dict['cosmo_dict'], point)
         if self._vary_halo:
             self.set_halo(point)
         if self._vary_hod:
             self.set_hod(self._default_param_dict['hod_dict'], point)
         values = 0
         if self._ind_var is None:
-            values = self._input_object.__getattribute__(self._method)
+            values = self._input_object.__getattribute__(self._method)()
         else:
             values = self._input_object.__getattribute__(self._method)(
                               self._ind_var)
@@ -151,7 +152,7 @@ class SimulationDesign(object):
         self.design_values = self.points.transpose().apply(self._run_des_point)
         return self.design_values
     
-    def set_cosmology(self, values):
+    def set_cosmology(self, cosmo_dict=None, values=None):
         """
         Template setter for the cosmology dependent object. Currently defaults
         to set every varaible independently. Users are encouraged to declare
@@ -162,9 +163,11 @@ class SimulationDesign(object):
             values: a dictionary or pandas Series object declaring paramerters
                 to vary as keys with the requested values.
         """
+        if cosmo_dict is None:
+            cosmo_dict = self._default_param_dict['cosmo_dict']
         for key in self.params.keys():
             try:
-                self._default_param_dict['cosmo_dict'][key] = values[key]
+                cosmo_dict[key] = values[key]
             except KeyError:
                 continue
         self._input_object.set_cosmology(cosmo_dict)
@@ -223,7 +226,7 @@ class SimulationDesignFlatUniverse(SimulationDesign):
                                   n_design, independent_var, default_param_dict)
     
     def set_cosmology(self, cosmo_dict, values):
-        for idx, key in enumerate(params.keys()):
+        for idx, key in enumerate(self.params.keys()):
             try:
                 cosmo_dict[key] = values[idx]
             except KeyError:
