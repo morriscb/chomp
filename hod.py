@@ -1,3 +1,4 @@
+import defaults
 import numpy
 from scipy import special
 
@@ -225,10 +226,16 @@ class HODZheng(HOD):
         ### These variables are useful for focusing the halo model mass integral
         ### on non-zero ranges of the integrand. Default -1 forces code to 
         ### integrate over the whole mass range.
-        self.first_moment_zero = numpy.power(10, self.log_M_min - 
-                                             6*self.sigma)
-        self.second_moment_zero = 10**self.log_M_0
-        self._safe_norm = 10**(self.log_M_min + 1.0*self.sigma)
+        self.first_moment_zero = numpy.power(
+            10.0, self.log_M_min +      
+            self.sigma*special.erfinv(
+                2.*defaults.default_precision['halo_precision'] - 1.0))
+        # self.first_moment_zero = numpy.power(10, self.log_M_min - 
+        #                                      6*self.sigma)
+        self.second_moment_zero = 10.0**self.log_M_0
+        if self.second_moment_zero < self.first_moment_zero:
+            self.secon_moment_zero = self.first_moment_zero
+        self._safe_norm = 10.0**(self.log_M_min + 1.0*self.sigma)
         
         
     def first_moment(self, mass, z=None):

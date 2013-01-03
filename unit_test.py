@@ -19,9 +19,9 @@ defaults.default_precision = {
     "corr_precision":1.48e-6,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
-    "dNdz_precision": 1.48e-6,
+    "dNdz_precision": 1.48e-8,
     "halo_npoints": 50,
-    "halo_precision": 1.48e-4, ### This value is mostly due to integrations over
+    "halo_precision": 1.48e-5, ### This value is mostly due to integrations over
                                ### the HOD. If you are intrested in dark matter
                                ### only, this precision can be increased with
                                ### no major hit to speed.
@@ -34,7 +34,7 @@ defaults.default_precision = {
     "kernel_bessel_limit": 8, ### Defines how many zeros before cutting off
                               ### the Bessel function in kernel.py
     "mass_npoints": 50,
-    "mass_precision": 1.48e-8,
+    "mass_precision": 1.48e-6,
     "window_npoints": 50,
     "window_precision": 1.48e-6,
     "global_precision": 1.48e-32, ### Since the code has large range of values
@@ -49,7 +49,7 @@ p_dict = {
     "corr":5,
     "cosmo":7,
     "dndz":7,
-    "halo":3,
+    "halo":4,
     "kernel":5,
     "mass":7,
     "window":5
@@ -341,12 +341,12 @@ class HaloTest(unittest.TestCase):
         self.k_array = numpy.logspace(-3, 2, 4)
         
     def test_halo(self):
-        power_mm_list = [8.3444,  9.5378,
-                         5.5983, -2.8050]
-        power_gm_list = [8.2315,  9.4692,
-                         5.1809, -0.7376]
-        power_gg_list = [8.1378,  9.4067,
-                         4.5788, -0.5103]
+        power_mm_list = [8.34442,  9.53808,
+                         5.59839, -2.80500]
+        power_gm_list = [8.23158,  9.46939,
+                         5.18083, -0.73781]
+        power_gg_list = [8.13780,  9.40684,
+                         4.5788,  -0.51044]
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
                                    power_mm_list[idx], p_dict["halo"])
@@ -354,36 +354,16 @@ class HaloTest(unittest.TestCase):
                                    power_gm_list[idx], p_dict["halo"])
             self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
                                    power_gg_list[idx], p_dict["halo"])
-
-    def test_set_redshift(self):
-        linear_power_list = [7.20478501, 8.51067786,
-                             1.34332833, -8.73288266]
-        power_mm_list = [7.2508,  8.5229,
-                         3.8270, -4.4139]
-        power_gm_list = [7.3391,  8.6247,
-                         3.5360, -2.4749]
-        power_gg_list = [7.4330,  8.7277,
-                         3.1523, -2.0987]
-        self.h.set_redshift(1.0)
-        for idx, k in enumerate(self.k_array):
-            self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
-                                   linear_power_list[idx], p_dict["cosmo"])
-            self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
-                                   power_mm_list[idx], p_dict["halo"])
-            self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
-                                   power_gm_list[idx], p_dict["halo"])
-            self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
-                                   power_gg_list[idx], p_dict["halo"])
-
+            
     def test_set_cosmology(self):
         linear_power_list = [5.16650870,  8.11613036,
                              3.69335247, -5.84391743]
-        power_mm_list = [6.6167,  8.2733,
-                         5.6788, -3.0368]
-        power_gm_list = [5.8928,  7.8907,
-                         4.9346, -1.4935]
-        power_gg_list = [5.2241,  7.5329,
-                         4.1784, -1.3744]
+        power_mm_list = [6.61674,  8.27363,
+                         5.67889, -3.03685]
+        power_gm_list = [5.89280,  7.89096,
+                         4.93468, -1.49355]
+        power_gg_list = [5.22410,  7.53313,
+                         4.17840, -1.37446]
         self.h.set_cosmology(c_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
@@ -396,12 +376,12 @@ class HaloTest(unittest.TestCase):
                                    power_gg_list[idx], p_dict["halo"])
 
     def test_set_halo(self):
-        power_mm_list = [8.4195,  9.5610,
-                         5.7676, -2.8643]
-        power_gm_list = [8.2584,  9.4594,
-                         5.3600, -0.7565]
-        power_gg_list = [8.1227,  9.3665,
-                         4.8072, -0.4581]
+        power_mm_list = [8.41958,  9.56136,
+                         5.76760, -2.86430]
+        power_gm_list = [8.25847,  9.45965,
+                         5.36000, -0.75668]
+        power_gg_list = [8.12278,  9.36674,
+                         4.80720, -0.45823]
         self.h.set_halo(h_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
@@ -412,12 +392,32 @@ class HaloTest(unittest.TestCase):
                                    power_gg_list[idx], p_dict["halo"])
 
     def test_set_hod(self):
-        power_gm_list = [8.8787, 10.0323,
-                         6.6599,  1.1908]
-        power_gg_list = [9.2610, 10.4801,
-                         6.2555, -0.1523]
+        power_gm_list = [8.87899, 10.03277,
+                         6.66003,  1.19069]
+        power_gg_list = [9.26146, 10.48081,
+                         6.25604, -0.15185]
         self.h.set_hod(hod_dict_2)
         for idx, k in enumerate(self.k_array):
+            self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
+                                   power_gm_list[idx], p_dict["halo"])
+            self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
+                                   power_gg_list[idx], p_dict["halo"])
+            
+    def test_set_redshift(self):
+        linear_power_list = [7.20478501, 8.51067786,
+                             1.34332833, -8.73288266]
+        power_mm_list = [7.25080,  8.52330,
+                         3.82709, -4.41395]
+        power_gm_list = [7.33920,  8.62475,
+                         3.53600, -2.47495]
+        power_gg_list = [7.43307,  8.72776,
+                         3.15151, -2.09887]
+        self.h.set_redshift(1.0)
+        for idx, k in enumerate(self.k_array):
+            self.assertAlmostEqual(numpy.log(self.h.linear_power(k)),
+                                   linear_power_list[idx], p_dict["cosmo"])
+            self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
+                                   power_mm_list[idx], p_dict["halo"])
             self.assertAlmostEqual(numpy.log(self.h.power_gm(k)),
                                    power_gm_list[idx], p_dict["halo"])
             self.assertAlmostEqual(numpy.log(self.h.power_gg(k)),
@@ -598,12 +598,11 @@ class CorrelationTest(unittest.TestCase):
     def test_set_hod(self):
         self.corr.set_hod(hod_dict_2)
         self.corr.set_power_spectrum('power_gm')
-        corr_list = [-1.867016, -3.489033, -6.349981,  -8.408213]
+        corr_list = [-1.866602, -3.488535, -6.347507, -8.393573]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
                 corr_list[idx], p_dict["corr"])
-
 
 if __name__ == "__main__":
     print "*******************************"

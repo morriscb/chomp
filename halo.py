@@ -680,7 +680,7 @@ class Halo(object):
             else:
                 norm = 1.0
             
-        self.bias = integrate.romberg(
+        bias = integrate.romberg(
             self._bias_integrand, numpy.log(nu_min), 
             numpy.log(self.mass.nu_max), 
             args=(norm,), vec_func=True,
@@ -688,7 +688,7 @@ class Halo(object):
             rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        self.bias = self.bias/(norm*self.n_bar_over_rho_bar)
+        self.bias = bias/(norm*self.n_bar_over_rho_bar)
         return self.bias
 
     def _bias_integrand(self, ln_nu, norm=1.0):
@@ -721,7 +721,7 @@ class Halo(object):
             else:
                 norm = 1.0
 
-        self.m_eff = integrate.romberg(
+        m_eff = integrate.romberg(
             self._m_eff_integrand, numpy.log(nu_min), 
             numpy.log(self.mass.nu_max), 
             args=(norm,), vec_func=True,
@@ -729,7 +729,7 @@ class Halo(object):
             rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        self.m_eff = self.m_eff/(norm*self.n_bar_over_rho_bar)
+        self.m_eff = m_eff/(norm*self.n_bar_over_rho_bar)
 
         return self.m_eff
 
@@ -764,7 +764,7 @@ class Halo(object):
             else:
                 norm = 1.0
             
-        self.f_sat = integrate.romberg(
+        f_sat = integrate.romberg(
             self._f_sat_integrand, numpy.log(nu_min), 
             numpy.log(self.mass.nu_max),
             args=(norm,), vec_func=True,
@@ -772,7 +772,7 @@ class Halo(object):
             rtol=defaults.default_precision["halo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        self.f_sat = self.f_sat/(norm*self.n_bar_over_rho_bar)
+        self.f_sat = f_sat/(norm*self.n_bar_over_rho_bar)
 
         return self.f_sat
 
@@ -1070,6 +1070,8 @@ class HaloExclusion(Halo):
         
 class HaloFit(Halo):
     """
+    CURRENTLY BROKEN AS OF 1/2/13
+    
     HALOFIT class with functional form of the non-linear power specrum from
     Smith2003 with new fit parameters from Takahashi2012. The HALOFIT method 
     derives only the non-linear power spectrum, other power spectra (gg and gm)
