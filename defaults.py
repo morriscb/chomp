@@ -23,7 +23,7 @@ default_halo_dict = {
     "st_little_a": 0.707,
     "c0": 9.,
     "beta": -0.13,
-    "alpha": -1 ### Halo mass profile slope. [NFW = -1]
+    "alpha": -1.0 ### Halo mass profile slope. [NFW = -1]
     }
 
 ### Default values for the ZhengHOD class (other models will fail when using

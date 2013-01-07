@@ -35,7 +35,7 @@ class Covariance(object):
         bins_per_decade: int log spacing of the theta bins
         survey_area_deg2: float value of the survey area it square degrees
         n_pairs: float number of pairs to compute the poisson term
-        variance: float variance per pair
+        variance: float variance per pair (e.g. shape noise)
         nongaussian_cov: bool, toggles nonguassian covariance
         input_halo: HaloTrispectrum object from halo.py
 
@@ -237,7 +237,7 @@ class Covariance(object):
         Returns:
             float poisson covariance
         """
-        return self.area*self.variance/(
+        return self.variance/(
             self.n_pairs*2.0*numpy.pi*delta*deg_to_rad)
         
     def covariance_G(self, theta_a, theta_b):
@@ -510,31 +510,37 @@ class CovarianceMulti(Covariance):
         n_covars = 0
         for idx1 in xrange(len(correlation_object_list)):
             tmp_list = []
-            for idx2 in xrange(idx, len(correlation_object_list)):
+            for idx2 in xrange(idx1, len(correlation_object_list)):
                 tmp_list.append(Covariance(
                     correlation_object_list[idx1],
                     correlation_object_list[idx2], bins_per_decade,
-                    survey_area_deg2, n_pairs, variace, nongaussian_cov,
+                    survey_area_deg2, n_pairs, variance, nongaussian_cov,
                     input_halo_trispectrum))
+                tmp_list.append
                 n_covars += 1
             self.covariance_list.append(tmp_list)
-        self.theta_bins = len(self.covariance_list[0].annular_bins)
+        self.theta_bins = len(self.covariance_list[0][0].annular_bins)
         n_corrs = 1
-        self.wcovar = numpy.empty((theta_bins*n_covars,
-                                       theta_bins*n_covars))
+        self.wcovar = numpy.empty((
+            self.theta_bins*len(correlation_object_list),
+            self.theta_bins*len(correlation_object_list)))
         
     def get_covariance(self):
         """
         Wrapper class for looping over each of the different covariance blocks.
         """
-        for idx1, row in self.covariance_list:
-            for idx2, covar in row:
-                covar.get_covariance()
-                self.wcovar[self.theta_bins*idx1:self.theta_bins(idx1+idx2),
-                            self.theta_bins*idx1:self.theta_bins(idx1+idx2)]
-                self.wcovar[self.theta_bins(idx1+idx2):self.theta_bins*idx1,
-                            self.theta_bins(idx1+idx2):self.theta_bins*idx1:]
-                
+        for idx1, row in enumerate(self.covariance_list):
+            for idx2, cov in enumerate(row):
+                print idx1, idx2
+                cov.get_covariance()
+                print cov.covar
+                self.wcovar[idx1*self.theta_bins:(idx1+1)*self.theta_bins,
+                            (idx1+idx2)*self.theta_bins:(idx1+idx2+1)*
+                            self.theta_bins] = cov.covar
+                self.wcovar[(idx1+idx2)*self.theta_bins:(idx1+idx2+1)*
+                            self.theta_bins, idx1*self.theta_bins:(idx1+1)*
+                            self.theta_bins] = cov.covar
+        print self.wcovar
                 
 class CovarianceFourier(object):
     

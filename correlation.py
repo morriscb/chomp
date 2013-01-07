@@ -426,13 +426,15 @@ class Correlation3d(Correlation):
                 xi_out[idx] = integrate.romberg(
                     self._correlation_integrand,
                     ln_kmin, ln_kmax, args=(value,), vec_func=True,
-                    tol=defaults.default_precision["corr_precision"],
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
                     divmax=defaults.default_precision["divmax"])
         except TypeError:
             xi_out = integrate.romberg(
                     self._correlation_integrand,
                     ln_kmin, ln_kmax, args=(r,), vec_func=True,
-                    tol=defaults.default_precision["corr_precision"],
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
                     divmax=defaults.default_precision["divmax"])
         return xi_out
 

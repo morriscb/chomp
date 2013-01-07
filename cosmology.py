@@ -92,8 +92,11 @@ class SingleEpoch(object):
         self._initialized_growth_spline = False
 
         if self._w0 != -1.0 or self._wa != 0.0:
-            a_array = numpy.logspace(-4, 0,
-                defaults.default_precision["cosmo_npoints"])
+            # a_array = numpy.logspace(-4, 0,
+            #     defaults.default_precision["cosmo_npoints"])
+            a_array = numpy.logspace(
+                numpy.log10(defaults.default_precision['cosmo_precision']),
+                0, defaults.default_precision["cosmo_npoints"])
             self._de_pressure_array = self._de_pressure(1/a_array - 1.0)
             self._de_pressure_spline = InterpolatedUnivariateSpline(
                 numpy.log(a_array), self._de_pressure_array)
@@ -104,21 +107,9 @@ class SingleEpoch(object):
             rtol=defaults.default_precision["cosmo_precision"],
             divmax=defaults.default_precision["divmax"])
 
-        # self.growth_norm = integrate.romberg(
-        #     self._growth_integrand, 1e-16, 1.0, vec_func=True,
-        #     tol=defaults.default_precision["global_precision"],
-        #     rtol=defaults.default_precision["cosmo_precision"],
-        #     divmax=defaults.default_precision["divmax"])
-        # self.growth_norm *= 2.5*self._omega_m0*numpy.sqrt(self.E0(0.0))
         self.growth_norm = self.growth_factor_eval(1.0)
 
         a = 1.0 / (1.0 + self._redshift)
-        # growth = integrate.romberg(
-        #     self._growth_integrand, 1e-16, a, vec_func=True,
-        #     tol=defaults.default_precision["global_precision"],
-        #     rtol=defaults.default_precision["cosmo_precision"],
-        #     divmax=defaults.default_precision["divmax"])
-        # growth *= 2.5*self._omega_m0*numpy.sqrt(self.E0(self._redshift))
         growth = self.growth_factor_eval(a)
         self._growth = growth / self.growth_norm
 
@@ -208,6 +199,8 @@ class SingleEpoch(object):
             for idx, z in enumerate(redshift):
                 pressure[idx] = 3.0*integrate.romberg(
                     dpressuredz, 0, z, vec_func=True,
+                    tol=defaults.default_precision['global_precision'],
+                    rtol=defaults.default_precision['cosmo_precision'],
                     divmax=defaults.default_precision["divmax"])
         except TypeError:
             pressure = 3.0*integrate.romberg(
