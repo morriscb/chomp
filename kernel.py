@@ -793,10 +793,10 @@ class KernelCovariance(Kernel):
     Args:
         ktheta_min: float k*theta minimum value for the kernel
         ktheta_min: float k*theta maximum value for the kernel
-        window_function_a1: first window function for kernel
-        window_function_a2: second window function for kernel
-        window_function_b1: first window function for kernel
-        window_function_b2: second window function for kernel
+        window_function_a1: first window function for kernel a
+        window_function_a2: second window function for kernel a
+        window_function_b1: first window function for kernel b
+        window_function_b2: second window function for kernel b
         cosmo_multi_epoch: MultiEpoch cosmology object from cosmology.py
         force_quad: If the romberg integration is giving too much numerical
             noise at large ktheta set this flag to True to use quad integration 
@@ -989,6 +989,16 @@ class KernelCovariance(Kernel):
         return (self.window_function_b1.window_function(chi)*
                 self.window_function_b2.window_function(chi)*
                 D_z*D_z/(chi*chi))
+
+    def _kernel_G_ab_integrand(self, chi):
+        """
+        Assumes the 2 'a' window functions are equal, as well as the 2 'b' windows.
+        """
+        D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
+        
+        return (self.window_function_a1.window_function(chi)*
+                self.window_function_b1.window_function(chi)*
+                D_z*D_z/(chi*chi))    
         
     def _kernel_NG_integrand(self, chi, ktheta_a, ktheta_b, norm=1.0):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))

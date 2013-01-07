@@ -143,7 +143,7 @@ corr.write('test_corr.ascii')
 ### survey parameters (area, number of pairs). We do this for a DLS like survey.
 cov = covariance.Covariance(corr, corr, bins_per_decade=5.0,
                             survey_area_deg2=20,
-                            n_pairs=1.0e6*1.0e6, variance=1.0,
+                            n_a=1.0e6, n_b=1.0e6, variance=1.0,
                             nongaussian_cov=False, power_spec='power_gm')
 ### Now we compute the covariance parameters for the gaussian covariance and
 ### write the results.

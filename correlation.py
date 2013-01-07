@@ -97,6 +97,19 @@ class Correlation(object):
             print "WARNING: Invalid input for power spectra variable,"
             print "\t setting to linear_power"
             self.power_spec = self.halo.__getattribute__('linear_power')
+
+    def __eq__(self, other):
+        """
+        Override the equality operator so we can check if two
+        correlation objects are identical.
+        """
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
             
     def get_redshift(self):
         """
