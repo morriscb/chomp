@@ -991,12 +991,16 @@ class KernelCovariance(Kernel):
                 D_z*D_z/(chi*chi))
 
     def _kernel_G_ab_integrand(self, chi):
-        """
-        Assumes the 2 'a' window functions are equal, as well as the 2 'b' windows.
-        """
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
         
         return (self.window_function_a1.window_function(chi)*
+                self.window_function_b2.window_function(chi)*
+                D_z*D_z/(chi*chi))    
+
+    def _kernel_G_ba_integrand(self, chi):
+        D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
+        
+        return (self.window_function_a2.window_function(chi)*
                 self.window_function_b1.window_function(chi)*
                 D_z*D_z/(chi*chi))    
         

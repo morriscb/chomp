@@ -34,8 +34,8 @@ class Covariance(object):
         input_correlation_b: A Correlation object from correlation.py
         bins_per_decade: int log spacing of the theta bins
         survey_area_deg2: float value of the survey area it square degrees
-        n_a: float angular number density of sources a
-        n_b: float angular number density of sources b
+        n_a: float number of pairs in correlation a
+        n_b: float number of pairs in correlation b
         variance: float variance per pair (e.g. shape noise)
         nongaussian_cov: bool, toggles nonguassian covariance
         input_halo: HaloTrispectrum object from halo.py
@@ -72,7 +72,7 @@ class Covariance(object):
             unit_double += 1.0
             theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
 
-        self.area = survey_area_deg2*deg2_to_strad
+        self.area = survey_area_deg2 * deg2_to_strad
         self.n_a = n_a
         self.n_b = n_b
         self.n_pairs = n_a * n_b
@@ -304,7 +304,15 @@ class Covariance(object):
         if self.matching_corrs:
             two_point_term2 = two_point_term1
         else:
-            two_point_term2 = self._projected_halo_ab(K) ** 2
+            Pab = self._projected_halo_ab(K)
+            Pba = self._projected_halo_ba(K)
+            # FIXME: Poisson terms need new inputs to Covariance giving 
+            #        the number of sources in a_1, a_2, b_1, b_2 samples separately.
+            # if self.kernel.window_function_a1 == self.kernel.window_function_b2:
+            #     Pab += 1. / (self.n_a1 * self.n_b2)
+            # if self.kernel.window_function_a2 == self.kernel.window_function_b1:
+            #     Pab += 1. / (self.n_a2 * self.n_b1)
+            two_point_term2 = Pab * Pba
         two_point_terms = two_point_term1 + two_point_term2
         return (dK*K*norm*two_point_terms*special.j0(K*theta_a)*special.j0(K*theta_b))
         
@@ -329,6 +337,7 @@ class Covariance(object):
         _halo_a_array = numpy.empty(self._ln_K_array.shape)
         _halo_b_array = numpy.empty(self._ln_K_array.shape)
         _halo_ab_array = numpy.empty(self._ln_K_array.shape)        
+        _halo_ba_array = numpy.empty(self._ln_K_array.shape)        
         
         for idx, ln_K in enumerate(self._ln_K_array):
             chi_min = numpy.exp(ln_K)/defaults.default_limits['k_max']
@@ -373,6 +382,12 @@ class Covariance(object):
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])/norm
+            _halo_ba_array[idx] = integrate.romberg(
+                self._halo_ba_integrand, chi_min, chi_max,
+                args=(ln_K, norm), vec_func=True,
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["corr_precision"],
+                divmax=defaults.default_precision["divmax"])/norm
             
         self._halo_a_spline = InterpolatedUnivariateSpline(
             self._ln_K_array, _halo_a_array)
@@ -380,6 +395,8 @@ class Covariance(object):
             self._ln_K_array, _halo_b_array)
         self._halo_ab_spline = InterpolatedUnivariateSpline(
             self._ln_K_array, _halo_ab_array)
+        self._halo_ba_spline = InterpolatedUnivariateSpline(
+            self._ln_K_array, _halo_ba_array)
         
         self._initialized_halo_splines = True
     
@@ -404,7 +421,8 @@ class Covariance(object):
     def _halo_ab_integrand(self, chi, ln_K, norm=1.0):
         """
         Integrand for the projected power spectrum of the cross-correlation 
-        of a and b samples.
+        of a and b samples using the first window of the a sample and
+        second window of the b sample.
         """
         K = numpy.exp(ln_K)
         Pa = self.halo_a.__getattribute__(self.power_spec)(K/chi)
@@ -413,6 +431,20 @@ class Covariance(object):
         power = numpy.sqrt(Pa * Pb)
         return (norm*power*
                 self.kernel._kernel_G_ab_integrand(chi))
+
+    def _halo_ba_integrand(self, chi, ln_K, norm=1.0):
+        """
+        Integrand for the projected power spectrum of the cross-correlation 
+        of a and b samples using the second window of the a sample and
+        first window of the b sample.
+        """
+        K = numpy.exp(ln_K)
+        Pa = self.halo_a.__getattribute__(self.power_spec)(K/chi)
+        Pb = self.halo_b.__getattribute__(self.power_spec)(K/chi)
+        # For lack of a cross-power implementation in Halo class, use the geometric mean
+        power = numpy.sqrt(Pa * Pb)
+        return (norm*power*
+                self.kernel._kernel_G_ba_integrand(chi))
         
     def covariance_NG(self, theta_a_rad, theta_b_rad):
         """
