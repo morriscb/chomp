@@ -342,12 +342,13 @@ class Covariance(object):
         for idx, ln_K in enumerate(self._ln_K_array):
             chi_min = numpy.exp(ln_K)/defaults.default_limits['k_max']
             if chi_min < self._chi_min_a:
-                chi_min = self._chi_min_a
+                chi_min = self._chi_min_a   
             chi_max = numpy.exp(ln_K)/defaults.default_limits['k_min']
             if chi_max > self._chi_max_a:
                 chi_max = self._chi_max_a
             
-            norm = 1.0/self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0)
+            norm_int = self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0)
+            norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
             _halo_a_array[idx] = integrate.romberg(
                 self._halo_a_integrand, chi_min, chi_max,
                 args=(ln_K, norm), vec_func=True,
@@ -361,7 +362,8 @@ class Covariance(object):
             if chi_max > self._chi_max_b:
                 chi_max = self._chi_max_b  
             
-            norm = 1.0/self._halo_b_integrand(chi_peak_b, ln_K, norm=1.0)
+            norm_int = self._halo_b_integrand(chi_peak_b, ln_K, norm=1.0)
+            norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
             _halo_b_array[idx] = integrate.romberg(
                 self._halo_b_integrand, chi_min, chi_max,
                 args=(ln_K, norm), vec_func=True,
@@ -373,9 +375,10 @@ class Covariance(object):
                 chi_min = self.chi_min_a
             if chi_max > self._chi_max_a:
                 chi_max = self._chi_max_a                
-            norm = 1.0/numpy.sqrt(
+            norm_int = numpy.sqrt(
                 self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0) *
                 self._halo_b_integrand(chi_peak_b, ln_K, norm=1.0))
+            norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
             _halo_ab_array[idx] = integrate.romberg(
                 self._halo_ab_integrand, chi_min, chi_max,
                 args=(ln_K, norm), vec_func=True,
