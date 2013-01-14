@@ -596,7 +596,7 @@ class Kernel(object):
         """
         Return the internal dictionary defining a cosmology
         """
-        self.cosmo.get_cosmology()
+        return self.cosmo.get_cosmology()
 
     def set_cosmology(self, cosmo_dict):
         """

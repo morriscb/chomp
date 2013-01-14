@@ -140,7 +140,7 @@ class SimulationDesign(object):
     def run_design(self):
         """
         Function for running the design and initializing the Latin Hypercube
-        Sampling if nessasary. Selectivly sets the which sub parameters 
+        Sampling if necessary. Selectivly sets the which sub parameters 
         (cosmology, halo, hod) will be set.
         
         Returns:
@@ -157,7 +157,7 @@ class SimulationDesign(object):
     def set_cosmology(self, cosmo_dict=None, values=None):
         """
         Template setter for the cosmology dependent object. Currently defaults
-        to set every varaible independently. Users are encouraged to declare
+        to set every variable independently. Users are encouraged to declare
         inherited classes of SimulationDesign to declare designs with
         interdependent variables (such as flat cosmologies)
         
