@@ -162,7 +162,7 @@ class SimulationDesign(object):
         interdependent variables (such as flat cosmologies)
         
         Args:
-            values: a dictionary or pandas Series object declaring paramerters
+            values: a dictionary or pandas Series object declaring parameters
                 to vary as keys with the requested values.
         """
         if cosmo_dict is None:
@@ -182,7 +182,7 @@ class SimulationDesign(object):
         interdependent variables (such as flat cosmologies)
         
         Args:
-            values: a dictionary or pandas Series object declaring paramerters
+            values: a dictionary or pandas Series object declaring parameters
                 to vary as keys with the requested values.
         """
         for key in self.params.keys():
@@ -200,7 +200,7 @@ class SimulationDesign(object):
         interdependent variables (such as flat cosmologies)
         
         Args:
-            values: a dictionary or pandas Series object declaring paramerters
+            values: a dictionary or pandas Series object declaring parameters
                 to vary as keys with the requested values.
         """
         for key in self.params.keys():
@@ -226,13 +226,40 @@ class SimulationDesignFlatUniverse(SimulationDesign):
                  independent_var=None, default_param_dict=None):
         SimulationDesign.__init__(self, input_chomp_object, method_name, params,
                                   n_design, independent_var, default_param_dict)
+        self.set_cosmology(self._default_param_dict['cosmo_dict'],
+                           self.params.xs('center'))        
     
     def set_cosmology(self, cosmo_dict, values):
         for idx, key in enumerate(self.params.keys()):
             try:
-                cosmo_dict[key] = values[idx]
+                cosmo_dict[key] = values[key]
             except KeyError:
                 continue
+        cosmo_dict['omega_l0'] = (1.0 - cosmo_dict['omega_m0'] -
+                                  cosmo_dict['omega_r0'])
+        self._input_object.set_cosmology(cosmo_dict)
+
+
+class SimulationDesignHubbleNormalizedDensities(SimulationDesign):
+    """
+    Use parameters omega_m = Omega_m h^2 
+                   omega_b = Omega_b h^2
+    """
+    def __init__(self, input_chomp_object, method_name, params, n_design=100,
+                 independent_var=None, default_param_dict=None):
+        SimulationDesign.__init__(self, input_chomp_object, method_name, params,
+                                  n_design, independent_var, default_param_dict)
+        self.set_cosmology(self._default_param_dict['cosmo_dict'],
+                           self.params.xs('center'))
+    
+    def set_cosmology(self, cosmo_dict, values):
+        for idx, key in enumerate(self.params.keys()):
+            try:
+                cosmo_dict[key] = values[key]
+            except KeyError:
+                continue
+        cosmo_dict['omega_m0'] = values['omega_mh2'] / cosmo_dict['h'] ** 2
+        cosmo_dict['omega_b0'] = values['omega_bh2'] / cosmo_dict['h'] ** 2                
         cosmo_dict['omega_l0'] = (1.0 - cosmo_dict['omega_m0'] -
                                   cosmo_dict['omega_r0'])
         self._input_object.set_cosmology(cosmo_dict)

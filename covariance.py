@@ -73,10 +73,18 @@ class Covariance(object):
             theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
 
         self.area = survey_area_deg2 * deg2_to_strad
-        self.n_a = n_a
-        self.n_b = n_b
-        self.n_pairs = n_a * n_b
-        self.variance = variance
+        try:
+            self.n_a1 = n_a[0]
+            self.n_a2 = n_a[1]
+        except TypeError, IndexError:
+            self.n_a1 = n_a
+            self.n_a2 = n_a
+        try:
+            self.n_b1 = n_b[0]
+            self.n_b2 = n_b[1]
+        except TypeError, IndexError:
+            self.n_b1 = n_b
+            self.n_b2 = n_b
         self.nongaussian_cov = nongaussian_cov
 
         self.kernel = kernel.KernelCovariance(
@@ -89,6 +97,20 @@ class Covariance(object):
             input_correlation_b.kernel.window_function_a,
             input_correlation_b.kernel.window_function_b,
             input_correlation_a.kernel.cosmo, force_quad=False)
+
+        self.equal_windows = [
+            self.kernel.window_function_a1 == self.kernel.window_function_a2,
+            self.kernel.window_function_b1 == self.kernel.window_function_b2,
+            self.kernel.window_function_a1 == self.kernel.window_function_b2,
+            self.kernel.window_function_a2 == self.kernel.window_function_b1
+        ]
+        self.n_pairs = [
+            self.n_a1,
+            self.n_b1,
+            self.n_a1,
+            self.n_a2,
+        ]
+        self.variance = variance        
 
         self._z_min_a = numpy.max([self.kernel.window_function_a1.z_min,
                                    self.kernel.window_function_a2.z_min])
@@ -202,6 +224,9 @@ class Covariance(object):
         self._initialized_halo_splines = False
         self._initialized_halo_splines = False
         return None
+
+    def get_cosmology(self):
+        return self.kernel.get_cosmology()
     
     def get_covariance(self):
         """
@@ -234,17 +259,17 @@ class Covariance(object):
         Returns:
             float value of the covariance
         """
-        cov_P = 0.0
+        # cov_P = 0.0
         theta_a = annular_bin_a.center*deg_to_rad
         theta_b = annular_bin_b.center*deg_to_rad
-        if annular_bin_a == annular_bin_b:
-            cov_P = self.covariance_P(annular_bin_a.delta)
-        res = (cov_P + self.covariance_G(theta_a, theta_b))
+        # if annular_bin_a == annular_bin_b:
+        #     cov_P = self.covariance_P(annular_bin_a.delta, self.n_pairs)
+        res = self.covariance_G(theta_a, theta_b, annular_bin_a.delta)
         if self.nongaussian_cov:
             res += self.covariance_NG(theta_a, theta_b)
         return res
     
-    def covariance_P(self, delta):
+    def covariance_P(self, delta, window_pair=0):
         """
         Poisson covariance term. Computes the pure poisson term using the input
         survey parameters.
@@ -254,10 +279,14 @@ class Covariance(object):
         Returns:
             float poisson covariance
         """
-        return self.variance/(
-            self.n_pairs*2.0*numpy.pi*delta*deg_to_rad)
+        if self.equal_windows[window_pair]:
+            n_pairs = self.n_pairs[window_pair] / 2.0
+            return self.variance * self.area/(
+                n_pairs*2.0*numpy.pi*delta*deg_to_rad)
+        else:
+            return 0.0
         
-    def covariance_G(self, theta_a, theta_b):
+    def covariance_G(self, theta_a, theta_b, delta):
         """
         Gaussian error term of the covariance given input theta bins
         
@@ -279,17 +308,17 @@ class Covariance(object):
         elif ln_K_max <= self._ln_K_min:
             return 0.0
         
-        norm = 1.0/self._covariance_G_integrand(0.0, 0.0, 0.0, 1.0)
+        norm = 1.0/self._covariance_G_integrand(0.0, 0.0, 0.0, 1.0, 1.0)
         return integrate.romberg(
             self._covariance_G_integrand, self._ln_K_min, ln_K_max,
-            args=(theta_a, theta_b, norm), vec_func=True, 
+            args=(theta_a, theta_b, delta, norm), vec_func=True, 
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["corr_precision"],
             divmax=defaults.default_precision["divmax"])/(
                 norm*self._D_z_a*self._D_z_a*self._D_z_b*self._D_z_b*
-                numpy.pi*self.area)
+                2.*numpy.pi*self.area)
     
-    def _covariance_G_integrand(self, ln_K, theta_a, theta_b, norm=1.0):
+    def _covariance_G_integrand(self, ln_K, theta_a, theta_b, delta, norm=1.0):
         """
         Internal function defining the integrand for the gaussian covariance.
         """
@@ -298,21 +327,24 @@ class Covariance(object):
 
         Pa = self._projected_halo_a(K)
         Pb = self._projected_halo_b(K)
-        two_point_term1 = (Pa + 1. / self.n_a) * (Pb + 1. / self.n_b)        
         if theta_a == theta_b:
-            two_point_term1 -=  1. / self.n_pairs
+            Poiss_a = self.covariance_P(delta, window_pair=0)
+            Poiss_b = self.covariance_P(delta, window_pair=1)
+            two_point_term1 = (Pa + Poiss_a) * (Pb + Poiss_b)
+        else:
+            two_point_term1 = Pa * Pb
+        #
         if self.matching_corrs:
             two_point_term2 = two_point_term1
         else:
             Pab = self._projected_halo_ab(K)
             Pba = self._projected_halo_ba(K)
-            # FIXME: Poisson terms need new inputs to Covariance giving 
-            #        the number of sources in a_1, a_2, b_1, b_2 samples separately.
-            # if self.kernel.window_function_a1 == self.kernel.window_function_b2:
-            #     Pab += 1. / (self.n_a1 * self.n_b2)
-            # if self.kernel.window_function_a2 == self.kernel.window_function_b1:
-            #     Pab += 1. / (self.n_a2 * self.n_b1)
-            two_point_term2 = Pab * Pba
+            if theta_a == theta_b:
+                Poiss_a = self.covariance_P(delta, window_pair=2)
+                Poiss_b = self.covariance_P(delta, window_pair=3)
+                two_point_term2 = (Pab + Poiss_a) * (Pba + Poiss_b)   
+            else:         
+                two_point_term2 = Pab * Pba
         two_point_terms = two_point_term1 + two_point_term2
         return (dK*K*norm*two_point_terms*special.j0(K*theta_a)*special.j0(K*theta_b))
         
