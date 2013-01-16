@@ -57,10 +57,8 @@ class Covariance(object):
         self.corr_a = input_correlation_a
         self.corr_b = input_correlation_b
         if self.corr_a == self.corr_b:
-            self.corr_ab = self.corr_a
             self.matching_corrs = True
         else:
-            self.corr_ab = input_correlation_ab
             self.matching_corrs = False
         
         while theta < numpy.power(10.0, self.log_theta_max):
@@ -104,11 +102,11 @@ class Covariance(object):
             self.kernel.window_function_a1 == self.kernel.window_function_b2,
             self.kernel.window_function_a2 == self.kernel.window_function_b1
         ]
-        self.n_pairs = [
-            self.n_a1,
-            self.n_b1,
-            self.n_a1,
-            self.n_a2,
+        self.density = [
+            self.n_a1/self.area,
+            self.n_a2/self.area,
+            self.n_b1/self.area,
+            self.n_b2/self.area,
         ]
         self.variance = variance        
 
@@ -185,7 +183,10 @@ class Covariance(object):
         """
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
-        return self._halo_b_spline(numpy.log(K))
+        if self.matching_corrs:
+            return self._halo_a_spline(numpy.log(K))
+        else:
+            return self._halo_b_spline(numpy.log(K))
 
     def _projected_halo_ab(self, K):
         """
@@ -259,17 +260,18 @@ class Covariance(object):
         Returns:
             float value of the covariance
         """
-        # cov_P = 0.0
+        cov_P = 0.0
         theta_a = annular_bin_a.center*deg_to_rad
         theta_b = annular_bin_b.center*deg_to_rad
-        # if annular_bin_a == annular_bin_b:
-        #     cov_P = self.covariance_P(annular_bin_a.delta, self.n_pairs)
-        res = self.covariance_G(theta_a, theta_b, annular_bin_a.delta)
+        if annular_bin_a == annular_bin_b and self.matching_corrs:
+            cov_P = self.covariance_P(annular_bin_a.delta)
+        res = self.covariance_G(theta_a, theta_b,
+                                annular_bin_a.delta, annular_bin_b.delta)
         if self.nongaussian_cov:
             res += self.covariance_NG(theta_a, theta_b)
-        return res
+        return res + cov_P
     
-    def covariance_P(self, delta, window_pair=0):
+    def covariance_P(self, delta, window_1=0, window_2=1):
         """
         Poisson covariance term. Computes the pure poisson term using the input
         survey parameters.
@@ -279,14 +281,12 @@ class Covariance(object):
         Returns:
             float poisson covariance
         """
-        if self.equal_windows[window_pair]:
-            n_pairs = self.n_pairs[window_pair] / 2.0
-            return self.variance * self.area/(
-                n_pairs*2.0*numpy.pi*delta*deg_to_rad)
-        else:
-            return 0.0
+        n_pairs = (0.5 * self.density[window_1] * 
+                   self.density[window_2] *
+                   self.area * delta * deg_to_rad)
+        return self.variance * self.variance / n_pairs
         
-    def covariance_G(self, theta_a, theta_b, delta):
+    def covariance_G(self, theta_a, theta_b, delta_a, delta_b):
         """
         Gaussian error term of the covariance given input theta bins
         
@@ -308,16 +308,42 @@ class Covariance(object):
         elif ln_K_max <= self._ln_K_min:
             return 0.0
         
-        norm = 1.0/self._covariance_G_integrand(0.0, 0.0, 0.0, 1.0, 1.0)
+        norm = 1.0/self._covariance_G_J07_integrand(0.0, 0.0, 0.0, 1.0, 1.0)
         return integrate.romberg(
-            self._covariance_G_integrand, self._ln_K_min, ln_K_max,
-            args=(theta_a, theta_b, delta, norm), vec_func=True, 
+            self._covariance_G_J07_integrand, self._ln_K_min, ln_K_max,
+            args=(theta_a, theta_b, delta_a, delta_b, norm), vec_func=True, 
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["corr_precision"],
             divmax=defaults.default_precision["divmax"])/(
-                norm*self._D_z_a*self._D_z_a*self._D_z_b*self._D_z_b*
-                2.*numpy.pi*self.area)
+                norm*2.*numpy.pi*self.area)
     
+    def _covariance_G_J07_integrand(self, ln_K, theta_a, theta_b, delta_a, delta_b,
+                                norm=1.0):
+        """
+        Internal function defining the integrand for the gaussian covariance.
+        Covariance terms are from Joachimi et al. 2007
+        """
+        K = numpy.exp(ln_K)
+        dK = K
+
+        if self.matching_corrs:
+            Pa = self._projected_halo_a(K)/self._D_z_a
+            Pb = self._projected_halo_b(K)/self._D_z_b
+            two_point_term1 = Pa*Pb
+            two_point_term2 = two_point_term1
+        
+            two_point_terms = two_point_term1 + two_point_term2
+            return (dK*K*norm*two_point_terms*
+                    special.j0(K*theta_a)*special.j0(K*theta_b))
+        else:
+            Pab = self._projected_halo_ab(K)
+            two_point_term1 = Pab*Pab
+            two_point_term2 = two_point_term1
+        
+            two_point_terms = two_point_term1 + two_point_term2
+            return (dK*K*norm*two_point_terms*
+                    special.j0(K*theta_a)*special.j0(K*theta_b))
+            
     def _covariance_G_integrand(self, ln_K, theta_a, theta_b, delta, norm=1.0):
         """
         Internal function defining the integrand for the gaussian covariance.
@@ -346,7 +372,8 @@ class Covariance(object):
             else:         
                 two_point_term2 = Pab * Pba
         two_point_terms = two_point_term1 + two_point_term2
-        return (dK*K*norm*two_point_terms*special.j0(K*theta_a)*special.j0(K*theta_b))
+        return (dK*K*norm*two_point_terms*special.j0(K*theta_a)*
+                special.j0(K*theta_b))
         
     def _initialize_halo_splines(self):
         """
@@ -387,51 +414,54 @@ class Covariance(object):
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])/norm
-            chi_min = numpy.exp(ln_K)/defaults.default_limits['k_max']
-            if chi_min < self._chi_min_b:
-                chi_min = self._chi_min_b  
-            chi_max = numpy.exp(ln_K)/defaults.default_limits['k_min']
-            if chi_max > self._chi_max_b:
-                chi_max = self._chi_max_b  
+                
+            if not self.matching_corrs:
+                chi_min = numpy.exp(ln_K)/defaults.default_limits['k_max']
+                if chi_min < self._chi_min_b:
+                    chi_min = self._chi_min_b  
+                chi_max = numpy.exp(ln_K)/defaults.default_limits['k_min']
+                if chi_max > self._chi_max_b:
+                    chi_max = self._chi_max_b  
             
-            norm_int = self._halo_b_integrand(chi_peak_b, ln_K, norm=1.0)
-            norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
-            _halo_b_array[idx] = integrate.romberg(
-                self._halo_b_integrand, chi_min, chi_max,
-                args=(ln_K, norm), vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["corr_precision"],
-                divmax=defaults.default_precision["divmax"])/norm
+                norm_int = self._halo_b_integrand(chi_peak_b, ln_K, norm=1.0)
+                norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
+                _halo_b_array[idx] = integrate.romberg(
+                    self._halo_b_integrand, chi_min, chi_max,
+                    args=(ln_K, norm), vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])/norm
 
-            if chi_min < self._chi_min_a:
-                chi_min = self.chi_min_a
-            if chi_max > self._chi_max_a:
-                chi_max = self._chi_max_a                
-            norm_int = numpy.sqrt(
-                self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0) *
-                self._halo_b_integrand(chi_peak_b, ln_K, norm=1.0))
-            norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
-            _halo_ab_array[idx] = integrate.romberg(
-                self._halo_ab_integrand, chi_min, chi_max,
-                args=(ln_K, norm), vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["corr_precision"],
-                divmax=defaults.default_precision["divmax"])/norm
-            _halo_ba_array[idx] = integrate.romberg(
-                self._halo_ba_integrand, chi_min, chi_max,
-                args=(ln_K, norm), vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["corr_precision"],
-                divmax=defaults.default_precision["divmax"])/norm
+                if chi_min < self._chi_min_a:
+                    chi_min = self.chi_min_a
+                if chi_max > self._chi_max_a:
+                    chi_max = self._chi_max_a                
+                norm_int = numpy.sqrt(
+                    self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0) *
+                    self._halo_b_integrand(chi_peak_b, ln_K, norm=1.0))
+                norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
+                _halo_ab_array[idx] = integrate.romberg(
+                    self._halo_ab_integrand, chi_min, chi_max,
+                    args=(ln_K, norm), vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])/norm
+                _halo_ba_array[idx] = integrate.romberg(
+                    self._halo_ba_integrand, chi_min, chi_max,
+                    args=(ln_K, norm), vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])/norm
             
         self._halo_a_spline = InterpolatedUnivariateSpline(
             self._ln_K_array, _halo_a_array)
-        self._halo_b_spline = InterpolatedUnivariateSpline(
-            self._ln_K_array, _halo_b_array)
-        self._halo_ab_spline = InterpolatedUnivariateSpline(
-            self._ln_K_array, _halo_ab_array)
-        self._halo_ba_spline = InterpolatedUnivariateSpline(
-            self._ln_K_array, _halo_ba_array)
+        if not self.matching_corrs:
+            self._halo_b_spline = InterpolatedUnivariateSpline(
+                self._ln_K_array, _halo_b_array)
+            self._halo_ab_spline = InterpolatedUnivariateSpline(
+                self._ln_K_array, _halo_ab_array)
+            self._halo_ba_spline = InterpolatedUnivariateSpline(
+                self._ln_K_array, _halo_ba_array)
         
         self._initialized_halo_splines = True
     

@@ -115,7 +115,7 @@ source_window.write('test_source_window.ascii')
 ### set in the code as 0.001 and 100.0 respectively.
 con_kernel = kernel.Kernel(ktheta_min=0.001*0.001*degToRad,
                            ktheta_max=100.0*1.0*degToRad,
-                           window_function_a=lens_window,
+                           window_function_a=source_window,
                            window_function_b=source_window,
                            cosmo_multi_epoch=cosmo_multi)
 con_kernel.write('test_kernel.ascii')
