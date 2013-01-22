@@ -34,8 +34,8 @@ class Covariance(object):
         input_correlation_b: A Correlation object from correlation.py
         bins_per_decade: int log spacing of the theta bins
         survey_area_deg2: float value of the survey area it square degrees
-        n_a: float number of pairs in correlation a
-        n_b: float number of pairs in correlation b
+        n_a: float number of objects in correlation a
+        n_b: float number of objects in correlation b
         variance: float variance per pair (e.g. shape noise)
         nongaussian_cov: bool, toggles nonguassian covariance
         input_halo: HaloTrispectrum object from halo.py
@@ -98,9 +98,9 @@ class Covariance(object):
 
         self.equal_windows = [
             self.kernel.window_function_a1 == self.kernel.window_function_a2,
+            self.kernel.window_function_a2 == self.kernel.window_function_b1,
             self.kernel.window_function_b1 == self.kernel.window_function_b2,
-            self.kernel.window_function_a1 == self.kernel.window_function_b2,
-            self.kernel.window_function_a2 == self.kernel.window_function_b1
+            self.kernel.window_function_a1 == self.kernel.window_function_b2
         ]
         self.density = [
             self.n_a1/self.area,
@@ -108,7 +108,8 @@ class Covariance(object):
             self.n_b1/self.area,
             self.n_b2/self.area,
         ]
-        self.variance = variance        
+        self.variance = variance
+        self.cosmic_shear = self._identify_cosmic_shear()
 
         self._z_min_a = numpy.max([self.kernel.window_function_a1.z_min,
                                    self.kernel.window_function_a2.z_min])
@@ -168,6 +169,18 @@ class Covariance(object):
             print "WARNING: Invalid input for power spectra variable,"
             print "\t setting to linear_power"
             self.power_spec = 'linear_power'
+
+    def _identify_cosmic_shear(self):
+        shear_a1 = isinstance(self.kernel.window_function_a1,
+                              kernel.WindowFunctionConvergence)
+        shear_a2 = isinstance(self.kernel.window_function_a2,
+                              kernel.WindowFunctionConvergence)
+        shear_b1 = isinstance(self.kernel.window_function_b1,
+                              kernel.WindowFunctionConvergence)
+        shear_b2 = isinstance(self.kernel.window_function_b2,
+                              kernel.WindowFunctionConvergence)
+        return [shear_a1*shear_a2 or shear_b1*shear_b2,
+                shear_a1*shear_b2 or shear_a2*shear_b1]
                
     def _projected_halo_a(self, K):
         """
@@ -196,6 +209,15 @@ class Covariance(object):
         if not self._initialized_halo_splines:
             self._initialize_halo_splines()
         return self._halo_ab_spline(numpy.log(K))
+
+    def _projected_halo_ba(self, K):
+        """
+        Wrapper class for the 2-D projected power spectrum of the 
+        cross-correlation of a and b
+        """
+        if not self._initialized_halo_splines:
+            self._initialize_halo_splines()
+        return self._halo_ba_spline(numpy.log(K))
 
     def set_cosmology(self, cosmo_dict):
         """
@@ -264,14 +286,14 @@ class Covariance(object):
         theta_a = annular_bin_a.center*deg_to_rad
         theta_b = annular_bin_b.center*deg_to_rad
         if annular_bin_a == annular_bin_b and self.matching_corrs:
-            cov_P = self.covariance_P(annular_bin_a.delta)
+            cov_P = self.covariance_P(annular_bin_a.delta, theta_a)
         res = self.covariance_G(theta_a, theta_b,
                                 annular_bin_a.delta, annular_bin_b.delta)
         if self.nongaussian_cov:
             res += self.covariance_NG(theta_a, theta_b)
         return res + cov_P
     
-    def covariance_P(self, delta, window_1=0, window_2=1):
+    def covariance_P(self, delta, theta, window_1=0, window_2=1):
         """
         Poisson covariance term. Computes the pure poisson term using the input
         survey parameters.
@@ -281,10 +303,22 @@ class Covariance(object):
         Returns:
             float poisson covariance
         """
-        n_pairs = (0.5 * self.density[window_1] * 
-                   self.density[window_2] *
-                   self.area * delta * deg_to_rad)
-        return self.variance * self.variance / n_pairs
+        Poiss_a = self.proj_power_poisson(window_pair=0)
+        Poiss_b = self.proj_power_poisson(window_pair=2)
+        shot_noise_wt = 1. + self.cosmic_shear[0]
+        term1 = Poiss_a * Poiss_b * shot_noise_wt
+        Poiss_a = self.proj_power_poisson(window_pair=3)
+        Poiss_b = self.proj_power_poisson(window_pair=1)
+        shot_noise_wt = 1. + self.cosmic_shear[1]
+        term2 = Poiss_a * Poiss_b * shot_noise_wt
+        return (term1 + term2) / (2.*numpy.pi*self.area*theta*delta)
+
+    def proj_power_poisson(self, window_pair=0):
+        if self.equal_windows[window_pair]:
+            res = self.variance * self.variance / self.density[window_pair]
+        else:
+            res = 0.0
+        return res
         
     def covariance_G(self, theta_a, theta_b, delta_a, delta_b):
         """
@@ -308,17 +342,17 @@ class Covariance(object):
         elif ln_K_max <= self._ln_K_min:
             return 0.0
         
-        norm = 1.0/self._covariance_G_J07_integrand(0.0, 0.0, 0.0, 1.0, 1.0)
+        norm = 1.0/self._covariance_G_integrand(0.0, 0.0, 0.0, 1.0, 1.0)
         return integrate.romberg(
-            self._covariance_G_J07_integrand, self._ln_K_min, ln_K_max,
-            args=(theta_a, theta_b, delta_a, delta_b, norm), vec_func=True, 
+            self._covariance_G_integrand, self._ln_K_min, ln_K_max,
+            args=(theta_a, theta_b, delta_a, norm), vec_func=True, 
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["corr_precision"],
             divmax=defaults.default_precision["divmax"])/(
                 norm*2.*numpy.pi*self.area)
     
-    def _covariance_G_J07_integrand(self, ln_K, theta_a, theta_b, delta_a, delta_b,
-                                norm=1.0):
+    def _covariance_G_J07_integrand(self, ln_K, theta_a, theta_b,
+                                    delta_a, delta_b, norm=1.0):
         """
         Internal function defining the integrand for the gaussian covariance.
         Covariance terms are from Joachimi et al. 2007
@@ -344,33 +378,65 @@ class Covariance(object):
             return (dK*K*norm*two_point_terms*
                     special.j0(K*theta_a)*special.j0(K*theta_b))
             
-    def _covariance_G_integrand(self, ln_K, theta_a, theta_b, delta, norm=1.0):
+    def _covariance_G_integrand(self, ln_K, theta_a, theta_b,
+                                delta, norm=1.0):
         """
         Internal function defining the integrand for the gaussian covariance.
+
+        This is general for any 2-point (cross-)correlation obtained with any
+        combination of window functions in the member correlation objects.
+        This CANNOT be used for cosmic shear with a nonzero B-mode (see eq. 34
+        in reference [1]).
+
+        Args:
+            ln_K: natural logarithm of the projected wavenumber in
+                inverse radians.
+            theta_a: central value of the first angular bin in radians.
+            theta_b: central value of the second angular bin in radians.
+            delta: outer - inner radius of the annular bin.
+            norm: multiplicative normalization of the integrand.
+
+        Note that delta is the width of a single theta bin, NOT the area of 
+        an annulus in theta, as enters the shot noise term for the covariance.
+        These are related by: dOmega = 2 pi theta dtheta
+        An extra factor of theta is obtained when integrating the product of 
+        Bessel functions in the Bessel "closure equation".
+
+        References:
+        [1] B. Joachimi, P. Schneider, and T. Eifler,
+        "Analysis of two-point statistics of cosmic shear:
+        III. Covariances of shear measures made easy,"
+        in arXiv astro-ph (2007) [doi:10.1051/0004-6361:20078400].
         """
         K = numpy.exp(ln_K)
         dK = K
 
         Pa = self._projected_halo_a(K)
         Pb = self._projected_halo_b(K)
-        if theta_a == theta_b:
-            Poiss_a = self.covariance_P(delta, window_pair=0)
-            Poiss_b = self.covariance_P(delta, window_pair=1)
-            two_point_term1 = (Pa + Poiss_a) * (Pb + Poiss_b)
-        else:
-            two_point_term1 = Pa * Pb
-        #
+        Poiss_a = self.proj_power_poisson(window_pair=0)
+        Poiss_b = self.proj_power_poisson(window_pair=2)
+        shot_noise_wt = 1. + self.cosmic_shear[0]
+        # two_point_term1 = Pa * Pb
+        two_point_term1 = (Pa * Pb +
+            Pa * Poiss_b +
+            Pb * Poiss_a)
+            # Poiss_a * Poiss_b * shot_noise_wt / delta)
+
+        # print Pa*Pb, Poiss_a * Poiss_b * shot_noise_wt / delta
+        
         if self.matching_corrs:
             two_point_term2 = two_point_term1
         else:
             Pab = self._projected_halo_ab(K)
             Pba = self._projected_halo_ba(K)
-            if theta_a == theta_b:
-                Poiss_a = self.covariance_P(delta, window_pair=2)
-                Poiss_b = self.covariance_P(delta, window_pair=3)
-                two_point_term2 = (Pab + Poiss_a) * (Pba + Poiss_b)   
-            else:         
-                two_point_term2 = Pab * Pba
+            Poiss_a = self.proj_power_poisson(window_pair=3)
+            Poiss_b = self.proj_power_poisson(window_pair=1)
+            shot_noise_wt = 1. + self.cosmic_shear[1]
+            # two_point_term2 = Pab * Pba
+            two_point_term2 = (Pab * Pba +
+                Pab * Poiss_b +
+                Pba * Poiss_a)
+                # Poiss_a * Poiss_b * shot_noise_wt / delta) 
         two_point_terms = two_point_term1 + two_point_term2
         return (dK*K*norm*two_point_terms*special.j0(K*theta_a)*
                 special.j0(K*theta_b))

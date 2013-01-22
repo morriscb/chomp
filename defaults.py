@@ -59,7 +59,7 @@ default_limits = {
 ### scipy is used.
 default_precision = {
     "corr_npoints": 50,
-    "corr_precision":1.48e-6,
+    "corr_precision": 1.e-8, #1.48e-6,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
     "dNdz_precision": 1.48e-8,
@@ -74,7 +74,7 @@ default_precision = {
     "kernel_limit": 100, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
                          ### integration
-    "kernel_bessel_limit": 8, ### Defines how many zeros before cutting off
+    "kernel_bessel_limit": 10, ### Defines how many zeros before cutting off
                               ### the Bessel function integration in kernel.py
     "mass_npoints": 50,
     "mass_precision": 1.48e-8,

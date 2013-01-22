@@ -128,7 +128,7 @@ con_kernel.write('test_kernel.ascii')
 ### cosmologies through the set_cosmology method. Note that like the kernel
 ### module, cosmology takes an input as radians.
 corr = correlation.Correlation(theta_min_deg=0.001,
-                               theta_max_deg=1.0,
+                               theta_max_deg=2.0,
                                input_kernel=con_kernel,
                                input_halo=halo_model,
                                power_spec='power_gm')
@@ -142,8 +142,9 @@ corr.write('test_corr.ascii')
 ### correlation objects, here we will just use the same one twice and input
 ### survey parameters (area, number of pairs). We do this for a DLS like survey.
 cov = covariance.Covariance(corr, corr, bins_per_decade=5.0,
-                            survey_area_deg2=20,
-                            n_a=1.0e6, n_b=1.0e6, variance=1.0,
+                            survey_area_deg2=25,
+                            n_a=[1.0e6, 1.0e6], n_b=[1.0e6, 1.0e6],
+                            variance=1.0,
                             nongaussian_cov=False, power_spec='power_gm')
 ### Now we compute the covariance parameters for the gaussian covariance and
 ### write the results.
