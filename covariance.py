@@ -47,7 +47,8 @@ class Covariance(object):
     def __init__(self, input_correlation_a, input_correlation_b,
                  bins_per_decade=5.0, survey_area_deg2=20,
                  n_a=1.0e4, n_b=1.0e4, variance=1.0, nongaussian_cov=True,
-                 input_halo_trispectrum=None, power_spec='power_mm', **kws):
+                 input_halo_trispectrum=None, power_spec='power_mm',
+                 poisson_noise=None, **kws):
 
         self.annular_bins = []
         self.log_theta_min = input_correlation_a.log_theta_min
@@ -84,6 +85,7 @@ class Covariance(object):
             self.n_b1 = n_b
             self.n_b2 = n_b
         self.nongaussian_cov = nongaussian_cov
+        self.poisson_noise = poisson_noise
 
         self.kernel = kernel.KernelCovariance(
             numpy.power(10.0, self.log_theta_min)*
@@ -326,7 +328,7 @@ class Covariance(object):
         
         Args:
             theta_a: center of bin at which to compute the covariance
-            theta_a: center of bin at which to compute the covariance
+            theta_b: center of bin at which to compute the covariance
         Returns:
             float gaussian covariance
         """
@@ -361,8 +363,8 @@ class Covariance(object):
         dK = K
 
         if self.matching_corrs:
-            Pa = self._projected_halo_a(K)/self._D_z_a
-            Pb = self._projected_halo_b(K)/self._D_z_b
+            Pa = self._projected_halo_a(K)/self._D_z_a**2
+            Pb = self._projected_halo_b(K)/self._D_z_b**2
             two_point_term1 = Pa*Pb
             two_point_term2 = two_point_term1
         
@@ -411,8 +413,8 @@ class Covariance(object):
         K = numpy.exp(ln_K)
         dK = K
 
-        Pa = self._projected_halo_a(K)
-        Pb = self._projected_halo_b(K)
+        Pa = self._projected_halo_a(K) / (self._D_z_a ** 2)
+        Pb = self._projected_halo_b(K) / (self._D_z_b ** 2)
         Poiss_a = self.proj_power_poisson(window_pair=0)
         Poiss_b = self.proj_power_poisson(window_pair=2)
         shot_noise_wt = 1. + self.cosmic_shear[0]
@@ -427,8 +429,8 @@ class Covariance(object):
         if self.matching_corrs:
             two_point_term2 = two_point_term1
         else:
-            Pab = self._projected_halo_ab(K)
-            Pba = self._projected_halo_ba(K)
+            Pab = self._projected_halo_ab(K) / (self._D_z_a * self._D_z_b)
+            Pba = self._projected_halo_ba(K) / (self._D_z_a * self._D_z_b)
             Poiss_a = self.proj_power_poisson(window_pair=3)
             Poiss_b = self.proj_power_poisson(window_pair=1)
             shot_noise_wt = 1. + self.cosmic_shear[1]
@@ -471,7 +473,7 @@ class Covariance(object):
             chi_max = numpy.exp(ln_K)/defaults.default_limits['k_min']
             if chi_max > self._chi_max_a:
                 chi_max = self._chi_max_a
-            
+
             norm_int = self._halo_a_integrand(chi_peak_a, ln_K, norm=1.0)
             norm = numpy.where(norm_int > 0., 1.0 / norm_int, 1.0)
             _halo_a_array[idx] = integrate.romberg(
@@ -480,7 +482,7 @@ class Covariance(object):
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])/norm
-                
+
             if not self.matching_corrs:
                 chi_min = numpy.exp(ln_K)/defaults.default_limits['k_max']
                 if chi_min < self._chi_min_b:

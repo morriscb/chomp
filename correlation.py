@@ -87,6 +87,9 @@ class Correlation(object):
         if input_halo is None:
             input_halo = halo.Halo(self.kernel.z_bar)
         self.halo = input_halo
+        ### The 3D power spectrum will be evaluated at the peak redshift of 
+        ### the kernel, z_bar, with all other redshift dependence assumed to
+        ### be in the linear growth factor only.
         self.halo.set_redshift(self.kernel.z_bar)
 
         if power_spec==None:

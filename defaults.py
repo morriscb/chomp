@@ -39,7 +39,7 @@ default_hod_dict = {
 ### Default global integration limits for the code.
 default_limits = {
     "k_min": 0.001,
-    "k_max": 100.0,
+    "k_max": 10.0,
     "mass_min": -1, ### If instead of integrating the mass function over a fixed
     "mass_max": -1  ### range of nu a fixed mass range is desired, set these
                     ### limits to control the mass integration range. Setting
