@@ -89,7 +89,9 @@ halo_model = halo.Halo(redshift=0.0, input_hod=sdss_hod,
 ### sources we use a Gaussian with mean z=1.0. Other options could be used here,
 ### see kernel.py for other implemented distributions.
 lens_dist = kernel.dNdzMagLim(0.001, 5.0, 2.0, 0.3, 2.0)
-source_dist = kernel.dNdzGaussian(0.001, 2.0, 1.0, 0.2)
+z_bar = 1.0
+dz = 0.001
+source_dist = kernel.dNdzGaussian(z_bar - 5.0*dz, z_bar + 5.0*dz, z_bar, dz)
 
 ### Now we need to create the appropriate window functions that will allow us 
 ### to project the power spectrum from halo. Currently these come in two
@@ -131,7 +133,7 @@ corr = correlation.Correlation(theta_min_deg=0.001,
                                theta_max_deg=10.0,
                                input_kernel=con_kernel,
                                input_halo=halo_model,
-                               power_spec='power_gm')
+                               power_spec='power_mm')
 corr.compute_correlation()
 corr.write('test_corr.ascii')
 
@@ -143,9 +145,9 @@ corr.write('test_corr.ascii')
 ### survey parameters (area, number of pairs). We do this for a DLS like survey.
 cov = covariance.Covariance(corr, corr, bins_per_decade=5.0,
                             survey_area_deg2=25,
-                            n_a=[1.0e7, 1.0e7], n_b=[1.0e7, 1.0e7],
+                            n_a=[1.0e10, 1.0e10], n_b=[1.0e10, 1.0e10],
                             variance=1.0,
-                            nongaussian_cov=False, power_spec='power_gm')
+                            nongaussian_cov=True, power_spec='power_mm')
 ### Now we compute the covariance parameters for the gaussian covariance and
 ### write the results.
 cov.get_covariance()

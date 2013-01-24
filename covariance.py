@@ -134,6 +134,8 @@ class Covariance(object):
 
         self.halo_a = input_correlation_a.halo
         self.halo_b = input_correlation_b.halo
+        if input_halo_trispectrum is None:
+            input_halo_trispectrum = halo_trispectrum.HaloTrispectrumOneHalo()
         self.halo_tri = input_halo_trispectrum
         # self.halo.set_redshift(self.kernel.z_bar_G)
         # self.halo_tri.set_redshift(self.kernel.z_bar_NG)
@@ -560,7 +562,8 @@ class Covariance(object):
         K = numpy.exp(ln_K)
         Pa = self.halo_a.__getattribute__(self.power_spec)(K/chi)
         Pb = self.halo_b.__getattribute__(self.power_spec)(K/chi)
-        # For lack of a cross-power implementation in Halo class, use the geometric mean
+        # For lack of a cross-power implementation in Halo class,
+        # use the geometric mean
         power = numpy.sqrt(Pa * Pb)
         return (norm*power*
                 self.kernel._kernel_G_ab_integrand(chi))
@@ -574,7 +577,8 @@ class Covariance(object):
         K = numpy.exp(ln_K)
         Pa = self.halo_a.__getattribute__(self.power_spec)(K/chi)
         Pb = self.halo_b.__getattribute__(self.power_spec)(K/chi)
-        # For lack of a cross-power implementation in Halo class, use the geometric mean
+        # For lack of a cross-power implementation in Halo class,
+        # use the geometric mean
         power = numpy.sqrt(Pa * Pb)
         return (norm*power*
                 self.kernel._kernel_G_ba_integrand(chi))
@@ -608,8 +612,7 @@ class Covariance(object):
         dln_ka = 1.0
         ka = numpy.exp(ln_ka)
         dka = ka*dln_ka
-        return dka*ka*(
-            numpy.exp(self._kb_spline(ln_ka)) + self._kb_min - 1e-16)*norm
+        return dka*ka*self._kb_spline(ln_ka)*norm
     
     def _initialize_kb_spline(self, theta_a, theta_b):
         """
@@ -626,7 +629,7 @@ class Covariance(object):
             
         self._kb_min = numpy.min(_kb_int_array)
         self._kb_spline = InterpolatedUnivariateSpline(
-            self._ln_k_array, numpy.log(_kb_int_array - self._kb_min + 1e-16))
+            self._ln_k_array, _kb_int_array)
     
     def _kb_integral(self, ln_k, theta_a, theta_b):
         """
@@ -639,10 +642,6 @@ class Covariance(object):
             inv_norm = self._kb_integrand(0.0, ln_k, theta_a, 
                                           theta_b, 1.0)
             norm = 1.0
-            if inv_norm > 1e-16 or inv_norm < -1e-16:
-                norm = 1/inv_norm
-            else:
-                norm = 1e16
             for idx, ln_k in enumerate(ln_k):
                 kb_int[idx] = integrate.romberg(
                     self._kb_integrand, self._ln_k_min, self._ln_k_max,
@@ -656,10 +655,6 @@ class Covariance(object):
         inv_norm = self._kb_integrand(0.0, ln_k, theta_a, 
                                           theta_b, 1.0)
         norm = 1.0
-        if inv_norm > 1e-16 or inv_norm < -1e-16:
-            norm = 1/inv_norm
-        else:
-            norm = 1e16
         return integrate.romberg(
            self._kb_integrand, self._ln_k_min, self._ln_k_max,
            args=(ln_k, theta_a, theta_b, norm), vec_func=True,

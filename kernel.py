@@ -379,8 +379,8 @@ class WindowFunctionConvergence(WindowFunction):
         # in redshift, the lensing kernel will extend across z = [0, z_max)
         WindowFunction.__init__(self, 0.0, redshift_dist.z_max,
                                 cosmo_multi_epoch, **kws)
-        self._g_chi_min = (
-            self.cosmo.comoving_distance(self._redshift_dist.z_min))
+        self._g_chi_min = self.cosmo.comoving_distance(
+            self._redshift_dist.z_min)
         if self._g_chi_min < defaults.default_precision["window_precision"]:
             self._g_chi_min = defaults.default_precision["window_precision"]
 
@@ -959,8 +959,6 @@ class KernelCovariance(Kernel):
         norm = 1.0
         if inv_norm > 1e-16 or inv_norm < -1e-16:
             norm = 1.0/inv_norm
-        else:
-            norm = 1e16
         if self._force_quad:
             kernel = integrate.quad(
                 self._kernel_NG_integrand, self.chi_min, chi_max,
@@ -1011,7 +1009,7 @@ class KernelCovariance(Kernel):
                 self.window_function_a2.window_function(chi)*
                 self.window_function_b1.window_function(chi)*
                 self.window_function_b2.window_function(chi)*
-                D_z*D_z*D_z*D_z*self._int_NG_norm/(chi*chi)*
+                D_z*D_z*D_z*D_z/(chi*chi)*
                 special.j0(ktheta_a*chi)*special.j0(ktheta_b*chi))
 
     def kernel_weighted_mean(self, function):
