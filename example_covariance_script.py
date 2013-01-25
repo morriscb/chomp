@@ -147,7 +147,7 @@ cov = covariance.Covariance(corr, corr, bins_per_decade=5.0,
                             survey_area_deg2=25,
                             n_a=[1.0e10, 1.0e10], n_b=[1.0e10, 1.0e10],
                             variance=1.0,
-                            nongaussian_cov=True, power_spec='power_mm')
+                            nongaussian_cov=False, power_spec='power_mm')
 ### Now we compute the covariance parameters for the gaussian covariance and
 ### write the results.
 cov.get_covariance()

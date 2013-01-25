@@ -289,13 +289,16 @@ class Covariance(object):
         cov_P = 0.0
         theta_a = annular_bin_a.center*deg_to_rad
         theta_b = annular_bin_b.center*deg_to_rad
+        delta_a = annular_bin_a.delta*deg_to_rad
+        delta_b = annular_bin_b.delta*deg_to_rad
         if annular_bin_a == annular_bin_b and self.matching_corrs:
-            cov_P = self.covariance_P(annular_bin_a.delta, theta_a)
+            cov_P = self.covariance_P(delta_a, theta_a)
         res = self.covariance_G(theta_a, theta_b,
-                                annular_bin_a.delta, annular_bin_b.delta)
+                                delta_a, delta_b)
         if self.nongaussian_cov:
-            res += self.covariance_NG(theta_a, theta_b)
-        return res + cov_P
+            res += self.covariance_NG(theta_a, theta_b)/(
+                4.0*numpy.pi**2*theta_a*theta_b*delta_a*delta_b)
+        return res # + cov_P
     
     def covariance_P(self, delta, theta, window_1=0, window_2=1):
         """
@@ -354,33 +357,6 @@ class Covariance(object):
             rtol=defaults.default_precision["corr_precision"],
             divmax=defaults.default_precision["divmax"])/(
                 norm*2.*numpy.pi*self.area)
-    
-    def _covariance_G_J07_integrand(self, ln_K, theta_a, theta_b,
-                                    delta_a, delta_b, norm=1.0):
-        """
-        Internal function defining the integrand for the gaussian covariance.
-        Covariance terms are from Joachimi et al. 2007
-        """
-        K = numpy.exp(ln_K)
-        dK = K
-
-        if self.matching_corrs:
-            Pa = self._projected_halo_a(K)/self._D_z_a**2
-            Pb = self._projected_halo_b(K)/self._D_z_b**2
-            two_point_term1 = Pa*Pb
-            two_point_term2 = two_point_term1
-        
-            two_point_terms = two_point_term1 + two_point_term2
-            return (dK*K*norm*two_point_terms*
-                    special.j0(K*theta_a)*special.j0(K*theta_b))
-        else:
-            Pab = self._projected_halo_ab(K)
-            two_point_term1 = Pab*Pab
-            two_point_term2 = two_point_term1
-        
-            two_point_terms = two_point_term1 + two_point_term2
-            return (dK*K*norm*two_point_terms*
-                    special.j0(K*theta_a)*special.j0(K*theta_b))
             
     def _covariance_G_integrand(self, ln_K, theta_a, theta_b,
                                 delta, norm=1.0):
