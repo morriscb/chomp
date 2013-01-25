@@ -256,10 +256,10 @@ class WindowFunction(object):
             cosmo_multi_epoch: a MultiEpoch cosmology object from cosmology.py
         """
         #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict 
-        if z_min is not None:
-            self.z_min = z_min
-        if z_max is not None:
-            self.z_max = z_max            
+        # if z_min is not None:
+        #     self.z_min = z_min
+        # if z_max is not None:
+        #     self.z_max = z_max            
         self.cosmo = cosmo_multi_epoch
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
         if self.chi_min < defaults.default_precision["window_precision"]:
