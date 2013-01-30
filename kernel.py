@@ -5,6 +5,7 @@ from scipy import integrate
 from scipy import special
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import UnivariateSpline
 import copy
 
 """This is a set of classes for constructing an angular correlation kernel.
@@ -43,7 +44,7 @@ class dNdz(object):
         z_min - z_max.
         """
         norm = integrate.romberg(
-            self.dndz, self.z_min, self.z_max, vec_func=True,
+            self.raw_dndz, self.z_min, self.z_max, vec_func=True,
             tol=defaults.default_precision["global_precision"],
             rtol=defaults.default_precision["dNdz_precision"],
             divmax=defaults.default_precision["divmax"])
@@ -158,7 +159,6 @@ class dNdzMagLim(dNdz):
         return (numpy.power(redshift, self.a)*
                 numpy.exp(-1.0*numpy.power(redshift/self.z0, self.b)))
 
-
 class dNdzInterpolation(dNdz):
     """Derived class for a p(z) derived from real data assuming an array
     of redshifts with a corresponding array of probabilities for each
@@ -170,13 +170,19 @@ class dNdzInterpolation(dNdz):
         interpolation_order: order of spline interpolation
     """
 
-    def __init__(self, z_array, p_array, interpolation_order=2):
+    def __init__(self, z_array, p_array, weights=None, interpolation_order=2,
+                 smoothing=None):
         ## Need to impliment a test that throws out data at the begining or
         ## end of the z_array that has a value of zero for p_array
         dNdz.__init__(self, z_array[0], z_array[-1])
-        norm = numpy.trapz(p_array, z_array)
-        self._p_of_z = InterpolatedUnivariateSpline(z_array, p_array/norm,
-                                                    k=interpolation_order)
+        if smoothing is None:
+            self._p_of_z = InterpolatedUnivariateSpline(z_array, p_array,
+                                                        w=weights,
+                                                        k=interpolation_order)
+        else:
+            self._p_of_z = UnivariateSpline(z_array, p_array,w=weights,
+                                            k=interpolation_order,
+                                            s=smoothing)
 
     def raw_dndz(self, redshift):
         return self._p_of_z(redshift)
