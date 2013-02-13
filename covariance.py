@@ -287,10 +287,10 @@ class Covariance(object):
             float value of the covariance
         """
         cov_P = 0.0
-        theta_a = annular_bin_a.center*deg_to_rad
-        theta_b = annular_bin_b.center*deg_to_rad
-        delta_a = annular_bin_a.delta*deg_to_rad
-        delta_b = annular_bin_b.delta*deg_to_rad
+        theta_a = annular_bin_a.center
+        theta_b = annular_bin_b.center
+        delta_a = annular_bin_a.delta
+        delta_b = annular_bin_b.delta
         if annular_bin_a == annular_bin_b and self.matching_corrs:
             cov_P = self.covariance_P(delta_a, theta_a)
         res = self.covariance_G(theta_a, theta_b,

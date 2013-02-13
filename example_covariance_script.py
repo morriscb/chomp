@@ -76,7 +76,9 @@ sdss_hod = hod.HODZheng(hod_dict)
 ### Initialize the halo object with the mass function and single epoch 
 ### cosmology implementation is from Seljak2000.
 halo_model = halo.Halo(redshift=0.0, input_hod=sdss_hod,
-                       cosmo_single_epoch=cosmo_single, extrapolate=True)
+                       cosmo_single_epoch=cosmo_single,
+                       mass_func=mass,
+                       extrapolate=True)
 
 
 ### From this point we have fully defined our cosmology and halo model.
@@ -117,7 +119,7 @@ source_window.write('test_source_window.ascii')
 ### set in the code as 0.001 and 100.0 respectively.
 con_kernel = kernel.Kernel(ktheta_min=0.001*0.001*degToRad,
                            ktheta_max=100.0*1.0*degToRad,
-                           window_function_a=source_window,
+                           window_function_a=lens_window,
                            window_function_b=source_window,
                            cosmo_multi_epoch=cosmo_multi)
 con_kernel.write('test_kernel.ascii')
