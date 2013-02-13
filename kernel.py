@@ -96,6 +96,10 @@ class dNdzGaussian(dNdz):
         sigma_z: float standard deviation of Gaussian
     """
     def __init__(self, z_min, z_max, z0, sigma_z):
+        if z_min < z0 - 8.0*sigma_z:
+            z_min = z0 - 8.0*sigma_z
+        if z_max < z0 + 8.0*sigma_z:
+            z_max = z0 + 8.0*max_z
         dNdz.__init__(self, z_min, z_max)
         self.z0 = z0
         self.sigma_z = sigma_z
@@ -669,7 +673,7 @@ class Kernel(object):
         else:
             kernel = integrate.romberg(
                 self._kernel_integrand, self.chi_min,
-                self.chi_max, args=(ktheta,), vec_func=True,
+                chi_max, args=(ktheta,), vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["kernel_precision"],
                 divmax=defaults.default_precision["divmax"])
@@ -723,6 +727,15 @@ class Kernel(object):
             divmax=defaults.default_precision["divmax"])
 
         return mean/self._window_norm
+    
+    def _window_normalization(self):
+        return integrate.romberg(
+            lambda chi: (self.window_function_a.window_function(chi)*
+                         self.window_function_b.window_function(chi)),
+            self.chi_min, self.chi_max, vec_func=True,
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["kernel_precision"],
+            divmax=defaults.default_precision["divmax"])
 
 
     def write(self, output_file_name):

@@ -59,7 +59,7 @@ default_limits = {
 ### scipy is used.
 default_precision = {
     "corr_npoints": 50,
-    "corr_precision": 1.e-8, #1.48e-6,
+    "corr_precision": 1.48e-6,
     "cosmo_npoints": 50,
     "cosmo_precision": 1.48e-8,
     "dNdz_precision": 1.48e-8,
@@ -69,7 +69,7 @@ default_precision = {
                                ### in the calculation e-4 can be used to speed
                                ### up the code.
     "halo_limit" : 100,
-    "kernel_npoints": 100,
+    "kernel_npoints": 50,
     "kernel_precision": 1.48e-6,
     "kernel_limit": 100, ### If the variable force_quad is set in the Kernel 
                          ### class this value sets the limit for the quad
