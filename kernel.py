@@ -99,7 +99,7 @@ class dNdzGaussian(dNdz):
         if z_min < z0 - 8.0*sigma_z:
             z_min = z0 - 8.0*sigma_z
         if z_max < z0 + 8.0*sigma_z:
-            z_max = z0 + 8.0*max_z
+            z_max = z0 + 8.0*sigma_z
         dNdz.__init__(self, z_min, z_max)
         self.z0 = z0
         self.sigma_z = sigma_z
