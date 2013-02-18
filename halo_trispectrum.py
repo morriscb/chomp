@@ -78,14 +78,14 @@ class HaloTrispectrumOneHalo(halo.Halo):
                 numpy.exp(self.mass.ln_mass_min)):
                 nu_min = self.mass.nu(self.local_hod.second_moment_zero)
         norm = 1.0
-        if nu_min < 1.0:
-            norm = 1.0/self._i_0_4_integrand(0.0, k1, k2, k3, k4, 1.0)
-        elif self.mass.nu_max > nu_min*2.0:
-            norm = 1.0/self._i_0_4_integrand(numpy.log(nu_min*2.0), 
-                                             k1, k2, k3, k4, 1.0)
-        else:
-            norm = 1.0/self._i_0_4_integrand(numpy.log(self.mass.nu_max),
-                                             k1, k2, k3, k4, 1.0)
+        # if nu_min < 1.0:
+        #     norm = 1.0/self._i_0_4_integrand(0.0, k1, k2, k3, k4, 1.0)
+        # elif self.mass.nu_max > nu_min*2.0:
+        #     norm = 1.0/self._i_0_4_integrand(numpy.log(nu_min*2.0), 
+        #                                      k1, k2, k3, k4, 1.0)
+        # else:
+        #     norm = 1.0/self._i_0_4_integrand(numpy.log(self.mass.nu_max),
+        #                                      k1, k2, k3, k4, 1.0)
         
         norm = 1.0/self._i_0_4_integrand(0.0, k1, k2, k3, k4, 1.0)
         return integrate.romberg(
@@ -102,7 +102,8 @@ class HaloTrispectrumOneHalo(halo.Halo):
         k2 = numpy.where(k2 < self._k_min, self._k_min, k2)
         return numpy.where(
             numpy.logical_and(k1 <= self._k_max, k2 <= self._k_max),
-            self._i_0_4_spline(numpy.log(k1), numpy.log(k2))[0], 0.0)
+            numpy.diag(self._i_0_4_spline(numpy.log(k1), numpy.log(k2))),
+            0.0)
         
     def _initialize_i_0_4(self):
         self._i_0_4_array = numpy.empty((len(self._ln_k_array),
@@ -120,7 +121,8 @@ class HaloTrispectrumOneHalo(halo.Halo):
                     self._i_0_4_array[idx2, idx1] = i_0_4
         
         self._i_0_4_spline = RectBivariateSpline(
-            self._ln_k_array, self._ln_k_array, self._i_0_4_array)
+            self._ln_k_array, self._ln_k_array, self._i_0_4_array,
+            kx=3, ky=3, s=0)
         
         print "Initialized::I_0_4_parallelogram"
         
