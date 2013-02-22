@@ -23,7 +23,9 @@ default_halo_dict = {
     "st_little_a": 0.707,
     "c0": 9.,
     "beta": -0.13,
-    "alpha": -1.0 ### Halo mass profile slope. [NFW = -1]
+    "alpha": -1, ### Halo mass profile slope. [NFW = -1]
+    "delta_v": -1. ### over-density for defining. -1 means default behavior of
+                    ### redshift dependent over-density defined in NFW97
     }
 
 ### Default values for the ZhengHOD class (other models will fail when using
@@ -64,7 +66,7 @@ default_precision = {
     "cosmo_precision": 1.48e-8,
     "dNdz_precision": 1.48e-8,
     "halo_npoints": 50,
-    "halo_precision": 1.48e-4, ### The difference between e-4 and e-5 are at the
+    "halo_precision": 1.48e-5, ### The difference between e-4 and e-5 are at the
                                ### 0.1% level. Since this is the main slow down
                                ### in the calculation e-4 can be used to speed
                                ### up the code.

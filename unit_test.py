@@ -34,7 +34,7 @@ defaults.default_precision = {
     "kernel_bessel_limit": 8, ### Defines how many zeros before cutting off
                               ### the Bessel function in kernel.py
     "mass_npoints": 50,
-    "mass_precision": 1.48e-6,
+    "mass_precision": 1.48e-8,
     "window_npoints": 50,
     "window_precision": 1.48e-6,
     "global_precision": 1.48e-32, ### Since the code has large range of values
@@ -88,7 +88,9 @@ h_dict = {
     "st_little_a": 0.707,
     "c0": 9.,
     "beta": -0.13,
-    "alpha": -1 ### Halo mass profile slope. [NFW = -1]
+    "alpha": -1., ### Halo mass profile slope. [NFW = -1]
+    "delta_v": -1. ### over-density for defining. -1 means default behavior of
+                   ### redshift dependent over-density defined in NFW97
     }
 
 h_dict_2 = {
@@ -96,7 +98,8 @@ h_dict_2 = {
     "st_little_a": 0.5,
     "c0": 5.,
     "beta": -0.2,
-    "alpha": -1 ### Halo mass profile slope. [NFW = -1]
+    "alpha": -1, ### Halo mass profile slope. [NFW = -1]
+    "delta_v": 200.0
     }
 
 hod_dict = {
@@ -145,7 +148,7 @@ class CosmologyTestSingleEpoch(unittest.TestCase):
         self.assertTrue(self.cosmo._flat)
         self.assertEqual(self.cosmo._redshift, 1.0)
         self.assertAlmostEqual(numpy.log(self.cosmo._chi), 
-                               7.74687924, p_dict["cosmo"])
+                               7.74621235, p_dict["cosmo"])
         self.assertAlmostEqual(self.cosmo._growth, 0.61184534, p_dict["cosmo"])
         self.assertAlmostEqual(self.cosmo.omega_m(), 0.77405957,
                                p_dict["cosmo"])
@@ -164,7 +167,7 @@ class CosmologyTestSingleEpoch(unittest.TestCase):
         self.assertTrue(self.cosmo._flat)
         self.assertEqual(self.cosmo._redshift, 1.0)
         self.assertAlmostEqual(numpy.log(self.cosmo._chi),
-                               7.47157876, p_dict["cosmo"])
+                               7.47091187, p_dict["cosmo"])
         self.assertAlmostEqual(self.cosmo._growth, 0.50001210, p_dict["cosmo"])
         self.assertAlmostEqual(self.cosmo.omega_m(), 0.99995765,
                                p_dict["cosmo"])
@@ -191,7 +194,7 @@ class CosmologyTestMultiEpoch(unittest.TestCase):
         self.cosmo = cosmology.MultiEpoch(0.0, 5.0, cosmo_dict=c_dict)
 
     def test_multi_epoch(self):
-        chi_list = [0.0, 7.18763416, 7.74687926, 8.60279558] 
+        chi_list = [-33.27881676, 7.18696727, 7.74621236, 8.60212868] 
         growth_list = [1.0, 0.77321062, 0.61184534, 0.21356291]
         omega_m_list = [0.3 - 4.15e-5/0.7**2, 0.59110684,
                         0.77405957, 0.98926392]
@@ -221,7 +224,7 @@ class CosmologyTestMultiEpoch(unittest.TestCase):
                                    sigma_8_list[idx], p_dict["cosmo"])
 
     def test_set_cosmology(self):
-        chi_list = [0.0, 7.0040003, 7.4715789, 8.17486672] 
+        chi_list = [0.0, 7.00333340, 7.47091200, 8.17419983] 
         growth_list = [1.0, 0.66667731, 0.50001201, 0.16667338]
         omega_m_list = [1.0 - 4.15e-5/0.7**2, 0.99994353,
                         0.99995765,  0.99998588]
@@ -345,7 +348,7 @@ class HaloTest(unittest.TestCase):
                          5.59839, -2.80500]
         power_gm_list = [8.23158,  9.46939,
                          5.18083, -0.73781]
-        power_gg_list = [8.13780,  9.40684,
+        power_gg_list = [8.13785,  9.40684,
                          4.5788,  -0.51044]
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
@@ -362,7 +365,7 @@ class HaloTest(unittest.TestCase):
                          5.67889, -3.03685]
         power_gm_list = [5.89280,  7.89096,
                          4.93468, -1.49355]
-        power_gg_list = [5.22410,  7.53313,
+        power_gg_list = [5.22415,  7.53313,
                          4.17840, -1.37446]
         self.h.set_cosmology(c_dict_2)
         for idx, k in enumerate(self.k_array):
@@ -381,7 +384,7 @@ class HaloTest(unittest.TestCase):
         power_gm_list = [8.25847,  9.45965,
                          5.36000, -0.75668]
         power_gg_list = [8.12278,  9.36674,
-                         4.80720, -0.45823]
+                         4.80728, -0.45823]
         self.h.set_halo(h_dict_2)
         for idx, k in enumerate(self.k_array):
             self.assertAlmostEqual(numpy.log(self.h.power_mm(k)),
@@ -478,8 +481,8 @@ class WindowFunctionTest(unittest.TestCase):
         self.z_array = numpy.linspace(0.0, 2.0, 4)
     
     def test_window_function(self):
-        lens_window_list = [0.0, -14.00096, -13.30840, -12.903527]
-        source_window_list = [0.0, -17.217075, -16.524005, -16.118615]
+        lens_window_list = [0.0, -13.999628, -13.307070, -12.902195]
+        source_window_list = [0.0, -17.215749, -16.522676, -16.117287]
         for idx, z in enumerate(self.z_array):
             self.assertAlmostEqual(
                 numpy.where(self.lens_window.window_function(z) > 1e-16,
@@ -491,8 +494,8 @@ class WindowFunctionTest(unittest.TestCase):
                             0.0), source_window_list[idx], p_dict["window"])
 
     def test_set_cosmology(self):
-        lens_window_list = [0.0, -13.99937, -13.306473, -12.901255]
-        source_window_list = [0.0, -16.013004, -15.320023, -14.914725]
+        lens_window_list = [0.0, -13.998038, -13.305139, -12.899922]
+        source_window_list = [0.0, -16.011677, -15.318696, -14.913397]
         
         cosmo = cosmology.MultiEpoch(0.0, 5.0, c_dict_2)
         self.lens_window.set_cosmology_object(cosmo)
@@ -527,8 +530,8 @@ class KenrelTest(unittest.TestCase):
         self.ln_ktheta_array = numpy.linspace(-15, -1, 4)
         
     def test_kernel(self):
-        k_list = [-10.689493, -10.689757,
-                  -12.737077, -30.120051]
+        k_list = [-10.688826, -10.689089,
+                  -12.737842, -24.658559]
         for idx, ln_ktheta in enumerate(self.ln_ktheta_array):
             kern = numpy.abs(self.kern.kernel(ln_ktheta))
             self.assertAlmostEqual(
@@ -537,8 +540,8 @@ class KenrelTest(unittest.TestCase):
 
     def test_set_cosmology(self):
         self.kern.set_cosmology(c_dict_2)
-        k_list = [ -9.946510,  -9.946688,
-                  -12.957102, -27.694108]
+        k_list = [ -9.945842,  -9.946020,
+                  -12.966945, -23.423732]
         for idx, ln_ktheta in enumerate(self.ln_ktheta_array):
             kern = numpy.abs(self.kern.kernel(ln_ktheta))
             self.assertAlmostEqual(
@@ -573,7 +576,24 @@ class CorrelationTest(unittest.TestCase):
         self.theta_array = numpy.logspace(-3, 0, 4)*deg_to_rad
         
     def test_correlation(self):
-        corr_list = [-4.111348, -4.724446, -6.882630, -8.900066]
+        corr_list = [-4.110630, -4.723534, -6.906912, -9.032553]
+        for idx, theta in enumerate(self.theta_array):
+            self.assertAlmostEqual(
+                numpy.log(self.corr.correlation(theta)),
+                corr_list[idx], p_dict["corr"])
+            
+    def test_set_cosmology(self):
+        self.corr.set_cosmology(c_dict_2)
+        corr_list = [-2.907429, -3.495227, -5.832038, -10.669021]
+        for idx, theta in enumerate(self.theta_array):
+            self.assertAlmostEqual(
+                numpy.log(self.corr.correlation(theta)),
+                corr_list[idx], p_dict["corr"])
+            
+    def test_set_hod(self):
+        self.corr.set_hod(hod_dict_2)
+        self.corr.set_power_spectrum('power_gm')
+        corr_list = [-1.865759, -3.488632, -6.53801, -8.623361]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
@@ -581,29 +601,13 @@ class CorrelationTest(unittest.TestCase):
 
     def test_set_redshift(self):
         self.corr.set_redshift(0.5)
-        corr_list = [-4.208979, -4.826124, -6.963666, -8.900316]
+        corr_list = [-4.208261, -4.825206, -6.987819, -9.014412]
         for idx, theta in enumerate(self.theta_array):
             self.assertAlmostEqual(
                 numpy.log(self.corr.correlation(theta)),
                 corr_list[idx], p_dict["corr"])
-
-    def test_set_cosmology(self):
-        self.corr.set_cosmology(c_dict_2)
-        corr_list = [-2.908135, -3.49623, -5.804543, -9.395502]
-        for idx, theta in enumerate(self.theta_array):
-            self.assertAlmostEqual(
-                numpy.log(self.corr.correlation(theta)),
-                corr_list[idx], p_dict["corr"])
-
-    def test_set_hod(self):
-        self.corr.set_hod(hod_dict_2)
-        self.corr.set_power_spectrum('power_gm')
-        corr_list = [-1.866602, -3.488535, -6.347507, -8.393573]
-        for idx, theta in enumerate(self.theta_array):
-            self.assertAlmostEqual(
-                numpy.log(self.corr.correlation(theta)),
-                corr_list[idx], p_dict["corr"])
-
+            
+            
 if __name__ == "__main__":
     print "*******************************"
     print "*                             *"

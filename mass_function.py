@@ -44,12 +44,14 @@ class MassFunction(object):
         self.cosmo = cosmo_single_epoch
         self.cosmo.set_redshift(self._redshift)
         self.delta_c = self.cosmo.delta_c()
-        self.delta_v = self.cosmo.delta_v()
 
         if halo_dict is None:
             halo_dict = defaults.default_halo_dict
         self.halo_dict = halo_dict
 
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
         self.stq = halo_dict["stq"]
         self.st_little_a = halo_dict["st_little_a"]
         self.c0 = halo_dict["c0"]/(1.0 + redshift)
@@ -79,6 +81,9 @@ class MassFunction(object):
 
         self.delta_c = self.cosmo.delta_c()
         self.c0 = self.halo_dict["c0"]/(1.0 + redshift)
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
 
         self._set_mass_limits()
         self._initialize_splines()
@@ -104,7 +109,9 @@ class MassFunction(object):
         self.cosmo.set_cosmology(cosmo_dict, redshift)
 
         self.delta_c = self.cosmo.delta_c()
-        self.delta_v = self.cosmo.delta_v()
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
         self.c0 = self.halo_dict["c0"]/(1.0 + redshift)
 
         self._set_mass_limits()
@@ -116,6 +123,9 @@ class MassFunction(object):
         self.cosmo = cosmo_single_epoch
 
         self.delta_c = self.cosmo.delta_c()
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
         self.c0 = self.halo_dict["c0"]/(1.0 + self._redshift)
 
         self._set_mass_limits()
@@ -141,6 +151,9 @@ class MassFunction(object):
         self.stq = self.halo_dict["stq"]
         self.st_little_a = self.halo_dict["st_little_a"]
         self.c0 = self.halo_dict["c0"]/(1.0 + self._redshift)
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
 
         self._normalize()
 
@@ -439,11 +452,13 @@ class TinkerMassFunction(MassFunction):
         self.cosmo = cosmo_single_epoch
         self.cosmo.set_redshift(self._redshift)
         self.delta_c = self.cosmo.delta_c()
-        self.delta_v = cosmo_single_epoch.delta_v()
 
         if halo_dict is None:
             halo_dict = defaults.default_halo_dict
         self.halo_dict = halo_dict
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
 
         self._set_mass_limits()
         self._initialize_splines()

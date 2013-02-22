@@ -76,7 +76,9 @@ class Halo(object):
         self.alpha = halo_dict["alpha"]
 
         #self.cosmo = cosmology.SingleEpoch(self._redshift, cosmo_dict)
-        self.delta_v = self.cosmo.delta_v()
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
         self.rho_bar = self.cosmo.rho_bar()
         self._h = self.cosmo._h
 
@@ -122,7 +124,9 @@ class Halo(object):
         self.cosmo_dict = cosmo_dict
         self._redshift = redshift
         self.cosmo = cosmology.SingleEpoch(redshift, cosmo_dict)
-        self.delta_v = self.cosmo.delta_v()
+        self.delta_v = self.halo_dict['delta_v']
+        if self.delta_v == -1:
+            self.delta_v = self.cosmo.delta_v()
         self.rho_bar = self.cosmo.rho_bar()
         self._h = self.cosmo._h
 

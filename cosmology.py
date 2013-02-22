@@ -62,16 +62,18 @@ class SingleEpoch(object):
         self._open = False
         self._closed = False
 
-        omega_total = self._omega_m0 + self._omega_l0
-        if omega_total <= 1.0001 and omega_total >= 0.9999:
+        omega_total = self._omega_m0 + self._omega_l0 + self._omega_r0
+        if (omega_total <= 1.0 + defaults.default_precision['cosmo_precision'] 
+            and omega_total >= 
+            1.0 - defaults.default_precision['cosmo_precision']):
             self._flat = True
         else:
             self._flat = False
-        if omega_total <= 0.9999:
+        if omega_total <= 1.0 - defaults.default_precision['cosmo_precision']:
             self._open = True
         else:
             self._open = False
-        if omega_total > 1.0001:
+        if omega_total > 1.0 + defaults.default_precision['cosmo_precision']:
             self._closed = True
         else:
             self._closed = False
