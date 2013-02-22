@@ -49,13 +49,18 @@ class Correlation(object):
         input_halo: Halo object from halo.py
         input_hod: HOD object from hod.py
         power_spec: string defining a power spectrum
+        k_min: float override of halo k_min. Forces halo to extrapolate if need
+            be.
+        k_max: float override of halo k_max. Forces halo to extrapolate if need
+            be.
         
         theta_array: array of theta values for computed correlation function
         wtheta_array: array of computed correlation values at theta_array values
     """
 
     def __init__(self, theta_min_deg, theta_max_deg, input_kernel,
-                 bins_per_decade=5.0, input_halo=None, power_spec=None, **kws):
+                 bins_per_decade=5.0, input_halo=None, power_spec=None, 
+                 k_min=None, k_max=None, **kws):
 
         self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
         self.log_theta_max = numpy.log10(theta_max_deg*deg_to_rad)
@@ -91,6 +96,17 @@ class Correlation(object):
         ### the kernel, z_bar, with all other redshift dependence assumed to
         ### be in the linear growth factor only.
         self.halo.set_redshift(self.kernel.z_bar)
+        if ((k_min is not None or k_max is not None) and 
+            not self.halo.get_extrapolation() and 
+            (k_min < self.halo._k_min or k_max > self.halo._k_max)):
+            self.halo.set_extrapolation(True)
+        
+        if k_min is None:
+            k_min = self.halo._k_min
+        self._ln_k_min = numpy.log(k_min)
+        if k_max is None:
+            k_max = self.halo._k_max
+        self._ln_k_max = numpy.log(k_max)
 
         if power_spec==None:
             power_spec = 'linear_power'
@@ -230,21 +246,21 @@ class Correlation(object):
             theta: float array of angular values in radians to compute the
                 correlation
         """
-        ln_kmin = numpy.log(self.halo._k_min)
-        ln_kmax = numpy.log(self.halo._k_max)
         try:
             wtheta = numpy.empty(len(theta_rad))
             for idx, value in enumerate(theta_rad):
                 wtheta[idx] = integrate.romberg(
                     self._correlation_integrand, 
-                    ln_kmin, ln_kmax, args=(value,), vec_func=True,
+                    self._ln_k_min, self._ln_k_max, args=(value,),
+                    vec_func=True,
                     tol=defaults.default_precision["global_precision"],
                     rtol=defaults.default_precision["corr_precision"],
                     divmax=defaults.default_precision["divmax"])
         except TypeError:
             wtheta = integrate.romberg(
                 self._correlation_integrand, 
-                ln_kmin, ln_kmax, args=(theta_rad,), vec_func=True,
+                self._ln_k_min, self._ln_k_max, args=(theta_rad,),
+                vec_func=True,
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["corr_precision"],
                 divmax=defaults.default_precision["divmax"])
@@ -383,7 +399,8 @@ class Correlation3d(Correlation):
     """
 
     def __init__(self, r_min, r_max, redshift=0.0,
-                 input_halo=None, powSpec=None):
+                 input_halo=None, powSpec=None,
+                 k_min=None, k_max=None):
         """
         Do not call parent __init__ because we don't need the
         kernel object here.
@@ -403,6 +420,17 @@ class Correlation3d(Correlation):
             input_halo = halo.Halo(redshift)
         self.halo = input_halo
         self.halo.set_redshift(redshift)
+        if ((k_min is not None or k_max is not None) and 
+            not self.halo.get_extrapolation() and 
+            (k_min < self.halo._k_min or k_max > self.halo._k_max)):
+            self.halo.set_extrapolation(True)
+        
+        if k_min is None:
+            k_min = self.halo._k_min
+        self._ln_k_min = numpy.log(k_min)
+        if k_max is None:
+            k_max = self.halo._k_max
+        self._ln_k_max = numpy.log(k_max)
 
         if powSpec == None:
             powSpec = 'linear_power'
@@ -434,14 +462,13 @@ class Correlation3d(Correlation):
         Args:
             r: float array of position values in Mpc/h
         """
-        ln_kmin = numpy.log(self.halo._k_min)
-        ln_kmax = numpy.log(self.halo._k_max)
         try:
             xi_out = numpy.empty(len(r))
             for idx, value in enumerate(r):
                 xi_out[idx] = integrate.romberg(
                     self._correlation_integrand,
-                    ln_kmin, ln_kmax, args=(value,), vec_func=True,
+                    self._ln_k_min, self._ln_k_max, args=(value,),
+                    vec_func=True,
                     tol=defaults.default_precision["global_precision"],
                     rtol=defaults.default_precision["corr_precision"],
                     divmax=defaults.default_precision["divmax"])
@@ -458,7 +485,8 @@ class Correlation3d(Correlation):
         dln_k = 1.0
         k = numpy.exp(ln_k)
         dk = k * dln_k
-        return(dk * k / (2.0 * numpy.pi) * self.power_spec(k) * special.j0(k * r))
+        return(dk * k / (2.0 * numpy.pi) *
+               self.power_spec(k) * special.j0(k * r))
 
     def correlation(self, r):
         if not self.initialized_spline:
