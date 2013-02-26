@@ -102,6 +102,23 @@ class Halo(object):
         self._initialized_gm_extrapolation = False
         self._initialized_gg_extrapolation = False
         
+    def get_extrapolation(self):
+        """
+        Return internal variable defining if the code extrapolates beyond k_min
+        and k_max.
+        """
+        return self._extrapolate
+    
+    def set_extrapolation(self, boolean):
+        """
+        Set internal variable defining if the code extrapolates beyond k_min
+        and k_max.
+        
+        Args:
+            boolean: boolean variable to set if extrapolation is performed.
+        """
+        self._extrapolate = boolean
+        
     def get_cosmology(self):
         """
         Return the internal cosmology dictionary.
@@ -1074,8 +1091,6 @@ class HaloExclusion(Halo):
         
 class HaloFit(Halo):
     """
-    CURRENTLY BROKEN AS OF 1/2/13
-    
     HALOFIT class with functional form of the non-linear power specrum from
     Smith2003 with new fit parameters from Takahashi2012. The HALOFIT method 
     derives only the non-linear power spectrum, other power spectra (gg and gm)
@@ -1126,11 +1141,9 @@ class HaloFit(Halo):
         ln_r_sigma2_spline = InterpolatedUnivariateSpline(
             self._ln_sigma2_array[::-1], self._ln_R_array[::-1])
         self._k_s = 1.0/numpy.exp(ln_r_sigma2_spline(0.0))
+        
         ln_sigma2_r_spline = InterpolatedUnivariateSpline(
-            self._ln_R_array, self._ln_sigma2_array,k=5)
-        print "k_s:", self._k_s
-        print "Derivatives:", ln_sigma2_r_spline.derivatives(
-            numpy.log(1.0/self._k_s))
+            self._ln_R_array, self._ln_sigma2_array, k=5)
         (dev1, dev2) = ln_sigma2_r_spline.derivatives(
             numpy.log(1.0/self._k_s))[1:3]
         self._n_eff = -dev1 - 3.0
@@ -1158,6 +1171,8 @@ class HaloFit(Halo):
             -0.1682*self._C)
         self._mu_n = 0.0
         self._nu_n = numpy.power(10, 5.2105 + 3.6902*self._n_eff)
+        
+        self._initialized_sigma_spline = True
     
     def _sigma2_integrand(self, ln_k, R):
         k = numpy.exp(ln_k)
@@ -1192,8 +1207,8 @@ class HaloFit(Halo):
         
     def _delta2_H(self, k):
         y = k/self._k_s
-        return self._delta2_prime_H(k)/(
-            1 + self._mu_n/y + self._nu_n/(y*y))
+        return self._delta2_prime_H(y)/(
+            1.0 + self._mu_n/y + self._nu_n/(y*y))
         
     def _delta2_prime_H(self, y):
         return self._a_n*numpy.power(y, 3.0*self._f_1)/(
@@ -1252,5 +1267,3 @@ class HaloFit(Halo):
             self._initialize_pp_gg()
 
         return self.power_mm(k)*self._h_g(k)*self._h_g(k) + self._pp_gg(k)
-        
-    
