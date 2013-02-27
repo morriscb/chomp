@@ -98,7 +98,7 @@ class dNdzGaussian(dNdz):
     def __init__(self, z_min, z_max, z0, sigma_z):
         if z_min < z0 - 8.0*sigma_z:
             z_min = z0 - 8.0*sigma_z
-        if z_max < z0 + 8.0*sigma_z:
+        if z_max > z0 + 8.0*sigma_z:
             z_max = z0 + 8.0*sigma_z
         dNdz.__init__(self, z_min, z_max)
         self.z0 = z0
@@ -218,8 +218,8 @@ class WindowFunction(object):
     def __init__(self, z_min, z_max, cosmo_multi_epoch=None, **kws):
         self.initialized_spline = False
 
-        if z_min < 0.0:
-            z_min = 0.0
+        if z_min < defaults.default_precision['window_precision']:
+            z_min = defaults.default_precision['window_precision']
         self.z_min = z_min
         self.z_max = z_max
 
@@ -899,8 +899,9 @@ class KernelCovariance(Kernel):
         self.window_function_b1.set_cosmology_object(self.cosmo)
         self.window_function_b2.set_cosmology_object(self.cosmo)
 
-        self.chi_min = numpy.max([defaults.default_precision["window_precision"],
-                                  self.cosmo.comoving_distance(self.z_min)])
+        self.chi_min = numpy.max(
+            [defaults.default_precision["window_precision"],
+            self.cosmo.comoving_distance(self.z_min)])
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
         
         self._ln_ktheta_array = numpy.linspace(

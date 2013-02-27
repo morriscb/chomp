@@ -54,7 +54,8 @@ halo_dict = {
     "st_little_a": 0.707,
     "c0": 9.,
     "beta": -0.13,
-    "alpha": -1
+    "alpha": -1,
+    "delta_v": -1
     }
 
 ### Load up a Sheth & Tormen mass function object for use in halo. We set the

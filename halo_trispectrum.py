@@ -102,7 +102,7 @@ class HaloTrispectrumOneHalo(halo.Halo):
         k2 = numpy.where(k2 < self._k_min, self._k_min, k2)
         return numpy.where(
             numpy.logical_and(k1 <= self._k_max, k2 <= self._k_max),
-            numpy.diag(self._i_0_4_spline(numpy.log(k1), numpy.log(k2))),
+            self._i_0_4_spline(numpy.log(k1), numpy.log(k2)),
             0.0)
         
     def _initialize_i_0_4(self):

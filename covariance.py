@@ -296,9 +296,8 @@ class Covariance(object):
         res = self.covariance_G(theta_a, theta_b,
                                 delta_a, delta_b)
         if self.nongaussian_cov:
-            res += self.covariance_NG(theta_a, theta_b)/(
-                4.0*numpy.pi**2*theta_a*theta_b*delta_a*delta_b)
-        return res # + cov_P
+            res += self.covariance_NG(theta_a, theta_b)
+        return res + cov_P
     
     def covariance_P(self, delta, theta, window_1=0, window_2=1):
         """
@@ -647,7 +646,7 @@ class Covariance(object):
         ka = numpy.exp(ln_ka)
         kb = numpy.exp(ln_kb)
         dkb = kb*dln_kb
-        return (dkb*kb*norm*self.halo_tri.trispectrum_parallelogram(ka, kb)*
+        return (dkb*kb*norm*self.halo_tri.trispectrum_parallelogram(ka, kb)[0]*
             self.kernel.kernel(numpy.log(ka*theta_a),
                                numpy.log(kb*theta_b))[0])
     
