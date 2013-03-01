@@ -962,3 +962,39 @@ class AnnulusBin(object):
         self.center = numpy.power(10.0, 0.5*(numpy.log10(inner)+
                                              numpy.log10(outer)))
         self.delta = outer - inner
+
+
+class FiniteAreaEffect(object):
+    """
+    Fitting formula to correct the covariance for a small survey area as 
+    described in Appendix A of:
+
+    M. Sato, M. Takada, T. Hamana, and T. Matsubara, 
+    "Simulations of Wide-field Weak-lensing Surveys. 
+    II. Covariance Matrix of Real-space Correlation Functions,"
+    ApJ 734(2), 76 (2011) [doi:10.1088/0004-637X/734/2/76].
+
+    Attributes:
+        alpha1, alpha2, beta1, beta2: fit parameters
+    """
+
+    def __init__(self):
+        self.alpha1 = 3.2952
+        self.alpha2 = -0.316369
+        self.beta1 = 0.170708
+        self.beta2 = -0.349913
+
+    def alpha(self, zs):
+        return self.alpha1 * zs ** self.alpha2
+
+    def beta(self, zs):
+        return self.beta1 * zs ** self.beta2
+
+    def area_scaling(self, area, zs):
+        """
+
+        Args:
+            area: Area of the survey in square degrees.
+            zs: Redshift of the lensing sources.
+        """
+        return self.alpha(zs) / area ** self.beta(zs)
