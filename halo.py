@@ -1052,7 +1052,92 @@ class Halo(object):
         return numpy.where(n_exp < 1,
                            norm*nu*self.mass.f_nu(nu)*n_exp*y,
                            norm*nu*self.mass.f_nu(nu)*n_exp*y*y)
+        
+
+class HaloSuperSampleCovariance(Halo):
+    """
+    Derived halo model class that impliments the extra i_1_2 term needed to
+    compute both the effects of the finite survey effects both on the power
+    spectrum and the nessary terms for power spectra and correlation
+    covariances. Has one addictional parameters delta_b.
+    Forumlas are from Takada & Hu 2013
     
+    Attributes:
+        Same as Halo plut
+        delta_b: float value of the finite survey term.
+    """
+    
+    def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
+                 mass_func=None, halo_dict=None, delta_b=0.0, **kws):
+        Halo.__init__(self, redshift, input_hod, cosmo_single_epoch,
+                      mass_func, halo_dict, **kws)
+        self._delta_b = delta_b
+        self._initialized_i_1_2 = False
+        
+    def dln_power_ddelta_b(self, k):
+        """
+        Derivative of the dark matter power spectrum with respect to the finite
+        survey over density delta_b.
+        
+        Args:
+            k: float array wavenumber in [h/Mpc]
+        """
+        if not self._initialized_h_m:
+            self._initialize_h_m()
+        if not self._initialized_pp_mm:
+            self._initialize_pp_mm()
+        if not self._initialized_h_m:
+            self._initialize_h_m()
+        if not self._initialized_i_1_2:
+            self._initialize_i_1_2()
+            
+        return numpy.where(
+            numpy.logical_and(k >= self._k_min, k <= self._k_max),
+            (68.0/21.0*self._h_m(k)*self._h_m(k)*self.linear_power(k) +
+             self._i_1_2(k))/self.power_mm(k), 0.0)
+
+    def power_mm_ssc(self, k):
+        """
+        Non-Linear matter power spectrum derived from the halo model. This power
+        spectrum should be used for correlations that depend only on dark matter
+        (ie cosmo shear and magnification).
+
+        Args:
+            k [h/Mpc]: float array wave number
+        Returns:
+            float array non-linear matter power spectrum [Mpc/h]**3
+        """
+        return self.power_mm(k)*(1.0 + self.dln_power_ddelta_b(k)*self._delta_b)
+    
+    def _i_1_2(self, k):
+        return numpy.where(
+            numpy.logical_and(k >= self._k_min, k <= self._k_max),
+            self._i_1_2_spline(numpy.log(k)), 0.0)
+
+    def _initialize_i_1_2(self):
+        i_1_2_array = numpy.zeros_like(self._ln_k_array)
+
+        for idx, ln_k in enumerate(self._ln_k_array):
+            norm = 1.0/self._i_1_2_integrand(0.0, ln_k, 1.0)
+            i_1_2 = integrate.romberg(
+                self._i_1_2_integrand, numpy.log(self.mass.nu_min),
+                numpy.log(self.mass.nu_max), vec_func=True,
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["halo_precision"],
+                divmax=defaults.default_precision["divmax"],
+                args=(ln_k, norm))
+            i_1_2_array[idx] = i_1_2/(norm*self.rho_bar)
+
+        self._i_1_2_spline = InterpolatedUnivariateSpline(
+            self._ln_k_array, i_1_2_array)
+        self._initialized_i_1_2 = True
+        
+    def _i_1_2_integrand(self, ln_nu, ln_k, norm=1.0):
+        nu = numpy.exp(ln_nu)
+        mass = self.mass.mass(nu)
+        y = self.y(ln_k, mass)
+        
+        return nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*y*y*mass*norm
 
 class HaloExclusion(Halo):
 
