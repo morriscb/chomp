@@ -605,7 +605,7 @@ class SingleEpoch(object):
             # print "In cosmology.SingleEpoch.sigma_r:"
             # print "\tWARNING: Requesting scale greater than k_min."
             # print "\tExtrapolating to k_min=",k_min
-        elif (needed_k_max >= k_max and
+        if (needed_k_max >= k_max and
               needed_k_max < self._k_max*100.0):
             k_max = needed_k_max
         elif (needed_k_max >= k_max and

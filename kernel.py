@@ -644,8 +644,9 @@ class Kernel(object):
         self.window_function_a.set_cosmology_object(self.cosmo)
         self.window_function_b.set_cosmology_object(self.cosmo)
         
-        self.chi_min = numpy.max([1e-8,
-                                  self.cosmo.comoving_distance(self.z_min)])
+        self.chi_min = numpy.max(
+            [defaults.default_precision['window_precision'],
+             self.cosmo.comoving_distance(self.z_min)])
         self.chi_max = self.cosmo.comoving_distance(self.z_max)
 
         self._find_z_bar()  
@@ -913,6 +914,8 @@ class KernelCovariance(Kernel):
 
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
+        self._j1_limit = special.jn_zeros(
+            1, defaults.default_precision['kernel_bessel_limit'])[-1]
 
         self._force_quad = force_quad
 
@@ -1075,6 +1078,134 @@ class KernelCovariance(Kernel):
                 self.window_function_b2.window_function(chi)*
                 D_z*D_z*D_z*D_z/(chi*chi)*
                 special.j0(ktheta_a*chi)*special.j0(ktheta_b*chi))
+    
+    def kernel_ssc(self, ln_ktheta_a, ln_ktheta_b):
+        if not self._initialized_ssc_spline:
+            self._initialize_ssc_spline()
+            
+        ln_ktheta_a = numpy.where(ln_ktheta_a <= self.ln_ktheta_min,
+                                  self.ln_ktheta_min,
+                                  ln_ktheta_a)
+        ln_ktheta_b = numpy.where(ln_ktheta_b <= self.ln_ktheta_min,
+                                  self.ln_ktheta_min,
+                                  ln_ktheta_b)
+        
+        return numpy.where(
+            numpy.logical_and(ln_ktheta_a <= self.ln_ktheta_max,
+                              ln_ktheta_b <= self.ln_ktheta_max),
+            numpy.exp(self._kernel_ssc_spline(ln_ktheta_a, ln_ktheta_b)) + 
+            self._kernel_ssc_min*10.0, 0.0)
+    
+    def _initialize_ssc_spline(self):
+        if not self._initialized_sigma2_spline:
+            self._initialize_sigma2_spline()
+        for idx1 in xrange(len(self._ln_ktheta_array)):
+            for idx2 in xrange(idx1, len(self._ln_ktheta_array)):
+                kern = self.raw_kernel_ssc(self._ln_ktheta_array[idx1],
+                                           self._ln_ktheta_array[idx2])
+                if idx1 == idx2:
+                    self._kernel_array[idx1, idx2] = kern
+                else:
+                    self._kernel_array[idx1, idx2] = kern
+                    self._kernel_array[idx2, idx1] = kern
+        self._kernel_ssc_min = numpy.min(self._kernel_array)
+        self._kernel_ssc_spline = RectBivariateSpline(
+            self._ln_ktheta_array, self._ln_ktheta_array,
+            numpy.log(self._kernel_array - self._kernel_ssc_min*10.0))
+        self._initialized_ssc_spline = True
+        
+    def raw_kernel_ssc(self, ln_ktheta_a, ln_ktheta_b):
+        """
+        Raw kernel function. Projected power as a function of chi.
+
+        Args:
+            ln_ktheta: float array natural logathim of k*theta
+        Returns:
+            float array kernel value
+        """
+        ktheta_a = numpy.exp(ln_ktheta_a)
+        ktheta_b = numpy.exp(ln_ktheta_b)
+
+        chi_max = numpy.max([self._j0_limit/ktheta_a,
+                             self._j0_limit/ktheta_b])
+        if chi_max >= self.chi_max:
+            chi_max = self.chi_max
+        elif chi_max <= self.chi_min:
+            return 0.0
+        
+        peak_NG_chi = self.cosmo.comoving_distance(self.z_bar_NG)
+        inv_norm = self._kernel_NG_integrand(
+            peak_NG_chi, ln_ktheta_a, ln_ktheta_a, 1.0)
+        norm = 1.0
+        if inv_norm > 1e-16 or inv_norm < -1e-16:
+            norm = 1.0/inv_norm
+        if self._force_quad:
+            kernel = integrate.quad(
+                self._kernel_ssc_integrand,
+                self.chi_min, chi_max,
+                args=(ktheta_a, ktheta_b, norm),
+                limit=defaults.default_precision["kernel_limit"])[0]
+            return kernel/norm
+        else:
+            kernel = integrate.romberg(
+                self._kernel_ssc_integrand,
+                numpy.log(self.chi_min), numpy.log(chi_max),
+                args=(ktheta_a, ktheta_b, norm), vec_func=True,
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["kernel_precision"],
+                divmax=defaults.default_precision["divmax"])
+            return kernel/norm 
+    
+    def _kernel_ssc_integrand(self, chi, ktheta_a, ktheta_b, norm=1.0):
+        D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
+        
+        return (norm*
+                self.window_function_a1.window_function(chi)*
+                self.window_function_a2.window_function(chi)*
+                self.window_function_b1.window_function(chi)*
+                self.window_function_b2.window_function(chi)*
+                D_z*D_z*self._sigma2(chi)*
+                special.j0(ktheta_a*chi)*special.j0(ktheta_b*chi))
+        
+    def _initialize_sigma2_spline(self):
+        chi_array = numpy.logspace(numpy.log10(self.chi_min),
+                                   numpy.log10(self.chi_max),
+                                   defaults.default_precision["corr_npoints"])
+        sigma2_array = numpy.empty_like(chi_array)
+        
+        D_z = self.cosmo.growth_factor(self.z_bar_NG)
+        for idx, chi in enumerate(chi_array):
+            k_max = numpy.max([self._j1_limit/chi,
+                               self._j1_limit/chi])
+            if k_max >= defaults.default_limits['k_max']:
+                k_max = defaults.default_limits['k_max']
+            
+            sigma2 = integrate.romberg(
+                self._sigma_integrand,
+                numpy.log(defaults.default_limits['k_min']),
+                numpy.log(k_max), args=(chi,), vec_func=True,
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["kernel_precision"],
+                divmax=defaults.default_precision["divmax"])
+            sigma2_array[idx] = sigma2/(2.0*numpy.pi)
+        
+        self._sigma2_spline = InterpolatedUnivariateSpline(numpy.log(chi_array),
+                                                           sigma2_array)
+        self._initialized_sigma2_spline = True
+    
+    def _sigma2(self, chi):
+        return numpy.where(numpy.logical_and(chi >= self.chi_min,
+                                             chi <= self.chi_max),
+                           self._sigma2_spline(numpy.log(chi)), 0.0)
+        
+    def _sigma_integrand(self, ln_k, chi):
+        k = numpy.exp(ln_k)
+        dln_k = 1.0
+        dk = dln_k*k
+        kR = k*chi
+        W = 3.0*special.j1(kR)/(kR)*(4.0*numpy.pi/3.0)
+        
+        return k*dk*self.cosmo.linear_power(k)*W*W*chi*chi
 
     def kernel_weighted_mean(self, function):
         pass
