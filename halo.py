@@ -677,9 +677,10 @@ class Halo(object):
             self.local_hod.first_moment_zero >
             numpy.exp(self.mass.ln_mass_min)):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
-            
-        norm = 1.0
-        if self.local_hod._safe_norm != -1:
+        
+        if (self.local_hod._safe_norm != -1 and 
+            (self.local_hod._safe_norm > 10**self.mass.ln_mass_min and
+             self.local_hod._safe_norm < 10**self.mass.ln_mass_max)):
             ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
             inv_norm = self._nbar_integrand(ln_nu)
             if inv_norm > 1e-16:
@@ -719,7 +720,9 @@ class Halo(object):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
             
         norm = 1.0
-        if self.local_hod._safe_norm != -1:
+        if (self.local_hod._safe_norm != -1 and 
+            (self.local_hod._safe_norm > 10**self.mass.ln_mass_min and
+             self.local_hod._safe_norm < 10**self.mass.ln_mass_max)):
             ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
             inv_norm = self._bias_integrand(ln_nu)
             if inv_norm > 1e-16:
@@ -760,7 +763,9 @@ class Halo(object):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
             
         norm = 1.0
-        if self.local_hod._safe_norm != -1:
+        if (self.local_hod._safe_norm != -1 and 
+            (self.local_hod._safe_norm > 10**self.mass.ln_mass_min and
+             self.local_hod._safe_norm < 10**self.mass.ln_mass_max)):
             ln_nu = numpy.log(self.mass.nu(self.local_hod._safe_norm))
             inv_norm = self._m_eff_integrand(ln_nu)
             if inv_norm > 1e-16:
