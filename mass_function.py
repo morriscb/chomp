@@ -276,7 +276,7 @@ class MassFunction(object):
         """
         nu_prime = nu*self.st_little_a
         return self.bias_norm*(
-            1.0 + (nu - 1.0)/self.delta_c +
+            1.0 + (nu_prime - 1.0)/self.delta_c +
             2.0*self.stq/(self.delta_c*(1.0 + nu_prime**self.stq)))
         
     def bias_m(self, mass):
@@ -338,6 +338,7 @@ class MassFunction(object):
             output_file.write("%1.10f %1.10f %1.10f %1.10f\n" % (
                 numpy.exp(ln_mass), nu, self.f_nu(nu), self.bias_nu(nu)))
         output_file.close()
+        
         
 class MassFunctionSecondOrder(MassFunction):
     
@@ -504,16 +505,16 @@ class TinkerMassFunction(MassFunction):
 
     def _beta(self):
         return self._beta0_spline(numpy.log(self.delta_v))*numpy.power(
-            1 + self._redshift, 0.20)
+            1 + self._redshift, 0.20)*(1 + self._redshift)**0.20
     
     def _phi(self):
         return self._phi0_spline(numpy.log(self.delta_v))*numpy.power(
-            1 + self._redshift, -0.08)
+            1 + self._redshift, -0.08)*(1 + self._redshift)**-0.08
 
     def _eta(self):
         return self._eta0_spline(numpy.log(self.delta_v))*numpy.power(
-            1 + self._redshift, 0.27)
+            1 + self._redshift, 0.27)*(1 + self._redshift)**0.27
 
     def _gamma(self):
         return self._gamma0_spline(numpy.log(self.delta_v))*numpy.power(
-            1 + self._redshift, -0.01)
+            1 + self._redshift, -0.01)*(1 + self._redshift)**-0.01
