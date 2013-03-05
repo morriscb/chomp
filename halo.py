@@ -1,3 +1,4 @@
+from copy import copy
 import cosmology
 import defaults
 import hod
@@ -125,6 +126,12 @@ class Halo(object):
         """
         return self.cosmo.get_cosmology()
 
+    def get_cosmology_object(self):
+        """
+        Return the internal cosmology object.
+        """
+        return self.cosmo
+
     def set_cosmology(self, cosmo_dict, redshift=None):
         """
         Reset the internal cosmology to the values in cosmo_dict and 
@@ -166,9 +173,10 @@ class Halo(object):
         self._initialized_gg_extrapolation = False
         
     def get_hod(self, return_object=False):
-        if return_object:
-            return self.local_hod
         return self.local_hod.get_hod()
+    
+    def get_hod_object(self):
+        return self.local_hod
     
     def set_hod(self, hod_dict):
         self.local_hod.set_hod(hod_dict)
@@ -225,6 +233,24 @@ class Halo(object):
         self.mass.set_halo(halo_dict)
         self._initialized_y_spline = False
         self.set_hod_object(self.local_hod)
+        
+    def get_mass(self):
+        """
+        Return the internal object defining the mass function.
+        
+        Returns:
+            MassFunction object
+        """
+        return self.mass
+        
+    def get_redshift(self):
+        """
+        Return the internal redshift value.
+        
+        Returns:
+            float redshift
+        """
+        return self._redshift
         
     def set_redshift(self, redshift):
         """
@@ -1063,16 +1089,43 @@ class HaloSuperSampleCovariance(Halo):
     Forumlas are from Takada & Hu 2013
     
     Attributes:
-        Same as Halo plut
+        Same as Halo but with
         delta_b: float value of the finite survey term.
     """
     
     def __init__(self, redshift=0.0, input_hod=None, cosmo_single_epoch=None,
-                 mass_func=None, halo_dict=None, delta_b=0.0, **kws):
+                 mass_func=None, halo_dict=None, extrapolate=False,
+                 delta_b=0.0, **kws):
         Halo.__init__(self, redshift, input_hod, cosmo_single_epoch,
                       mass_func, halo_dict, **kws)
         self._delta_b = delta_b
         self._initialized_i_1_2 = False
+        
+    @staticmethod
+    def init_from_halo(input_halo, delta_b=0.0):
+        halo_ssc = HaloSuperSampleCovariance(
+            input_halo.get_redshift(), input_halo.get_hod_object(),
+            input_halo.get_cosmology_object(), input_halo.get_mass(),
+            input_halo.get_halo(), input_halo.get_extrapolation(), delta_b)
+
+        if input_halo._initialized_h_m is True:
+            halo_ssc._h_m_spline = copy(input_halo._h_m_spline)
+            halo_ssc._initialized_h_m = True
+        if input_halo._initialized_h_g is True:
+            halo_ssc._h_g_spline = copy(input_halo._h_g_spline)
+            halo_ssc._initialized_h_g = True
+
+        if input_halo._initialized_pp_mm is True:
+            halo_ssc._pp_mm_spline = copy(input_halo._pp_mm_spline)
+            halo_ssc._initialized_pp_mm = True
+        if input_halo._initialized_pp_gm is True:
+            halo_ssc._pp_gm_spline = copy(input_halo._pp_gm_spline)
+            halo_ssc._initialized_pp_gm = True
+        if input_halo._initialized_pp_gg is True:
+            halo_ssc._pp_gg_spline = copy(input_halo._pp_gg_spline)
+            halo_ssc._initialized_pp_gg = True
+            
+        return halo_ssc
         
     def dln_power_ddelta_b(self, k):
         """

@@ -48,7 +48,7 @@ class Covariance(object):
                  bins_per_decade=5.0, survey_area_deg2=20,
                  n_a=1.0e4, n_b=1.0e4, variance=1.0, nongaussian_cov=True,
                  input_halo_trispectrum=None, power_spec='power_mm',
-                 poisson_noise=None, **kws):
+                 poisson_noise=None, ssc_cov=False, **kws):
 
         self.annular_bins = []
         self.log_theta_min = input_correlation_a.log_theta_min
@@ -122,18 +122,25 @@ class Covariance(object):
         self._z_max_b = numpy.min([self.kernel.window_function_b1.z_max,
                                    self.kernel.window_function_b2.z_max])
         self._chi_min_a = self.kernel.cosmo.comoving_distance(self._z_min_a)
-        if self._chi_min_a < 1e-8:
-            self._chi_min_a = 1e-8
+        if self._chi_min_a < defaults.default_precision['window_precision']:
+            self._chi_min_a = defaults.default_precision['window_precision']
         self._chi_max_a = self.kernel.cosmo.comoving_distance(self._z_max_a)
         self._chi_min_b = self.kernel.cosmo.comoving_distance(self._z_min_b)
-        if self._chi_min_b < 1e-8:
-            self._chi_min_b = 1e-8
+        if self._chi_min_b < defaults.default_precision['window_precision']:
+            self._chi_min_b = defaults.default_precision['window_precision']
         self._chi_max_b = self.kernel.cosmo.comoving_distance(self._z_max_b)
 
         self.D_z_NG = self.kernel.cosmo.growth_factor(self.kernel.z_bar_NG)
 
-        self.halo_a = input_correlation_a.halo
-        self.halo_b = input_correlation_b.halo
+        self.ssc_cov = ssc_cov
+        if self.ssc_cov:
+            self.halo_a = halo.HaloSuperSampleCovariance.init_from_halo(
+                input_correlation_a.halo)
+            self.halo_b = halo.HaloSuperSampleCovariance.init_from_halo(
+                input_correlation_b.halo)
+        else:
+            self.halo_a = input_correlation_a.halo
+            self.halo_b = input_correlation_b.halo
         if input_halo_trispectrum is None:
             input_halo_trispectrum = halo_trispectrum.HaloTrispectrumOneHalo()
         self.halo_tri = input_halo_trispectrum
@@ -160,6 +167,8 @@ class Covariance(object):
         self._int_G_norm = 1.0
         self._current_theta_a = -1.0
         self._current_theta_b = -1.0
+        self._current_theta_ssc_a = -1.0
+        self._current_theta_ssc_b = -1.0
         
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
@@ -297,6 +306,8 @@ class Covariance(object):
                                 delta_a, delta_b)
         if self.nongaussian_cov:
             res += self.covariance_NG(theta_a, theta_b)
+        if self.ssc_cov:
+            res += self.covariance_ssc(theta_a, theta_b)
         return res + cov_P
     
     def covariance_P(self, delta, theta, window_1=0, window_2=1):
@@ -649,6 +660,99 @@ class Covariance(object):
         return (dkb*kb*norm*self.halo_tri.trispectrum_parallelogram(ka, kb)[0]*
             self.kernel.kernel(numpy.log(ka*theta_a),
                                numpy.log(kb*theta_b))[0])
+        
+    def covariance_ssc(self, theta_a_rad, theta_b_rad):
+        """
+        Compute the non-gaussian covariance from the halo model trispectrum.
+        
+        Args:
+            theta_a_rad: Input annular bin center in radians
+            theta_b_rad: Input annular bin center in radians
+        Returns:
+            float value of non-gaussian covariance
+        """
+        self._initialize_kb_ssc_spline(theta_a_rad, theta_b_rad)
+        
+        norm = 1.0/self._ka_ssc_integrand(0.0, 1.0)
+        
+        return integrate.romberg(
+            self._ka_ssc_integrand, self._ln_k_min, self._ln_k_max,
+            vec_func=True, args=(norm,),
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["corr_precision"],
+            divmax=defaults.default_precision["divmax"])/(
+                4.0*numpy.pi*numpy.pi*norm*self.area)
+        
+    def _ka_ssc_integrand(self, ln_ka, norm=1.0):
+        """
+        Internal function defining the integrand over one of the k compoments.
+        """
+        dln_ka = 1.0
+        ka = numpy.exp(ln_ka)
+        dka = ka*dln_ka
+        return dka*ka*self._kb_ssc_spline(ln_ka)*norm
+    
+    def _initialize_kb_ssc_spline(self, theta_a, theta_b):
+        """
+        Internal function initializing the spline in ka by integrating over kb.
+        """
+        if (self._current_theta_ssc_a == theta_a and
+            self._current_theta_ssc_b == theta_b):
+            return None
+        
+        _kb_int_array = numpy.empty(self._ln_k_array.shape, 'float128')
+        
+        for idx, ln_k in enumerate(self._ln_k_array):
+            _kb_int_array[idx] = self._kb_ssc_integral(ln_k, theta_a, theta_b)
+            
+        self._kb_min = numpy.min(_kb_int_array)
+        self._kb_ssc_spline = InterpolatedUnivariateSpline(
+            self._ln_k_array, _kb_int_array)
+    
+    def _kb_ssc_integral(self, ln_k, theta_a, theta_b):
+        """
+        Internal function defining the integral over kb for different vector and
+        non-vector input cases.
+        """
+        if type(ln_k) == numpy.ndarray:
+            kb_int = numpy.empty(ln_k.shape)
+            
+            inv_norm = self._kb_ssc_integrand(0.0, ln_k, theta_a, 
+                                          theta_b, 1.0)
+            norm = 1.0
+            for idx, ln_k in enumerate(ln_k):
+                kb_int[idx] = integrate.romberg(
+                    self._kb_ssc_integrand, self._ln_k_min, self._ln_k_max,
+                    args=(ln_k, theta_a, theta_b, norm), vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])/norm
+            return kb_int
+
+        inv_norm = self._kb_ssc_integrand(0.0, ln_k, theta_a, 
+                                          theta_b, 1.0)
+        norm = 1.0
+        return integrate.romberg(
+           self._kb_ssc_integrand, self._ln_k_min, self._ln_k_max,
+           args=(ln_k, theta_a, theta_b, norm), vec_func=True,
+           tol=defaults.default_precision["global_precision"],
+           rtol=defaults.default_precision["corr_precision"],
+           divmax=defaults.default_precision["divmax"])/norm
+    
+    def _kb_ssc_integrand(self, ln_kb, ln_ka, theta_a, theta_b, norm=1.0):
+        """
+        Internal function defining the integrand over kb
+        """
+        dln_kb = 1.0
+        ka = numpy.exp(ln_ka)
+        kb = numpy.exp(ln_kb)
+        dkb = kb*dln_kb
+        dln_power_ddelta_b_a = self.halo_a.dln_power_ddelta_b(ka)
+        dln_power_ddelta_b_b = self.halo_b.dln_power_ddelta_b(kb)
+        
+        return (dkb*kb*norm*dln_power_ddelta_b_a*dln_power_ddelta_b_b*
+                self.kernel.kernel_ssc(numpy.log(ka*theta_a),
+                                       numpy.log(kb*theta_b))[0])
     
     def write(self, file_name):
         """

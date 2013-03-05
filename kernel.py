@@ -873,6 +873,8 @@ class KernelCovariance(Kernel):
                  cosmo_multi_epoch, force_quad=False):
         self.initialized_G_spline = False
         self.initialized_NG_spline = False
+        self._initialized_ssc_spline = False
+        self._initialized_sigma2_spline = False
 
         self.ln_ktheta_min = numpy.log(ktheta_min)
         self.ln_ktheta_max = numpy.log(ktheta_max)
@@ -914,6 +916,8 @@ class KernelCovariance(Kernel):
 
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
+        self._j0_ssc_limit = special.jn_zeros(
+            0, int(defaults.default_precision["kernel_bessel_limit"]**2))[-1]
         self._j1_limit = special.jn_zeros(
             1, defaults.default_precision['kernel_bessel_limit'])[-1]
 
@@ -1126,8 +1130,8 @@ class KernelCovariance(Kernel):
         ktheta_a = numpy.exp(ln_ktheta_a)
         ktheta_b = numpy.exp(ln_ktheta_b)
 
-        chi_max = numpy.max([self._j0_limit/ktheta_a,
-                             self._j0_limit/ktheta_b])
+        chi_max = numpy.max([self._j0_ssc_limit/ktheta_a,
+                             self._j0_ssc_limit/ktheta_b])
         if chi_max >= self.chi_max:
             chi_max = self.chi_max
         elif chi_max <= self.chi_min:
@@ -1154,7 +1158,7 @@ class KernelCovariance(Kernel):
                 tol=defaults.default_precision["global_precision"],
                 rtol=defaults.default_precision["kernel_precision"],
                 divmax=defaults.default_precision["divmax"])
-            return kernel/norm 
+            return kernel*(16.0*numpy.pi*numpy.pi/9.0)/norm 
     
     def _kernel_ssc_integrand(self, chi, ktheta_a, ktheta_b, norm=1.0):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
@@ -1164,7 +1168,7 @@ class KernelCovariance(Kernel):
                 self.window_function_a2.window_function(chi)*
                 self.window_function_b1.window_function(chi)*
                 self.window_function_b2.window_function(chi)*
-                D_z*D_z*self._sigma2(chi)*
+                D_z*D_z*self._sigma2(chi)*chi*chi*chi*
                 special.j0(ktheta_a*chi)*special.j0(ktheta_b*chi))
         
     def _initialize_sigma2_spline(self):
@@ -1180,14 +1184,8 @@ class KernelCovariance(Kernel):
             if k_max >= defaults.default_limits['k_max']:
                 k_max = defaults.default_limits['k_max']
             
-            sigma2 = integrate.romberg(
-                self._sigma_integrand,
-                numpy.log(defaults.default_limits['k_min']),
-                numpy.log(k_max), args=(chi,), vec_func=True,
-                tol=defaults.default_precision["global_precision"],
-                rtol=defaults.default_precision["kernel_precision"],
-                divmax=defaults.default_precision["divmax"])
-            sigma2_array[idx] = sigma2/(2.0*numpy.pi)
+            sigma = self.cosmo.sigma_r(chi, 0.0)
+            sigma2_array[idx] = sigma*sigma
         
         self._sigma2_spline = InterpolatedUnivariateSpline(numpy.log(chi_array),
                                                            sigma2_array)
@@ -1198,14 +1196,14 @@ class KernelCovariance(Kernel):
                                              chi <= self.chi_max),
                            self._sigma2_spline(numpy.log(chi)), 0.0)
         
-    def _sigma_integrand(self, ln_k, chi):
-        k = numpy.exp(ln_k)
-        dln_k = 1.0
-        dk = dln_k*k
-        kR = k*chi
-        W = 3.0*special.j1(kR)/(kR)*(4.0*numpy.pi/3.0)
-        
-        return k*dk*self.cosmo.linear_power(k)*W*W*chi*chi
+#    def _sigma_integrand(self, ln_k, chi):
+#        k = numpy.exp(ln_k)
+#        dln_k = 1.0
+#        dk = dln_k*k
+#        kR = k*chi
+#        W = 3.0*special.j1(kR)/(kR)*(4.0*numpy.pi/3.0)
+#        
+#        return k*dk*self.cosmo.linear_power(k)*W*W*chi*chi
 
     def kernel_weighted_mean(self, function):
         pass
