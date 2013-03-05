@@ -678,6 +678,7 @@ class Halo(object):
             numpy.exp(self.mass.ln_mass_min)):
             nu_min = self.mass.nu(self.local_hod.first_moment_zero)
         
+        norm = 1.0
         if (self.local_hod._safe_norm != -1 and 
             (self.local_hod._safe_norm > 10**self.mass.ln_mass_min and
              self.local_hod._safe_norm < 10**self.mass.ln_mass_max)):
