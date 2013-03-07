@@ -285,10 +285,10 @@ class SingleEpoch(object):
         # ----- Initial conditions
         G0 = [0., 1.] # (dG/da(a<<1), G(a<<1))
         # ----- ODE solver parameters
-        gsol = integrate.odeint(self._growth_integrand_dynde, G0, a,
-                                args=(self,),
-                                # atol=defaults.default_precision["global_precision"],
-                                rtol=defaults.default_precision["cosmo_precision"])
+        gsol = integrate.odeint(
+            self._growth_integrand_dynde, G0, a, args=(self,),
+            tol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["cosmo_precision"])
         return gsol[:,  1] * a
 
     def growth_factor_eval(self, a):
@@ -639,8 +639,7 @@ class SingleEpoch(object):
         dk = 1.0*k
         kR = scale*k
 
-        W = 3.0*(
-            numpy.sin(kR)/kR**3-numpy.cos(kR)/kR**2)
+        W = 3.0*(numpy.sin(kR)/kR**3-numpy.cos(kR)/kR**2)
 
         return dk*self.linear_power(k)*W*W*k*k
 
@@ -796,7 +795,7 @@ class MultiEpoch(object):
         #     self._growth_array[idx] = growth/self.growth_norm
 
         a = 1. / (1. + self._z_array)
-        self._growth_array = self.epoch0.growth_factor_eval(a) / self.growth_norm
+        self._growth_array = self.epoch0.growth_factor_eval(a)/self.growth_norm
 
         self._growth_spline = InterpolatedUnivariateSpline(
             self._z_array, self._growth_array)
@@ -872,9 +871,9 @@ class MultiEpoch(object):
                                self._chi_spline(redshift), 0.0)
         # if numpy.any(numpy.logical_or(redshift>self.z_max,
         #                               redshift<self.z_min)):
-        #     print ("In cosmology.MultiEpoch.comoving_distance:"
-        #            "\n\tWarning: a requested redshift was outside of bounds!  "
-        #            "\n\tReturning 1e-16 for this redshift.")
+        #   print ("In cosmology.MultiEpoch.comoving_distance:"
+        #          "\n\tWarning: a requested redshift was outside of bounds!  "
+        #          "\n\tReturning 1e-16 for this redshift.")
 
         return distance
 

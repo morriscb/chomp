@@ -913,11 +913,15 @@ class KernelCovariance(Kernel):
         self._kernel_array = numpy.empty(
             (defaults.default_precision["kernel_npoints"],
              defaults.default_precision["kernel_npoints"]), 'float128')
+        self._kernel_ssc_array = numpy.empty(
+            (defaults.default_precision["kernel_npoints"],
+             defaults.default_precision["kernel_npoints"]), 'float128')
+
 
         self._j0_limit = special.jn_zeros(
             0, defaults.default_precision["kernel_bessel_limit"])[-1]
         self._j0_ssc_limit = special.jn_zeros(
-            0, int(defaults.default_precision["kernel_bessel_limit"]**2))[-1]
+            0, int(defaults.default_precision["kernel_bessel_limit"]*8))[-1]
         self._j1_limit = special.jn_zeros(
             1, defaults.default_precision['kernel_bessel_limit'])[-1]
 
@@ -1093,12 +1097,16 @@ class KernelCovariance(Kernel):
         ln_ktheta_b = numpy.where(ln_ktheta_b <= self.ln_ktheta_min,
                                   self.ln_ktheta_min,
                                   ln_ktheta_b)
-        
         return numpy.where(
             numpy.logical_and(ln_ktheta_a <= self.ln_ktheta_max,
                               ln_ktheta_b <= self.ln_ktheta_max),
-            numpy.exp(self._kernel_ssc_spline(ln_ktheta_a, ln_ktheta_b)) + 
-            self._kernel_ssc_min*10.0, 0.0)
+            self._kernel_ssc_spline(ln_ktheta_a, ln_ktheta_b), 0.0)
+        
+#        return numpy.where(
+#            numpy.logical_and(ln_ktheta_a <= self.ln_ktheta_max,
+#                              ln_ktheta_b <= self.ln_ktheta_max),
+#            numpy.exp(self._kernel_ssc_spline(ln_ktheta_a, ln_ktheta_b)) + 
+#            self._kernel_ssc_min*10.0, 0.0)
     
     def _initialize_ssc_spline(self):
         if not self._initialized_sigma2_spline:
@@ -1108,14 +1116,17 @@ class KernelCovariance(Kernel):
                 kern = self.raw_kernel_ssc(self._ln_ktheta_array[idx1],
                                            self._ln_ktheta_array[idx2])
                 if idx1 == idx2:
-                    self._kernel_array[idx1, idx2] = kern
+                    self._kernel_ssc_array[idx1, idx2] = kern
                 else:
-                    self._kernel_array[idx1, idx2] = kern
-                    self._kernel_array[idx2, idx1] = kern
+                    self._kernel_ssc_array[idx1, idx2] = kern
+                    self._kernel_ssc_array[idx2, idx1] = kern
         self._kernel_ssc_min = numpy.min(self._kernel_array)
         self._kernel_ssc_spline = RectBivariateSpline(
-            self._ln_ktheta_array, self._ln_ktheta_array,
-            numpy.log(self._kernel_array - self._kernel_ssc_min*10.0))
+            self._ln_ktheta_array, self._ln_ktheta_array, 
+            self._kernel_ssc_array)
+#        self._kernel_ssc_spline = RectBivariateSpline(
+#            self._ln_ktheta_array, self._ln_ktheta_array,
+#            numpy.log(self._kernel_ssc_array - self._kernel_ssc_min*10.0))
         self._initialized_ssc_spline = True
         
     def raw_kernel_ssc(self, ln_ktheta_a, ln_ktheta_b):
@@ -1168,7 +1179,7 @@ class KernelCovariance(Kernel):
                 self.window_function_a2.window_function(chi)*
                 self.window_function_b1.window_function(chi)*
                 self.window_function_b2.window_function(chi)*
-                D_z*D_z*self._sigma2(chi)*chi*chi*chi*
+                D_z*D_z*D_z*D_z*D_z*D_z*self._sigma2(chi)/chi*
                 special.j0(ktheta_a*chi)*special.j0(ktheta_b*chi))
         
     def _initialize_sigma2_spline(self):
