@@ -374,10 +374,10 @@ class CorrelationFourier(Correlation):
 
     def _correlation_integrand(self, chi, l):
         D_z = self.kernel.cosmo.growth_factor(self.kernel.cosmo.redshift(chi))
-        return (4*numpy.pi*numpy.pi*self.power_spec(l/chi)/(self.D_z*self.D_z)*
+        return (self.power_spec(l/chi)/(self.D_z*self.D_z)*
                 self.kernel.window_function_a.window_function(chi)*
                 self.kernel.window_function_b.window_function(chi)*
-                D_z*D_z)
+                D_z*D_z/(chi*chi))
 
     def write(self, output_file_name):
         """
