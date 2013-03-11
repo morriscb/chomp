@@ -104,7 +104,8 @@ if __name__ == '__main__':
     
     ### define the l points at which to compute the correlation values
     if args.l_file is None:
-        l_array = numpy.logspace(0, 5, 1000)
+        l_array = numpy.logspace(numpy.log10(args.l_low),
+                                 numpy.log10(args.l_high), args.n_l)
         power_array = numpy.empty((1000, 2))
     else:
         l_array = numpy.loadtxt(args.l_file)
