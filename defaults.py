@@ -19,22 +19,22 @@ default_cosmo_dict = {
 
 ### Default parameters specifying a halo.
 default_halo_dict = {
-    "stq": 0.3,
-    "st_little_a": 0.707,
-    "c0": 9.,
-    "beta": -0.13,
-    "alpha": -1, ### Halo mass profile slope. [NFW = -1]
-    "delta_v": -1. ### over-density for defining. -1 means default behavior of
+    "stq"        :  0.3,
+    "st_little_a":  0.707,
+    "c0"         :  9.0,
+    "beta"       : -0.13,
+    "alpha"      : -1, ### Halo mass profile slope. [NFW = -1]
+    "delta_v"    : -1.0 ### over-density for defining. -1 means default behavior of
                     ### redshift dependent over-density defined in NFW97
     }
 
 ### Default values for the ZhengHOD class (other models will fail when using
 ### this definition)
 default_hod_dict = {
-    "log_M_min":12.14,
-    "sigma":     0.15,
-    "log_M_0":  12.14,
-    "log_M_1p": 13.43,
+    "log_M_min": 12.14,
+    "sigma"    :  0.15,
+    "log_M_0"  : 12.14,
+    "log_M_1p" : 13.43,
     "alpha":      1.0
     }
 
@@ -87,5 +87,6 @@ default_precision = {
                                   ### use absolute tolerances, instead using 
                                   ### relative tolerances to define convergence
                                   ### of our integrands
-    "divmax":20
+    "divmax":20                   ### Maximum number of subdivisions for
+                                  ### the romberg integration.
     }
