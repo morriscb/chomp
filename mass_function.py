@@ -264,6 +264,29 @@ class MassFunction(object):
             float array number of halos
         """
         return self.f_nu(self.nu(mass))
+    
+    def dndm(self, mass):
+        """
+        Convenience function for computing the number of halos per mass.
+        
+        Args:
+            mass: float value or array of halo mass in M_solar/h
+        Returns:
+            float value or array number of halos per mass per (Mpc/h)^-3
+            
+        """
+        try:
+            _dndm = numpy.empty(len(mass))
+            for idx, value in enumerate(mass):
+                ln_mass = numpy.log(value)
+                _dndm[idx] = (self.cosmo.rho_bar()/(value*value)*
+                              self.f_m(value)*
+                              self._nu_spline.derivatives(ln_mass)[1])
+            return _dndm
+        except TypeError:
+            return (self.cosmo.rho_bar()/(mass*mass)*
+                    self.f_m(mass)*
+                    self._nu_spline.derivatives(numpy.log(mass))[1])
 
     def bias_nu(self, nu):
         """
