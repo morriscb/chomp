@@ -55,6 +55,7 @@ class Covariance(object):
         self.log_theta_max = input_correlation_a.log_theta_max
         unit_double = (numpy.floor(self.log_theta_min)*bins_per_decade)
         theta = numpy.power(10.0, unit_double/(1.0*bins_per_decade))
+        self.bins_per_decade = bins_per_decade
         self.corr_a = input_correlation_a
         self.corr_b = input_correlation_b
         if self.corr_a == self.corr_b:
@@ -801,7 +802,7 @@ class CovarianceMulti(Covariance):
                  n_pairs=1e6*1e6, variance=1.0, nongaussian_cov=True,
                  input_halo_trispectrum=None, **kws):
         self.covariance_list = []
-        n_covars = 0
+        # n_covars = 0
         for idx1 in xrange(len(correlation_object_list)):
             tmp_list = []
             for idx2 in xrange(idx1, len(correlation_object_list)):
@@ -810,10 +811,11 @@ class CovarianceMulti(Covariance):
                     correlation_object_list[idx2], bins_per_decade,
                     survey_area_deg2, n_pairs, variance, nongaussian_cov,
                     input_halo_trispectrum))
-                tmp_list.append
-                n_covars += 1
+                # tmp_list.append
+                # n_covars += 1
             self.covariance_list.append(tmp_list)
-        self.theta_bins = len(self.covariance_list[0][0].annular_bins)
+        self.annular_bins = self.covariance_list[0][0].annular_bins
+        self.theta_bins = len(self.annular_bins)
         n_corrs = 1
         self.wcovar = numpy.empty((
             self.theta_bins*len(correlation_object_list),
@@ -823,18 +825,19 @@ class CovarianceMulti(Covariance):
         """
         Wrapper class for looping over each of the different covariance blocks.
         """
+        print "--- Evaluating CovarianceMulti object"
         for idx1, row in enumerate(self.covariance_list):
             for idx2, cov in enumerate(row):
                 print idx1, idx2
                 cov.get_covariance()
-                print cov.covar
-                self.wcovar[idx1*self.theta_bins:(idx1+1)*self.theta_bins,
-                            (idx1+idx2)*self.theta_bins:(idx1+idx2+1)*
-                            self.theta_bins] = cov.covar
-                self.wcovar[(idx1+idx2)*self.theta_bins:(idx1+idx2+1)*
-                            self.theta_bins, idx1*self.theta_bins:(idx1+1)*
-                            self.theta_bins] = cov.covar
-        print self.wcovar
+                row_ndx1 = idx1 * self.theta_bins
+                row_ndx2 = row_ndx1 + self.theta_bins
+                col_ndx1 = (idx1 + idx2) * self.theta_bins
+                col_ndx2 = col_ndx1 + self.theta_bins
+                self.wcovar[row_ndx1:row_ndx2, col_ndx1:col_ndx2] = cov.covar
+                self.wcovar[col_ndx1:col_ndx2, row_ndx1:row_ndx2] = cov.covar
+        return self.wcovar
+
                 
 class CovarianceFourier(object):
     
