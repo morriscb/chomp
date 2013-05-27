@@ -417,9 +417,13 @@ class SingleEpoch(object):
         Returns:
             float critical density
         """
-        return 1.0e-29*1.0e-33*2.937999e+73*self.E0(self._redshift)
-        #return (1.879e-29/(1.989e33)*numpy.power(3.086e24,3)*
-        #        self.E0(self._redshift))
+        # return 1.0e-29*1.0e-33*2.937999e+73*self.E0(self._redshift)
+        # return (3.0/(8*numpy.pi*4.302*10**-6)*
+        #         self.H0*self.H0*self.E0(self._redshift))
+        # return (1.879e-29/(1.989e33)*numpy.power(3.086e24,3)*
+        #         self.E0(self._redshift))
+        return (1.879/(1.989)*3.086**3*1e10*
+                self.E0(self._redshift))
 
     def rho_bar(self):
         """
