@@ -448,17 +448,18 @@ class TinkerMassFunction(MassFunction):
     def __init__(self, redshift=0.0, cosmo_single_epoch=None, 
                  halo_dict=None, **kws):
         delta_list = [200, 300, 400, 600, 800, 1200, 1600, 2400, 3200]
-        alpha_list = [0.368, 0.363, 0.385, 0.393, 0.365, 0.379, 0.355, 0.357]
-        beta_list = [0.589, 0.585, 0.544, 0.543, 
-                     0.564, 0.632, 0.637, 0.673, 0.702]
+        alpha_list = [0.368, 0.363, 0.385, 0.389, 0.393, 
+                      0.365, 0.379, 0.355, 0.357]
+        beta_list = [0.589, 0.585, 0.544, 0.543, 0.564, 
+                     0.632, 0.637, 0.673, 0.702]
         gamma_list = [0.864, 0.922, 0.987, 1.09, 1.20, 1.34, 1.50, 1.68, 1.81]
         phi_list = [-0.729, -0.789, -0.910, -1.05,
-                     -1.20, -1.26, -1.45, -1.50, -1.49]
+                    -1.20, -1.26, -1.45, -1.50, -1.49]
         eta_list = [-0.243, -0.261, -0.261, -0.273,
-                     -0.278, -0.301, -0.301, -0.319, -0.336]
+                    -0.278, -0.301, -0.301, -0.319, -0.336]
         
         self._alpha0_spline = InterpolatedUnivariateSpline(
-            numpy.log(delta_list), beta_list)
+            numpy.log(delta_list), alpha_list)
         self._beta0_spline = InterpolatedUnivariateSpline(
             numpy.log(delta_list), beta_list)
         self._gamma0_spline = InterpolatedUnivariateSpline(
