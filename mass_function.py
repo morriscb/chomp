@@ -278,14 +278,14 @@ class MassFunction(object):
         try:
             _dndm = numpy.empty(len(mass))
             for idx, m in enumerate(mass):
-                _dndm[idx] = (self.cosmo.rho_bar()/(m*m)*
-                              self.f_m(m)*
-                              self._nu_spline.derivatives(numpy.log(m))[1])
+                _dndm[idx] = 0.5*(self.cosmo.rho_bar()/(m*m)*
+                                  self.f_m(m)*
+                                  self._nu_spline.derivatives(numpy.log(m))[1])
             return _dndm
         except TypeError:
-            return (self.cosmo.rho_bar()/(mass*mass)*
-                    self.f_m(mass)*
-                    self._nu_spline.derivatives(numpy.log(mass))[1])
+            return 0.5(self.cosmo.rho_bar()/(mass*mass)*
+                       self.f_m(mass)*
+                       self._nu_spline.derivatives(numpy.log(mass))[1])
 
     def bias_nu(self, nu):
         """
@@ -449,7 +449,7 @@ class TinkerMassFunction(MassFunction):
                  halo_dict=None, **kws):
         delta_list = [200, 300, 400, 600, 800, 1200, 1600, 2400, 3200]
         alpha_list = [0.368, 0.363, 0.385, 0.389, 0.393, 
-                      0.365, 0.379, 0.355, 0.357]
+                      0.365, 0.379, 0.355, 0.327]
         beta_list = [0.589, 0.585, 0.544, 0.543, 0.564, 
                      0.632, 0.637, 0.673, 0.702]
         gamma_list = [0.864, 0.922, 0.987, 1.09, 1.20, 1.34, 1.50, 1.68, 1.81]
@@ -503,10 +503,10 @@ class TinkerMassFunction(MassFunction):
             float array number of halos
         """
         sqrtnu = numpy.sqrt(nu)
-        return 0.5*(self._alpha()*(
-                    1 + numpy.power(self._beta()*sqrtnu,-2*self._phi()))*
-                    numpy.power(nu, self._eta())*
-                    numpy.exp(-self._gamma()*nu/2.0)/sqrtnu)
+        return (self._alpha()*(
+            1 + numpy.power(self._beta()*sqrtnu,-2*self._phi()))*
+            numpy.power(nu, self._eta())*
+            numpy.exp(-self._gamma()*nu/2.0)/sqrtnu)
 
     def bias_nu(self, nu):
         """
@@ -528,30 +528,6 @@ class TinkerMassFunction(MassFunction):
         c = 2.4
         return self.bias_norm*(1 - A*sqrtnu**a/(sqrtnu**a + self.delta_c**a) + 
                                B*sqrtnu**b + C*sqrtnu**c)
-        
-    def dndm(self, mass):
-        """
-        Convenience function for computing the number of halos per mass.
-        
-        Args:
-            mass: float value or array of halo mass in M_solar/h
-        Returns:
-            float value or array number of halos per mass per (Mpc/h)^3
-            
-        """
-        try:
-            _dndm = numpy.empty(len(mass))
-            for idx, m in enumerate(mass):
-                nu = self.nu(m)
-                _dndm[idx] = (self.cosmo.rho_bar()/(m*m)*
-                              self.f_nu(nu)*
-                              self._nu_spline.derivatives(numpy.log(m))[1])
-            return _dndm
-        except TypeError:
-            nu = self.nu(m)
-            return (self.cosmo.rho_bar()/(mass*mass)*
-                    self.f_nu(nu)*
-                    self._nu_spline.derivatives(numpy.log(mass))[1])
     
     def _normalize(self):
         """
