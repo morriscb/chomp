@@ -48,7 +48,7 @@ class Covariance(object):
                  bins_per_decade=5.0, survey_area_deg2=20,
                  n_a=1.0e4, n_b=1.0e4, variance=1.0, nongaussian_cov=True,
                  input_halo_trispectrum=None, power_spec='power_mm',
-                 poisson_noise=None, ssc_cov=False, **kws):
+                 poisson_noise_only=False, ssc_cov=False, **kws):
 
         self.annular_bins = []
         self.log_theta_min = input_correlation_a.log_theta_min
@@ -86,7 +86,9 @@ class Covariance(object):
             self.n_b1 = n_b
             self.n_b2 = n_b
         self.nongaussian_cov = nongaussian_cov
-        self.poisson_noise = poisson_noise
+        self.poisson_noise_only = poisson_noise_only
+        # if self.poisson_noise_only:
+        #     print '** Covariance computing only Poisson noise'
 
         self.kernel = kernel.KernelCovariance(
             numpy.power(10.0, self.log_theta_min)*
@@ -103,14 +105,20 @@ class Covariance(object):
             self.kernel.window_function_a1 == self.kernel.window_function_a2,
             self.kernel.window_function_a2 == self.kernel.window_function_b1,
             self.kernel.window_function_b1 == self.kernel.window_function_b2,
-            self.kernel.window_function_a1 == self.kernel.window_function_b2
+            self.kernel.window_function_a1 == self.kernel.window_function_b2,
+            self.kernel.window_function_a1 == self.kernel.window_function_b1,
+            self.kernel.window_function_a2 == self.kernel.window_function_b2
         ]
+        print 'equal_windows:', self.equal_windows
         self.density = [
-            self.n_a1/self.area,
-            self.n_a2/self.area,
-            self.n_b1/self.area,
-            self.n_b2/self.area,
+            self.n_a1 / self.area,
+            self.n_a2 / self.area,
+            self.n_b1 / self.area,
+            self.n_b2 / self.area,
+            self.n_a1 / self.area,
+            self.n_a2 / self.area
         ]
+        print 'density:', self.density
         self.variance = variance
         self.cosmic_shear = self._identify_cosmic_shear()
 
@@ -303,13 +311,18 @@ class Covariance(object):
         delta_b = annular_bin_b.delta
         if annular_bin_a == annular_bin_b and self.matching_corrs:
             cov_P = self.covariance_P(delta_a, theta_a)
-        res = self.covariance_G(theta_a, theta_b,
-                                delta_a, delta_b)
-        if self.nongaussian_cov:
-            res += self.covariance_NG(theta_a, theta_b)
-        if self.ssc_cov:
-            res += self.covariance_ssc(theta_a, theta_b)
-        return res + cov_P
+            print cov_P
+        if self.poisson_noise_only:
+            res = cov_P
+        else:
+            res = self.covariance_G(theta_a, theta_b,
+                                    delta_a, delta_b)
+            if self.nongaussian_cov:
+                res += self.covariance_NG(theta_a, theta_b)
+            if self.ssc_cov:
+                res += self.covariance_ssc(theta_a, theta_b)
+            res += cov_P
+        return res
     
     def covariance_P(self, delta, theta, window_1=0, window_2=1):
         """
@@ -325,11 +338,18 @@ class Covariance(object):
         Poiss_b = self.proj_power_poisson(window_pair=2)
         shot_noise_wt = 1. + self.cosmic_shear[0]
         term1 = Poiss_a * Poiss_b * shot_noise_wt
+        ###
         Poiss_a = self.proj_power_poisson(window_pair=3)
         Poiss_b = self.proj_power_poisson(window_pair=1)
         shot_noise_wt = 1. + self.cosmic_shear[1]
         term2 = Poiss_a * Poiss_b * shot_noise_wt
-        return (term1 + term2) / (2.*numpy.pi*self.area*theta*delta)
+        ###
+        Poiss_a = self.proj_power_poisson(window_pair=4)
+        Poiss_b = self.proj_power_poisson(window_pair=5)
+        shot_noise_wt = 1. + self.cosmic_shear[1]
+        term3 = Poiss_a * Poiss_b * shot_noise_wt
+        ###
+        return (term1 + term2 + term3) / (2.*numpy.pi*self.area*theta*delta)
 
     def proj_power_poisson(self, window_pair=0):
         if self.equal_windows[window_pair]:
@@ -490,7 +510,7 @@ class Covariance(object):
                     divmax=defaults.default_precision["divmax"])/norm
 
                 if chi_min < self._chi_min_a:
-                    chi_min = self.chi_min_a
+                    chi_min = self._chi_min_a
                 if chi_max > self._chi_max_a:
                     chi_max = self._chi_max_a                
                 norm_int = numpy.sqrt(
@@ -799,18 +819,28 @@ class CovarianceMulti(Covariance):
     
     def __init__(self, correlation_object_list, bins_per_decade=5,
                  survey_area_deg2=4*numpy.pi*strad_to_deg2,
-                 n_pairs=1e6*1e6, variance=1.0, nongaussian_cov=True,
-                 input_halo_trispectrum=None, **kws):
+                 n_a=1e6, n_b=1e6, variance=1.0, nongaussian_cov=True,
+                 input_halo_trispectrum=None,
+                 poisson_noise_only=False, **kws):
         self.covariance_list = []
         # n_covars = 0
+        # print "--- Initiializing CovarianceMulti object"
         for idx1 in xrange(len(correlation_object_list)):
             tmp_list = []
             for idx2 in xrange(idx1, len(correlation_object_list)):
+                # print idx1, idx2
+                # print correlation_object_list[idx1].kernel.window_function_a, correlation_object_list[idx1].kernel.window_function_b
+                # print correlation_object_list[idx2].kernel.window_function_a, correlation_object_list[idx2].kernel.window_function_b                
                 tmp_list.append(Covariance(
-                    correlation_object_list[idx1],
-                    correlation_object_list[idx2], bins_per_decade,
-                    survey_area_deg2, n_pairs, variance, nongaussian_cov,
-                    input_halo_trispectrum))
+                    input_correlation_a=correlation_object_list[idx1],
+                    input_correlation_b=correlation_object_list[idx2], 
+                    bins_per_decade=bins_per_decade,
+                    survey_area_deg2=survey_area_deg2, 
+                    n_a=n_a, n_b=n_b, 
+                    variance=variance, 
+                    nongaussian_cov=nongaussian_cov,
+                    input_halo_trispectrum=input_halo_trispectrum,
+                    poisson_noise_only=poisson_noise_only))
                 # tmp_list.append
                 # n_covars += 1
             self.covariance_list.append(tmp_list)
@@ -829,6 +859,8 @@ class CovarianceMulti(Covariance):
         for idx1, row in enumerate(self.covariance_list):
             for idx2, cov in enumerate(row):
                 print idx1, idx2
+                print cov.kernel.window_function_a1, cov.kernel.window_function_a2
+                print cov.kernel.window_function_b1, cov.kernel.window_function_b2
                 cov.get_covariance()
                 row_ndx1 = idx1 * self.theta_bins
                 row_ndx2 = row_ndx1 + self.theta_bins
