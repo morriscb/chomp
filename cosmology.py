@@ -287,8 +287,11 @@ class SingleEpoch(object):
         # ----- ODE solver parameters
         gsol = integrate.odeint(
             self._growth_integrand_dynde, G0, a, args=(self,),
-            tol=defaults.default_precision["global_precision"],
-            rtol=defaults.default_precision["cosmo_precision"])
+            atol=defaults.default_precision["global_precision"],
+            rtol=defaults.default_precision["cosmo_precision"],
+            hmin=1.e-10,
+            hmax=1.e-3,
+            mxhnil=2)
         return gsol[:,  1] * a
 
     def growth_factor_eval(self, a):

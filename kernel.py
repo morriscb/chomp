@@ -228,6 +228,22 @@ class WindowFunction(object):
         self.set_cosmology_object(cosmo_multi_epoch)
 
         self._wf_array = numpy.zeros_like(self._chi_array, dtype='float128')
+
+    def __eq__(self, other):
+        """
+        Override the equality operator so we can check if two
+        correlation objects are identical.
+        """
+        keys_to_match = ['cosmo', 'chi_min', '_redshift_dist', 'z_min', 'z_max', 'chi_max']
+        if isinstance(other, self.__class__):
+            cur_dict = {k: self.__dict__[k] for k in keys_to_match}
+            other_dict = {k: other.__dict__[k] for k in keys_to_match}
+            return cur_dict == other_dict
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
         
     def get_cosmology(self):
         """

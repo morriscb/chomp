@@ -14,7 +14,7 @@ class HaloTrispectrumOneHalo(halo.Halo):
     """
     Simplified version of HaloTrispectrum that only caculates the one halo term
     of the tri_spectrum. This version can be used in the CovarianceG_NG for
-    calculating a simple covaraince model.
+    calculating a simple covariance model.
     """
     def __init__(self, redshift=0.0, single_epoch_cosmo=None,
                  mass_func_second=None, perturbation=None, halo_dict=None,
