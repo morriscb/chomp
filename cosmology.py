@@ -1022,7 +1022,7 @@ class MultiEpoch(object):
         """
         if redshift is None: redshift = 0.0
         # return self.epoch0.E0(redshift)*1.0e-29*1.0e-33*2.937999e+73
-        return 1.879/(1.989)*3.086**3*1e10*self.E0(redshift)
+        return 1.879/(1.989)*3.086**3*1e10*self.epoch0.E0(redshift)
 
     def rho_bar(self, redshift=None):
         """
