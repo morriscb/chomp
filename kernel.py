@@ -251,7 +251,7 @@ class WindowFunction(object):
         """
         return self.cosmo.get_cosmology()
 
-    def set_cosmology(self, cosmo_dict, z_min=None, z_max=None):
+    def set_cosmology(self, cosmo_dict):
         """
         Reset cosmology to values in cosmo_dict
 
@@ -259,11 +259,7 @@ class WindowFunction(object):
             cosmo_dict: dictionary of floats defining a cosmology. (see 
                 defaults.py for details)
         """
-        if z_min is not None:
-            self.z_min = z_min
-        if z_max is not None:
-            self.z_max = z_max
-        self.cosmo.set_cosmology(cosmo_dict, z_min, z_max)
+        self.cosmo.set_cosmology(cosmo_dict, self._min, self.z_max)
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
         if self.chi_min < defaults.default_precision["window_precision"]:
             self.chi_min = defaults.default_precision["window_precision"]
@@ -274,19 +270,15 @@ class WindowFunction(object):
 
         self.initialized_spline = False
 
-    def set_cosmology_object(self, cosmo_multi_epoch, z_min=None, z_max=None):
+    def set_cosmology_object(self, cosmo_multi_epoch):
         """
         Reset cosmology to values in cosmo_dict
 
         Args:
             cosmo_multi_epoch: a MultiEpoch cosmology object from cosmology.py
-        """
-        #self.cosmo = cosmology.MultiEpoch(self.z_min, self.z_max, cosmo_dict 
-        # if z_min is not None:
-        #     self.z_min = z_min
-        # if z_max is not None:
-        #     self.z_max = z_max            
-        self.cosmo = cosmo_multi_epoch
+        """      
+        self.cosmo = copy.copy(cosmo_multi_epoch)
+        self.cosmo.set_redshift(self.z_min, self.z_max)
         self.chi_min = self.cosmo.comoving_distance(self.z_min)
         if self.chi_min < defaults.default_precision["window_precision"]:
             self.chi_min = defaults.default_precision["window_precision"]
@@ -594,10 +586,10 @@ class Kernel(object):
                 self.z_min, self.z_max)
         self.cosmo = cosmo_multi_epoch
 
-        self.window_function_a.set_cosmology_object(self.cosmo, 
-                                                    self.z_min, self.z_max)
-        self.window_function_b.set_cosmology_object(self.cosmo, 
-                                                    self.z_min, self.z_max)
+        self.window_function_a.set_cosmology_object(self.cosmo)
+        self.window_function_b.write('test_window_before')
+        self.window_function_b.set_cosmology_object(self.cosmo)
+        self.window_function_b.write('test_window_after')
 
         self.chi_min = numpy.max([defaults.default_precision["window_precision"],
                                   self.cosmo.comoving_distance(self.z_min)])
@@ -698,7 +690,6 @@ class Kernel(object):
 
     def _kernel_integrand(self, chi, ktheta):
         D_z = self.cosmo.growth_factor(self.cosmo.redshift(chi))
-        z = self.cosmo.redshift(chi)
         
         return (self.window_function_a.window_function(chi)*
                 self.window_function_b.window_function(chi)*
