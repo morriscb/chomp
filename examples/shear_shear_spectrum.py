@@ -50,6 +50,8 @@ if __name__ == '__main__':
                         help='File specifying the cosmology.\n'
                         'Formating should be:\n'
                         'omega_m0 omega_b0 omega_l0 h sigma_8 n_s w0 wa')
+    parser.add_argument('-v', '--verbose', default = 0,
+                        type = int, )
     args = parser.parse_args()
 
     ### If there is not input cosmology file we use the default WMAP7 as defined
