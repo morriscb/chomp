@@ -37,14 +37,14 @@ class HOD(object):
         ### to evaluate to positive definite.
         self._safe_norm = -1
 
-    def first_moment(self, mass, redshift=None):
+    def first_moment(self, mass, z=None):
         """
         Expected number of galaxies per halo, <N> as a function of mass and 
         redshift.
         
         Args:
             mass: float array Halo mass in M_Solar/h^2
-            redshift: float redshift to evalute the first moment if redshift
+            z: float redshift to evalute the first moment if redshift
                 dependent
         Returns:
             float array of <N>

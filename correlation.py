@@ -53,6 +53,10 @@ class Correlation(object):
             be.
         k_max: float override of halo k_max. Forces halo to extrapolate if need
             be.
+        keep_halo_z_bar: Logical When True, skip calling halo.set_redshift even if
+            the kernel.z_bar != halo.z_bar. This is useful when a faster computation 
+            is desired at the expense of neglecting some z-dependence in the halo model 
+            (e.g. when changing dN/dz parameters in a Monte Carlo computation).
         
         theta_array: array of theta values for computed correlation function
         wtheta_array: array of computed correlation values at theta_array values
@@ -60,7 +64,7 @@ class Correlation(object):
 
     def __init__(self, theta_min_deg, theta_max_deg, input_kernel,
                  bins_per_decade=5.0, input_halo=None, power_spec=None, 
-                 k_min=None, k_max=None, **kws):
+                 k_min=None, k_max=None, keep_halo_z_bar=False, **kws):
 
         self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
         self.log_theta_max = numpy.log10(theta_max_deg*deg_to_rad)
@@ -82,7 +86,7 @@ class Correlation(object):
         if theta_min_deg==theta_max_deg:
             self.log_theta_min = numpy.log10(theta_min_deg*deg_to_rad)
             self.log_theta_max = numpy.log10(theta_min_deg*deg_to_rad)
-            self.theta_array = numpy.array([theta__deg_min*deg_to_rad])
+            self.theta_array = numpy.array([theta_min_deg*deg_to_rad])
         self.wtheta_array = numpy.zeros(self.theta_array.size)
 
         self.kernel = input_kernel
@@ -95,7 +99,8 @@ class Correlation(object):
         ### The 3D power spectrum will be evaluated at the peak redshift of 
         ### the kernel, z_bar, with all other redshift dependence assumed to
         ### be in the linear growth factor only.
-        self.halo.set_redshift(self.kernel.z_bar)
+        if not keep_halo_z_bar:
+            self.halo.set_redshift(self.kernel.z_bar)
         if ((k_min is not None or k_max is not None) and 
             not self.halo.get_extrapolation() and 
             (k_min < self.halo._k_min or k_max > self.halo._k_max)):
@@ -211,8 +216,6 @@ class Correlation(object):
     def set_hod(self, hod_dict):
         """
         Reset hod object to input_hod
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
         Args:
             hod_dict: a dictionary defining the hod model parameters.
             Parameters used must match the hod used or the code will throw a
@@ -223,8 +226,6 @@ class Correlation(object):
     def set_hod_object(self, input_hod):
         """
         Reset hod object to input_hod
-        cosmo_dict: dictionary of floats defining a cosmology (see defaults.py
-            for details)
         Args:
             input_hod: an HOD object from hod.py
         """
@@ -364,12 +365,23 @@ class CorrelationFourier(Correlation):
             theta: float array of angular values in radians to compute the
                 correlation
         """
-        power = integrate.romberg(
-            self._correlation_integrand, 
-            self.kernel.chi_min, self.kernel.chi_max, args=(l,), vec_func=True,
-            tol=defaults.default_precision["global_precision"],
-            rtol=defaults.default_precision["corr_precision"],
-            divmax=defaults.default_precision["divmax"])
+        try:
+            power = numpy.empty(len(l))
+            for idx, value in enumerate(l):
+                power[idx] = integrate.romberg(
+                    self._correlation_integrand, 
+                    self.kernel.chi_min, self.kernel.chi_max, args=(value,), 
+                    vec_func=True,
+                    tol=defaults.default_precision["global_precision"],
+                    rtol=defaults.default_precision["corr_precision"],
+                    divmax=defaults.default_precision["divmax"])
+        except TypeError:
+            power = integrate.romberg(
+                self._correlation_integrand, 
+                self.kernel.chi_min, self.kernel.chi_max, args=(l,), vec_func=True,
+                tol=defaults.default_precision["global_precision"],
+                rtol=defaults.default_precision["corr_precision"],
+                divmax=defaults.default_precision["divmax"])
         return power
 
     def _correlation_integrand(self, chi, l):
@@ -475,7 +487,7 @@ class Correlation3d(Correlation):
         except TypeError:
             xi_out = integrate.romberg(
                     self._correlation_integrand,
-                    ln_kmin, ln_kmax, args=(r,), vec_func=True,
+                    self._ln_k_min, self._ln_k_max, args=(r,), vec_func=True,
                     tol=defaults.default_precision["global_precision"],
                     rtol=defaults.default_precision["corr_precision"],
                     divmax=defaults.default_precision["divmax"])

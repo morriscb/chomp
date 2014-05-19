@@ -703,7 +703,7 @@ class Halo(object):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (norm*nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)/
+        return (norm*nu*self.local_hod.first_moment(mass, z=self._redshift)*self.mass.f_nu(nu)/
                 mass)
 
     def calculate_bias(self):
@@ -746,7 +746,7 @@ class Halo(object):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (norm*nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu)*
+        return (norm*nu*self.local_hod.first_moment(mass, z=self._redshift)*self.mass.f_nu(nu)*
                 self.mass.bias_nu(nu)/mass)
 
     def calculate_m_eff(self):
@@ -790,7 +790,7 @@ class Halo(object):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (norm*nu*self.local_hod.first_moment(mass)*self.mass.f_nu(nu))
+        return (norm*nu*self.local_hod.first_moment(mass, z=self._redshift)*self.mass.f_nu(nu))
 
     def calculate_f_sat(self):
         """
@@ -833,7 +833,7 @@ class Halo(object):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
 
-        return (norm*nu*self.local_hod.satellite_first_moment(mass)*
+        return (norm*nu*self.local_hod.satellite_first_moment(mass, z=self._redshift)*
                 self.mass.f_nu(nu)/mass)
 
     def _initialize_halo_splines(self):
@@ -966,7 +966,7 @@ class Halo(object):
         mass = self.mass.mass(nu)
 
         return (norm*nu*self.mass.f_nu(nu)*self.mass.bias_nu(nu)*
-                self.y(ln_k, mass)*self.local_hod.first_moment(mass)/mass)
+                self.y(ln_k, mass)*self.local_hod.first_moment(mass, z=self._redshift)/mass)
 
     def _initialize_pp_mm(self):
         pp_mm_array = numpy.zeros_like(self._ln_k_array)
@@ -1033,7 +1033,7 @@ class Halo(object):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y = self.y(ln_k, mass)
-        n_pair = self.local_hod.second_moment(mass)
+        n_pair = self.local_hod.second_moment(mass, z=self._redshift)
 
         return numpy.where(
             n_pair < 1,
@@ -1079,7 +1079,7 @@ class Halo(object):
         nu = numpy.exp(ln_nu)
         mass = self.mass.mass(nu)
         y = self.y(ln_k, mass)
-        n_exp = self.local_hod.first_moment(self.mass.mass(nu))
+        n_exp = self.local_hod.first_moment(mass, z=self._redshift)
 
         return numpy.where(n_exp < 1,
                            norm*nu*self.mass.f_nu(nu)*n_exp*y,
@@ -1218,7 +1218,7 @@ class HaloExclusion(Halo):
 
         return (norm*nu*self._mass_window(mass, ln_k)*self.mass.f_nu(nu)*
                 self.mass.bias_nu(nu)*self.y(ln_k, mass)*
-                self.local_hod.first_moment(mass)/mass)
+                self.local_hod.first_moment(mass, z=self._redshift)/mass)
 
     def _mass_window(self, mass, ln_k):
         """
