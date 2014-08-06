@@ -1059,7 +1059,7 @@ class MultiEpoch(object):
         Returns:
             float array linear power spectrum P(k)
         """
-        return 4.0*numpy.pi*numpy.pi*self.delta_k(k, redshift)/(k*k*k)
+        return 2.0*numpy.pi*numpy.pi*self.delta_k(k, redshift)/(k*k*k)
 
     def sigma_r(self, scale, redshift=None):
         """
