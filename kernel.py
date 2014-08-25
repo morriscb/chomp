@@ -37,6 +37,8 @@ class dNdz(object):
         self.z_min = z_min
         self.z_max = z_max
         self.norm = 1.0
+        
+        self.normalize()
 
     def normalize(self):
         """
@@ -100,9 +102,10 @@ class dNdzGaussian(dNdz):
             z_min = z0 - 8.0*sigma_z
         if z_max > z0 + 8.0*sigma_z:
             z_max = z0 + 8.0*sigma_z
-        dNdz.__init__(self, z_min, z_max)
+            
         self.z0 = z0
         self.sigma_z = sigma_z
+        dNdz.__init__(self, z_min, z_max)
 
     def raw_dndz(self, redshift):
         return numpy.exp(-1.0*(redshift-self.z0)*(redshift-self.z0)/
@@ -131,9 +134,10 @@ class dNdChiGaussian(dNdz):
         self.cosmo = cosmo_multi_epoch
         z_min = self.cosmo.redshift(chi_min)
         z_max = self.cosmo.redshift(chi_max)
-        dNdz.__init__(self, chi_min, chi_max)
+        
         self.chi0 = chi0 
         self.sigma_chi = sigma_chi
+        dNdz.__init__(self, z_min, z_max)
 
     def raw_dndz(self, redshift):
         chi = self.cosmo.comoving_distance(redshift)
@@ -154,10 +158,18 @@ class dNdzMagLim(dNdz):
         b: float exponential decay slope
     """
     def __init__(self, z_min, z_max, a, z0, b):
-        dNdz.__init__(self, z_min, z_max)
         self.a = a
         self.z0 = z0
         self.b = b
+        tmp_zmax = (
+            numpy.power(
+                -1*numpy.log(defaults.default_precision['dNdz_precision']),
+                1/b)*
+            z0)
+        if tmp_zmax < z_max:
+            z_max = tmp_zmax
+        
+        dNdz.__init__(self, z_min, z_max)
 
     def raw_dndz(self, redshift):
         return (numpy.power(redshift, self.a)*
@@ -178,7 +190,7 @@ class dNdzInterpolation(dNdz):
                  smoothing=None):
         ## Need to impliment a test that throws out data at the begining or
         ## end of the z_array that has a value of zero for p_array
-        dNdz.__init__(self, z_array[0], z_array[-1])
+        
         if smoothing is None:
             self._p_of_z = InterpolatedUnivariateSpline(z_array, p_array,
                                                         w=weights,
@@ -187,6 +199,7 @@ class dNdzInterpolation(dNdz):
             self._p_of_z = UnivariateSpline(z_array, p_array,w=weights,
                                             k=interpolation_order,
                                             s=smoothing)
+        dNdz.__init__(self, z_array[0], z_array[-1])
 
     def raw_dndz(self, redshift):
         return self._p_of_z(redshift)
