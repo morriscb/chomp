@@ -167,6 +167,9 @@ class dNdzMagLim(dNdz):
                 1/b)*
             z0)
         if tmp_zmax < z_max:
+            print ("WARNING:: z_max requested could "
+                   "result in failed normalization...")
+            print ("\tReseting z_max from %.2f to %.2f..." % (z_max, tmp_zmax))
             z_max = tmp_zmax
         
         dNdz.__init__(self, z_min, z_max)
