@@ -213,6 +213,14 @@ class SingleEpoch(object):
         return pressure
 
     def _growth_approx(self, a):
+        """
+        Analytic approximation for the growth factor from Carroll et al. 1992
+        
+        Args:
+            a: float array scale factor
+        Returns:
+            float array growth_factor
+        """
         om = self._omega_m0 / a ** 3
         denom = self._omega_l0 + om
         Omega_m = om / denom
@@ -315,7 +323,8 @@ class SingleEpoch(object):
                 self._initialized_growth_spline = True
             growth = self._growth_spline(numpy.log(a))
 
-        return growth
+        return self._growth_approx(a)
+        # return growth
 
     def comoving_distance(self):
         """
