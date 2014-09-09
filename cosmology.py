@@ -175,11 +175,11 @@ class SingleEpoch(object):
         a = 1.0/(1.0 + redshift)
         if self._w0 == -1.0 and self._wa == 0.0:
             return (self._omega_l0 + 
-                    self._omega_m0/(a*a*a) + self._omega_r0/(a*a))
+                    self._omega_m0/(a*a*a) + self._omega_r0/(a*a*a*a))
         else:
             return (self._omega_l0*numpy.exp(
                     self._de_pressure_spline(numpy.log(a)))
-                    + self._omega_m0/(a*a*a) + self._omega_r0/(a*a))
+                    + self._omega_m0/(a*a*a) + self._omega_r0/(a*a*a*a))
  
     def w(self, redshift):
         """
