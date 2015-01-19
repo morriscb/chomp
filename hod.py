@@ -138,63 +138,10 @@ class HODBinomial(HOD):
     def __init__(self, n_max, min_mass, mass_max, p_m_spline):
         pass
 
-class HODKravtsov(HOD):
-    
-    def __init__(self, halo_param=None, **kws):
-        HOD.__init__(self)
-
-        if halo_param is None:
-            halo_param = param.HaloModelParams(**kws)
-        self.set_halo(halo_param)
-
-    def set_halo(self, halo_param):
-        self.min_mass = halo_param.m11_msunh
-        self.mass_one = halo_param.m13_msunh
-        self.mass_cut = halo_param.mcut_msunh
-        self.alpha = halo_param.alphaexp
-
-    def first_moment(self, mass, z=None):
-        return (self.central_first_moment(mass) +
-                self.satellite_first_moment(mass))
-
-    def second_moment(self, mass, z=None):
-        n_sat = self.satellite_first_moment(mass)
-        return (2 + n_sat)*n_sat
-
-    def central_first_moment(self, mass):
-        """
-        Expected number of central galaxies in a halo, <N> as a function of 
-        mass and redshift.
-        
-        Args:
-            mass: float array Halo mass in M_Solar/h^2
-            redshift: float redshift to evalute the first moment if redshift
-                dependent
-        Returns:
-            float array of <N>
-        """
-        if mass >= self.min_mass:
-            return 1.0
-        else:
-            return 0.0
-
-    def satellite_first_moment(self, mass):
-        """
-        Expected number of satellite galaxies in a halo, <N> as a function of 
-        mass and redshift.
-        
-        Args:
-            mass: float array Halo mass in M_Solar/h^2
-            redshift: float redshift to evalute the first moment if redshift
-                dependent
-        Returns:
-            float array of <N>
-        """
-        return mass/self.mass_one*numpy.exp(-self.mass_cut/mass)
-
 class HODZheng(HOD):
     """
-    HOD object describing the model from Zheng2007.
+    HOD object describing the model from Zheng2007. Input is a dictionary
+    of variable names and values. Names for these variables are listed below.
 
     Attributes:
         M_min: Minimum mass for a halo to to contain a central galaxy
@@ -284,12 +231,13 @@ class HODZheng(HOD):
 
 class HODMandelbaum(HOD):
     """
-    HOD object describing the model from Mandelbaum2005.
+    HOD object describing the model from Mandelbaum2005. Input is a dictionary
+    of variable names and values. Names for these variables are listed below.
 
     Attributes:
-        M_0: Minimum mass for a halo to contain a central galaxy. Also defines
-            the transition of the satellite galaxy profile from ~M**2 at <3*M_0
-            to ~M at >3*M_0
+        log_M_0: Minimum mass for a halo to contain a central galaxy. Also
+            defines the transition of the satellite galaxy profile from ~M**2 at
+            <3*M_0 to ~M at >3*M_0
         w: Normalization of the satellite galaxy profile. Halos will contain
             1 satellite galaxy at a mass of 3*M0/w. This quantity is related
             to the satellite fraction alpha of Mand2005 where alpha is
@@ -297,15 +245,19 @@ class HODMandelbaum(HOD):
             M_total_sat is the total mass in satellites.
     """
 
-    def __init__(self, hod_dict):
-        HOD.__init__(self)
+    def __init__(self, hod_dict = None):
 
-        self.log_M_0 = hod_dict["log_M_0"]
-        self.log_M_min = numpy.log10(3.0) + hod_dict["log_M_0"]
-        self.w = hod_dict["w"]
+        if hod_dict is None:
+            self.log_M_0 = 12.14
+            self.log_M_min = numpy.log10(3.0) + 12.14
+            self.w = 1.0
+        else:
+            self.log_M_0 = hod_dict["log_M_0"]
+            self.log_M_min = numpy.log10(3.0) + hod_dict["log_M_0"]
+            self.w = hod_dict["w"]
+        
+            HOD.__init__(self, hod_dict)
 
-        self._hod[1] = self.first_moment
-        self._hod[2] = self.second_moment
 
     def first_moment(self, mass, z=None):
         return (self.central_first_moment(mass) + 
